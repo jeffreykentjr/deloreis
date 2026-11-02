@@ -7,7 +7,7 @@
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     }
   ],
@@ -23,7 +23,7 @@
             "rule endorsement proposed session-rule",
             "  endorsed($x) :- rank($x, gold)"
           ],
-          "workspace_digest": "jcs:sha256:6248b26dc7dfa73f166b8f177aa9d5a7a3a84ba8af346c2b2b7dcfc102209790"
+          "workspace_digest": "jcs:sha256:35d945863913baa0c8b021e5931190db8fc6f32ca364f07671657d2c0134d50e"
         }
       },
       "send": {

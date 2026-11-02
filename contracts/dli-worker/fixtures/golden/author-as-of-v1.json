@@ -1,13 +1,13 @@
 {
   "fixture": "golden/author-as-of-v1",
-  "note": "Contract 1.9 author.as_of: the inertia-aware point read. A predicate declared inertial, `status`, holds `commons` since `the-drowning` and `enclosed` since `the-reclaiming` (the-drowning before the-reclaiming); at `the-reclaiming` the value is `enclosed`, unbounded (no later certain defeater).",
+  "note": "Contract 1.9 author.as_of: the inertia-aware point read. A predicate declared inertial, `status`, holds `commons` since `the-crossing` and `enclosed` since `the-reclaiming` (the-crossing before the-reclaiming); at `the-reclaiming` the value is `enclosed`, unbounded (no later certain defeater).",
   "precondition": [
     {
       "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     },
     {
@@ -15,9 +15,9 @@
       "id": "pre-2",
       "op": "author.add_entity",
       "params": {
-        "id": "mara",
+        "id": "nara",
         "kind": "person",
-        "name": "Mara",
+        "name": "Nara",
         "provenance": {
           "decisions": [
             "d-1"
@@ -34,7 +34,7 @@
       "op": "author.add_event",
       "params": {
         "era": "first-tides",
-        "id": "the-drowning",
+        "id": "the-crossing",
         "provenance": {
           "decisions": [
             "d-1"
@@ -67,7 +67,7 @@
       "id": "pre-5",
       "op": "author.add_before",
       "params": {
-        "earlier": "the-drowning",
+        "earlier": "the-crossing",
         "later": "the-reclaiming",
         "provenance": {
           "decisions": [
@@ -100,7 +100,7 @@
       "id": "pre-7",
       "op": "author.add_state",
       "params": {
-        "id": "mara.status",
+        "id": "nara.status",
         "provenance": {
           "decisions": [
             "d-1"
@@ -110,7 +110,7 @@
         },
         "time": {
           "kind": "since",
-          "point": "the-drowning"
+          "point": "the-crossing"
         },
         "value": "commons",
         "workspace": "ws-1"
@@ -121,7 +121,7 @@
       "id": "pre-8",
       "op": "author.add_state",
       "params": {
-        "id": "mara.status",
+        "id": "nara.status",
         "provenance": {
           "decisions": [
             "d-1"
@@ -165,8 +165,8 @@
             "d-1"
           ],
           "pred": "status",
-          "root_hash": "jcs:sha256:206606c342a4a0f236f61538928ed6cf8be706ee5434253c59dac2d2e9a6c1e3",
-          "subject": "mara"
+          "root_hash": "jcs:sha256:6d0a3f31c6552e6c7105c1febc434acb726b362b45a05ed6192bdbf55ad64d69",
+          "subject": "nara"
         }
       },
       "send": {
@@ -176,7 +176,7 @@
         "params": {
           "at": "the-reclaiming",
           "pred": "status",
-          "subject": "mara",
+          "subject": "nara",
           "workspace": "ws-1"
         }
       }

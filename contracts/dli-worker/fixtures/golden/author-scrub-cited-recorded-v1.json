@@ -1,13 +1,13 @@
 {
   "fixture": "golden/author-scrub-cited-recorded-v1",
-  "note": "The authority scrub at contract 1.3.0 (DL-0054, DL-0058), both legs, proved on STANDING and not merely on findings. Leg 1 cites `d-1`, which the fixture project's `saltmarket` document ratifies: the claim records as `decided d-1`, raises nothing, and the query reads `status: certain` with the support antichain resolving to `d-1` — the decision variable was ruled true because the corpus declares it. Leg 2 cites `d-9999`, which nothing declares: the attribution is still RECORDED as the caller stated it, but referential integrity is kept (DL-0054 clause 2) and stays fail-closed — `citation.unknown-decision` at error severity bars materialize, the variable is left OPEN, and the query reads `status: possible`, never certain. Recording a citation is not believing it, and these two rows are the difference.",
+  "note": "The authority scrub at contract 1.3.0 (DL-0054, DL-0058), both legs, proved on STANDING and not merely on findings. Leg 1 cites `d-1`, which the fixture project's `storybook` document ratifies: the claim records as `decided d-1`, raises nothing, and the query reads `status: certain` with the support antichain resolving to `d-1` — the decision variable was ruled true because the corpus declares it. Leg 2 cites `d-9999`, which nothing declares: the attribution is still RECORDED as the caller stated it, but referential integrity is kept (DL-0054 clause 2) and stays fail-closed — `citation.unknown-decision` at error severity bars materialize, the variable is left OPEN, and the query reads `status: possible`, never certain. Recording a citation is not believing it, and these two rows are the difference.",
   "precondition": [
     {
       "dli": "2.0.0",
       "id": "pre",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     }
   ],
@@ -23,7 +23,7 @@
           "rendered": [
             "serves(baseline, baseline) ratified d-1"
           ],
-          "workspace_digest": "jcs:sha256:c835105f71155f8f23b49a8792350c93edc300bb508165de1833aa1a2b149041"
+          "workspace_digest": "jcs:sha256:ca6de92aea023f0645900230aae5e92b5d073f7b6b4996d15bdd0f82073ae7fe"
         }
       },
       "send": {
@@ -51,7 +51,7 @@
         "id": "2",
         "ok": true,
         "result": {
-          "root_hash": "jcs:sha256:c835105f71155f8f23b49a8792350c93edc300bb508165de1833aa1a2b149041",
+          "root_hash": "jcs:sha256:ca6de92aea023f0645900230aae5e92b5d073f7b6b4996d15bdd0f82073ae7fe",
           "rows": [
             {
               "atom": "serves(baseline, baseline)",
@@ -130,7 +130,7 @@
           "rendered": [
             "guards(baseline, baseline) ratified d-9999"
           ],
-          "workspace_digest": "jcs:sha256:62e1db13ecab60475c498bf745f16cafd60d89cf0ba23b162aaec0cf6b3afe62"
+          "workspace_digest": "jcs:sha256:1af60da6e35fd00f3f8e84e095730cee4853791f04fcbf6674e72d5853bacda5"
         }
       },
       "send": {
@@ -158,7 +158,7 @@
         "id": "4",
         "ok": true,
         "result": {
-          "root_hash": "jcs:sha256:62e1db13ecab60475c498bf745f16cafd60d89cf0ba23b162aaec0cf6b3afe62",
+          "root_hash": "jcs:sha256:1af60da6e35fd00f3f8e84e095730cee4853791f04fcbf6674e72d5853bacda5",
           "rows": [
             {
               "atom": "guards(baseline, baseline)",
@@ -169,7 +169,7 @@
                 "support": {
                   "monomials": [
                     [
-                      "+2"
+                      "+1"
                     ]
                   ]
                 }
@@ -177,7 +177,7 @@
               "why": {
                 "antichain": [
                   [
-                    2
+                    1
                   ]
                 ],
                 "rendered": [

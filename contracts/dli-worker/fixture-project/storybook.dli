@@ -1,0 +1,8 @@
+scope storybook
+
+ratify d-1
+era first-tides "First Tides" ratified d-1
+thing witness "Witness" ratified d-1
+marker(witness, baseline)             ratified d-1
+marker(witness, control)              ratified d-1
+marker(witness, __DLI_FRAME_ATTACK__) ratified d-1

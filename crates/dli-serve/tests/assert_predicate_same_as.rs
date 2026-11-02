@@ -36,18 +36,18 @@ fn proposed(origin: &str) -> Value {
 
 fn base() -> Store {
     let source = concat!(
-        "scope tpth\n",
+        "scope storybook\n",
         "ratify D-1\n",
         "ratify D-3\n",
-        "person mara \"Mara\" ratified D-1\n",
+        "person nara \"Nara\" ratified D-1\n",
         "functional current-work ratified D-1\n",
-        "current-work(mara, software) ratified D-1\n",
-        "current-job(mara, employment) ratified D-1\n",
+        "current-work(nara, software) ratified D-1\n",
+        "current-job(nara, employment) ratified D-1\n",
     );
     let (document, diagnostics) = dli_syntax::parse_document(source);
     assert!(diagnostics.is_empty(), "base parses: {diagnostics:?}");
     Store::with_pack(Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     })
     .expect("base compiles")
@@ -55,11 +55,11 @@ fn base() -> Store {
 
 fn base_surface_only() -> Store {
     let source = concat!(
-        "scope tpth\n",
+        "scope storybook\n",
         "ratify D-1\n",
         "ratify D-3\n",
-        "person mara \"Mara\" ratified D-1\n",
-        "current-work(mara, software) ratified D-1\n",
+        "person nara \"Nara\" ratified D-1\n",
+        "current-work(nara, software) ratified D-1\n",
     );
     let (document, diagnostics) = dli_syntax::parse_document(source);
     assert!(
@@ -67,7 +67,7 @@ fn base_surface_only() -> Store {
         "surface base parses: {diagnostics:?}"
     );
     Store::with_pack(Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     })
     .expect("surface base compiles")
@@ -75,7 +75,12 @@ fn base_surface_only() -> Store {
 
 fn open(store: &mut Store) -> String {
     let response = dispatch(
-        &req("1.12.0", "open", Op::AuthorOpen, json!({"scope": "tpth"})),
+        &req(
+            "1.12.0",
+            "open",
+            Op::AuthorOpen,
+            json!({"scope": "storybook"}),
+        ),
         store,
     );
     result(&response)["workspace"]
@@ -231,7 +236,7 @@ fn durable_defeat_unmerges_predicates_and_keeps_the_source_fact() {
     let root = tempfile::tempdir().expect("temporary store root");
     let mut store = base_surface_only();
     store
-        .attach_lorestore(root.path().join("tpth"))
+        .attach_lorestore(root.path().join("storybook"))
         .expect("attach lorestore");
     let workspace = open(&mut store);
     let cited_d3 = cited("D-3");
@@ -263,7 +268,7 @@ fn durable_defeat_unmerges_predicates_and_keeps_the_source_fact() {
             Op::AuthorQuery,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": "current-job", "args": [{"Sym": "mara"}, {"Sym": "software"}]},
+                "goal_atom": {"pred": "current-job", "args": [{"Sym": "nara"}, {"Sym": "software"}]},
                 "layer": "all"
             }),
         ),
@@ -295,7 +300,7 @@ fn durable_defeat_unmerges_predicates_and_keeps_the_source_fact() {
             Op::AuthorQuery,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": "current-job", "args": [{"Sym": "mara"}, {"Sym": "software"}]},
+                "goal_atom": {"pred": "current-job", "args": [{"Sym": "nara"}, {"Sym": "software"}]},
                 "layer": "all"
             }),
         ),
@@ -309,7 +314,7 @@ fn durable_defeat_unmerges_predicates_and_keeps_the_source_fact() {
             Op::AuthorQuery,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": "current-work", "args": [{"Sym": "mara"}, {"Sym": "software"}]},
+                "goal_atom": {"pred": "current-work", "args": [{"Sym": "nara"}, {"Sym": "software"}]},
                 "layer": "all"
             }),
         ),

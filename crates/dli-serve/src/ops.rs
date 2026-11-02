@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// Every wire operation. The serde name is the operation's wire identifier; it
 /// is the contract and must never drift from the fixtures. The batch `dli.*`
-/// inventory tracks `docs/integration/fantasy-contract.md` §3.1; the `author.*`
+/// inventory is defined by `contracts/dli-worker`; the `author.*`
 /// tools are the authoring seam (§3.2).
 ///
 /// The wire identifier is exactly the serde encoding, so it round-trips:

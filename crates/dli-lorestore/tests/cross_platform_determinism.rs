@@ -140,10 +140,10 @@ fn root_hash_changes_when_content_changes() {
 
     // Second commit: add a different fact.
     let fo2 = FactObject::new(
-        dli_lorestore::ClaimId::from_label("test/place/gwern"),
+        dli_lorestore::ClaimId::from_label("test/place/joren"),
         dli_eval::world::GroundAtom {
             pred: "place".to_owned(),
-            args: vec!["gwern".to_owned()],
+            args: vec!["joren".to_owned()],
         },
         PosBool::truth(),
         PosBool::FALSE,

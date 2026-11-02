@@ -5,7 +5,7 @@
 //! This module owns the framing and the routing; [`crate::handlers`] owns the
 //! `dli.*` semantics and [`crate::author`] the `author.*` seam.
 //!
-//! Framing discipline (`integration/fantasy-contract.md` §2):
+//! Framing discipline:
 //!
 //! - A blank line, or any line that is not a JSON object, is treated as stray
 //!   log noise and **skipped** — never answered — so a worker sharing its stdout
@@ -35,7 +35,7 @@ use crate::session::Sessions;
 
 /// The killed wire forms the server refuses, each paired with its successor. A
 /// killed form is never silently accepted or quietly removed — it is refused with
-/// `unknown-op` naming what replaced it (`fantasy-contract.md` §3.1).
+/// `unknown-op` naming what replaced it.
 const KILLED_OPS: &[(&str, &str)] = &[
     ("dli.suppose", "dli.fork.suppose"),
     ("dli.check-ledger", "dli.check-proof"),
@@ -751,7 +751,7 @@ fn fence_schema_violation(request: &Request, field: &str) -> Response {
 
 /// Refuse an op the contract does not dispatch: a registered killed form is a
 /// `killed-form` error naming its successor; anything else is `unknown-op`. Both
-/// are refused, never silently dropped (`fantasy-contract.md` §3.1, §9).
+/// are refused, never silently dropped.
 fn refuse_op(dli: &str, id: &str, op: &str, successor: Option<&str>) -> Response {
     let (code, message) = match successor {
         Some(successor) => (
@@ -876,7 +876,7 @@ mod tests {
         let (field, successor) = killed_field_successor(
             "1.0.0",
             Op::Query,
-            &json!({ "document": "d", "goal": "serves(mara, ?who)" }),
+            &json!({ "document": "d", "goal": "serves(nara, ?who)" }),
         )
         .expect("`goal` is registered as retired for dli.query");
         assert_eq!((field, successor), ("goal", "goal_atom"));
@@ -977,7 +977,7 @@ mod tests {
             "the typed successor is not a killed form"
         );
         assert!(
-            killed_field_successor("1.0.0", Op::Check, &json!({ "goal": "serves(mara)" }))
+            killed_field_successor("1.0.0", Op::Check, &json!({ "goal": "serves(nara)" }))
                 .is_none(),
             "`goal` is retired for dli.query, not for every op that might carry it"
         );

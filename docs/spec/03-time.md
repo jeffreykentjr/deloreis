@@ -295,7 +295,7 @@ dimensions, both on existing machinery.
 
 ## 5. The timeline as a design tool
 
-This is where the model pays the author directly. A factory surface renders,
+This is where the model pays the author directly. A client surface renders,
 over the same store:
 
 - an **era-lane timeline** — eras as lanes, events as points with their

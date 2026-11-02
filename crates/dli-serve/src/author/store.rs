@@ -1422,7 +1422,7 @@ mod tests {
 
     fn workspace(store: &mut Store) -> String {
         store
-            .open(Mode::Scope, "saltmarket".to_owned(), None)
+            .open(Mode::Scope, "storybook".to_owned(), None)
             .expect("open workspace")
             .id
             .clone()
@@ -1431,7 +1431,7 @@ mod tests {
     fn batch_store() -> (tempfile::TempDir, Store, String, Arc<BatchStorageControl>) {
         let root = tempfile::tempdir().expect("temporary lorestore");
         let (document, diagnostics) =
-            dli_syntax::parse_document("scope demo\nperson mara \"Mara\" proposed seed\n");
+            dli_syntax::parse_document("scope demo\nperson nara \"Nara\" proposed seed\n");
         assert!(
             diagnostics
                 .iter()
@@ -1550,7 +1550,7 @@ mod tests {
                 op: crate::Op::AuthorAddFact,
                 params: json!({
                     "workspace": ws,
-                    "entity": "mara",
+                    "entity": "nara",
                     "key": "rank",
                     "value": "silver",
                     "provenance": {"kind": "proposed", "origin": "atomicity-tooth"}
@@ -1595,7 +1595,7 @@ mod tests {
                 op: crate::Op::AuthorAddFact,
                 params: json!({
                     "workspace": ws,
-                    "entity": "mara",
+                    "entity": "nara",
                     "key": "rank",
                     "value": "silver",
                     "provenance": {"kind": "proposed", "origin": "cas-race-tooth"}

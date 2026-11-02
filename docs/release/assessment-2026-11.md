@@ -1,6 +1,6 @@
 ---
 status: live
-verdict: "Verified state of De Lore Is at c1ef2a9 (2026-11-02), measured against its original fiction-lore goal: what works, what is broken or incomplete, and what the benchmark era and the TPtH integration left behind. HANDOVER.md tasks cite this file; the ledger outranks it."
+verdict: "Verified state of De Lore Is at c1ef2a9 (2026-11-02), measured against its original fiction-lore goal: what works, what is broken or incomplete, and what the benchmark era and the former private consumer integration left behind. HANDOVER.md tasks cite this file; the ledger outranks it."
 ---
 
 # Assessment: De Lore Is at `c1ef2a9` (2026-11-02)
@@ -11,7 +11,7 @@ release resources. An adversarial verifier then checked every bug or
 incomplete claim, and refuted claims are excluded. The wire-surface and
 release assessors built the default binary and drove it over MCP stdio. The
 syntax assessor built with `--features syntax` and ran the tests for the
-syntax, ast, export, sim, game and tpth crates, all green. Tests for the
+syntax, ast, export, simulation, game and former consumer crates, all green. Tests for the
 engine crates (dli-core, dli-eval, dli-world, dli-serve) were **not** run in
 this pass; HANDOVER T2 runs them. Every `file:line` below is at `c1ef2a9`.
 
@@ -123,21 +123,21 @@ left:
   STEERING-REVIEW-*.
 - **Issues** #73, #86, #89, #92 and #116 (closed by DL-0101).
 
-**TPtH** (to be scrubbed under DL-0101):
+**former private consumer** (to be scrubbed under DL-0101):
 
-- `crates/tpth`.
-- `worlds/tpth`: 156 files, including the vendored fantasy corpus.
-- `docs/worlds/tpth` and the `book/src/worldbook-*` pages.
+- the former consumer crate.
+- the former private world tree: 156 files, including the vendored private corpus.
+- the former private world documentation and the `book/src/worldbook-*` pages.
 - `docs/integration/*`.
 - The dli-world craft port: `crates/dli-world/src/craft/` (about 6.6K lines),
   `crates/dli-world/craft-doctrines/`, `schemas/craft/`, and the craft half of
   spec 06.
 - The oracular-deck simulator: `crates/dli-sim`, `crates/dli-game`, the
   Ludii/GDL export, and `examples/games`.
-- The pipeline ops that serve the fantasy factory: `dli.payload-submit`,
-  `check-draft`, `attestation-sweep`, `simulate`, and the TPtH export
+- The pipeline ops that serve the former consumer pipeline: `dli.payload-submit`,
+  `check-draft`, `attestation-sweep`, `simulate`, and the former private consumer export
   profiles.
-- Golden fixtures named after TPtH characters.
+- Golden fixtures named after former private consumer characters.
 - The world-token lints, which become a repo-wide guard.
 - Migration-era scripts: `scripts/differential-oracle.sh`, `shadow-read.sh`
   and `pinned-oracles.sh`. They point at a vendored corpus directory that no
@@ -145,7 +145,7 @@ left:
 - References in AGENTS.md §6–7, the charter, PLAN, and about 25 design notes.
 
 **Multi-version contract layer.** The server accepts 0.5.1 through 1.13.0,
-with golden fixtures per version. Its only consumer is the fantasy repo, so it
+with golden fixtures per version. Its only consumer is the former consumer repository, so it
 retires with the scrub (contract 2.0.0, T5).
 
 ## 4. Release resources inventory

@@ -62,23 +62,23 @@ fn ident(text: &str) -> Ident {
     }
 }
 
-/// A base declaring `D-1` and two people, `mara` and `moira`, plus a certain
-/// `rank(mara, gold)` — enough for a clean same-as with an immediate
+/// A base declaring `D-1` and two people, `nara` and `moira`, plus a certain
+/// `rank(nara, gold)` — enough for a clean same-as with an immediate
 /// observable merge consequence.
 fn officer_base() -> Store {
-    let source = "scope tpth\n\
+    let source = "scope storybook\n\
         ratify D-1\n\
-        person mara \"Mara\"  ratified D-1\n\
+        person nara \"Nara\"  ratified D-1\n\
         person moira \"Moira\"  ratified D-1\n\
         functional rank  ratified D-1\n\
-        rank(mara, gold)  ratified D-1\n";
+        rank(nara, gold)  ratified D-1\n";
     let (document, diagnostics) = dli_syntax::parse_document(source);
     assert!(
         diagnostics.is_empty(),
         "base source parses: {diagnostics:?}"
     );
     Store::with_pack(Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     })
     .expect("base compiles")
@@ -135,8 +135,8 @@ fn check_codes(store: &mut Store, dli: &str, ws: &str) -> Vec<String> {
 #[test]
 fn assert_same_as_stages_cleanly_and_renders_the_declaration() {
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
-    let response = assert_same_as(&mut store, "1.7.0", &ws, "mara", "moira", &proposed("s"));
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
+    let response = assert_same_as(&mut store, "1.7.0", &ws, "nara", "moira", &proposed("s"));
     assert!(
         codes(result(&response)).is_empty(),
         "{:?}",
@@ -144,7 +144,7 @@ fn assert_same_as_stages_cleanly_and_renders_the_declaration() {
     );
     assert_eq!(
         result(&response)["rendered"],
-        json!(["same-as mara = moira proposed s"])
+        json!(["same-as nara = moira proposed s"])
     );
     assert!(
         result(&response)["workspace_digest"]
@@ -156,8 +156,8 @@ fn assert_same_as_stages_cleanly_and_renders_the_declaration() {
 #[test]
 fn the_declaration_stages_a_same_as_decl() {
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
-    assert_same_as(&mut store, "1.7.0", &ws, "mara", "moira", &proposed("s"));
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
+    assert_same_as(&mut store, "1.7.0", &ws, "nara", "moira", &proposed("s"));
     let workspace = store.get(&ws).expect("workspace is open");
     assert_eq!(workspace.mode, Mode::Scope);
     assert_eq!(
@@ -178,8 +178,8 @@ fn the_merge_answers_a_staged_query_under_the_alias() {
     // A same-as declaration's merge is visible to `author.query` immediately —
     // fully re-derived from the staged world, no materialize needed.
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
-    assert_same_as(&mut store, "1.7.0", &ws, "mara", "moira", &cited("D-1"));
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
+    assert_same_as(&mut store, "1.7.0", &ws, "nara", "moira", &cited("D-1"));
     let queried = dispatch(
         &req(
             "1.7.0",
@@ -192,7 +192,7 @@ fn the_merge_answers_a_staged_query_under_the_alias() {
     let rows = result(&queried)["rows"].as_array().expect("rows");
     assert!(
         !rows.is_empty() && rows[0]["status"] == "certain",
-        "the alias inherits mara's certain rank: {:?}",
+        "the alias inherits nara's certain rank: {:?}",
         result(&queried)
     );
 }
@@ -202,7 +202,7 @@ fn the_merge_answers_a_staged_query_under_the_alias() {
 #[test]
 fn unknown_endpoints_are_flagged_on_both_sides() {
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     let response = assert_same_as(&mut store, "1.7.0", &ws, "ghost", "phantom", &proposed("s"));
     let cs = codes(result(&response));
     assert_eq!(
@@ -215,8 +215,8 @@ fn unknown_endpoints_are_flagged_on_both_sides() {
 #[test]
 fn a_self_merge_is_a_warning_not_a_block() {
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
-    let response = assert_same_as(&mut store, "1.7.0", &ws, "mara", "mara", &proposed("s"));
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
+    let response = assert_same_as(&mut store, "1.7.0", &ws, "nara", "nara", &proposed("s"));
     let findings = result(&response)["findings"].as_array().unwrap();
     assert_eq!(findings.len(), 1, "{findings:?}");
     assert_eq!(findings[0]["code"], "identity.self-merge");
@@ -226,7 +226,7 @@ fn a_self_merge_is_a_warning_not_a_block() {
 #[test]
 fn an_endpoint_naming_a_declared_era_is_refused() {
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     // Stage an era, then try to same-as it with a known person.
     dispatch(
         &req(
@@ -242,7 +242,7 @@ fn an_endpoint_naming_a_declared_era_is_refused() {
         &mut store,
         "1.7.0",
         &ws,
-        "mara",
+        "nara",
         "first-tides",
         &proposed("s"),
     );
@@ -263,7 +263,7 @@ fn an_endpoint_naming_a_declared_era_is_refused() {
 #[test]
 fn a_sort_mismatch_is_a_warning_not_a_block() {
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     dispatch(
         &req(
             "1.7.0",
@@ -274,7 +274,7 @@ fn a_sort_mismatch_is_a_warning_not_a_block() {
         ),
         &mut store,
     );
-    let response = assert_same_as(&mut store, "1.7.0", &ws, "mara", "camelot", &proposed("s"));
+    let response = assert_same_as(&mut store, "1.7.0", &ws, "nara", "camelot", &proposed("s"));
     let cs = codes(result(&response));
     assert!(cs.contains(&"identity.sort-mismatch".to_owned()), "{cs:?}");
     let finding = result(&response)["findings"]
@@ -290,9 +290,9 @@ fn a_sort_mismatch_is_a_warning_not_a_block() {
 
 #[test]
 fn a_post_merge_fd_violation_surfaces_on_check_and_blocks_materialize() {
-    // mara is ranked gold; give moira a DIFFERENT certain rank, then merge them.
+    // nara is ranked gold; give moira a DIFFERENT certain rank, then merge them.
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     dispatch(
         &req(
             "1.7.0",
@@ -303,7 +303,7 @@ fn a_post_merge_fd_violation_surfaces_on_check_and_blocks_materialize() {
         ),
         &mut store,
     );
-    assert_same_as(&mut store, "1.7.0", &ws, "mara", "moira", &cited("D-1"));
+    assert_same_as(&mut store, "1.7.0", &ws, "nara", "moira", &cited("D-1"));
 
     assert!(
         check_codes(&mut store, "1.7.0", &ws).contains(&"continuity.fd-violation".to_owned()),
@@ -332,8 +332,8 @@ fn a_post_merge_fd_violation_surfaces_on_check_and_blocks_materialize() {
 #[test]
 fn author_why_names_the_identity_ruling() {
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
-    assert_same_as(&mut store, "1.7.0", &ws, "mara", "moira", &cited("D-1"));
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
+    assert_same_as(&mut store, "1.7.0", &ws, "nara", "moira", &cited("D-1"));
     let why = dispatch(
         &req(
             "1.7.0",
@@ -352,7 +352,7 @@ fn author_why_names_the_identity_ruling() {
         .map(|claim| claim.as_str().unwrap_or_default().to_owned())
         .collect();
     // `why` resolves claim ids to rendered names via the support index; D-1
-    // backs both mara's own rank and the identity link, so at minimum the
+    // backs both nara's own rank and the identity link, so at minimum the
     // antichain is non-empty and the rendered support mentions the ruling.
     assert!(!names.is_empty(), "{:?}", result(&why));
     let rendered = result(&why)["why"]["rendered"]
@@ -373,12 +373,12 @@ fn author_why_names_the_identity_ruling() {
 #[test]
 fn author_diff_rows_show_the_staged_same_as_declaration() {
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     assert_same_as(
         &mut store,
         "1.7.0",
         &ws,
-        "mara",
+        "nara",
         "moira",
         &proposed("origin-tag"),
     );
@@ -394,7 +394,7 @@ fn author_diff_rows_show_the_staged_same_as_declaration() {
         rendered[0]
             .as_str()
             .unwrap_or_default()
-            .contains("same-as mara = moira"),
+            .contains("same-as nara = moira"),
         "{rendered:?}"
     );
 }
@@ -412,12 +412,12 @@ fn author_diff_rows_show_the_staged_same_as_declaration() {
 #[test]
 fn a_stale_digest_fence_refuses() {
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     let mut stale = req(
         "1.7.0",
         "same-as",
         Op::AuthorAssertSameAs,
-        json!({ "workspace": ws, "left": "mara", "right": "moira", "provenance": proposed("s") }),
+        json!({ "workspace": ws, "left": "nara", "right": "moira", "provenance": proposed("s") }),
     );
     stale.expected_digest = Some("jcs:sha256:deadbeef".to_owned());
     let response = dispatch(&stale, &mut store);
@@ -431,12 +431,12 @@ fn a_stale_digest_fence_refuses() {
 #[test]
 fn an_idempotent_retry_replays_and_stages_nothing() {
     let mut store = officer_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     let mut call = req(
         "1.7.0",
         "same-as",
         Op::AuthorAssertSameAs,
-        json!({ "workspace": ws, "left": "mara", "right": "moira", "provenance": proposed("s") }),
+        json!({ "workspace": ws, "left": "nara", "right": "moira", "provenance": proposed("s") }),
     );
     call.idempotency_key = Some("idem-same-as-1".to_owned());
     let first = dispatch(&call, &mut store);
@@ -526,7 +526,7 @@ fn durable_defeat_of_a_same_as_claim_un_merges_the_wire_query() {
     let workspace = opened["workspace"].as_str().unwrap().to_owned();
 
     // Two people, one ranked, both cited to D-1 so they read certain.
-    for (id, name) in [("mara", "Mara"), ("moira", "Moira")] {
+    for (id, name) in [("nara", "Nara"), ("moira", "Moira")] {
         let added = ledger_result(dispatch(
             &ledger_request(
                 "add",
@@ -552,7 +552,7 @@ fn durable_defeat_of_a_same_as_claim_un_merges_the_wire_query() {
             "rank",
             Op::AuthorAddFact,
             json!({
-                "workspace": workspace, "entity": "mara", "key": "rank", "value": "gold",
+                "workspace": workspace, "entity": "nara", "key": "rank", "value": "gold",
                 "provenance": {"kind": "cited", "decisions": ["D-1"], "state": "ratified"}
             }),
         ),
@@ -566,7 +566,7 @@ fn durable_defeat_of_a_same_as_claim_un_merges_the_wire_query() {
             "same-as",
             Op::AuthorAssertSameAs,
             json!({
-                "workspace": workspace, "left": "mara", "right": "moira",
+                "workspace": workspace, "left": "nara", "right": "moira",
                 "provenance": {"kind": "cited", "decisions": ["D-3"], "state": "ratified"}
             }),
         ),
@@ -594,7 +594,7 @@ fn durable_defeat_of_a_same_as_claim_un_merges_the_wire_query() {
         .unwrap()
         .iter()
         .find(|fact| {
-            fact["atom"]["pred"] == "same-as" && fact["atom"]["args"] == json!(["mara", "moira"])
+            fact["atom"]["pred"] == "same-as" && fact["atom"]["args"] == json!(["nara", "moira"])
         })
         .and_then(|fact| fact["claim_id"].as_str())
         .expect("the durably stored same-as claim id")
@@ -651,19 +651,19 @@ fn durable_defeat_of_a_same_as_claim_un_merges_the_wire_query() {
         "the durable defeat un-merges the identity through the wire: {after:?}"
     );
 
-    // The surface fact is untouched: mara's own rank is still certain.
+    // The surface fact is untouched: nara's own rank is still certain.
     let surface = ledger_result(dispatch(
         &ledger_request(
             "q3",
             Op::AuthorQuery,
-            json!({ "workspace": workspace, "goal": "rank(mara, gold)", "layer": "all" }),
+            json!({ "workspace": workspace, "goal": "rank(nara, gold)", "layer": "all" }),
         ),
         &mut store,
     ));
     let surface_rows = surface["rows"].as_array().expect("rows");
     assert!(
         !surface_rows.is_empty() && surface_rows[0]["status"] == "certain",
-        "mara's own fact never depended on the identity ruling: {surface:?}"
+        "nara's own fact never depended on the identity ruling: {surface:?}"
     );
 
     // And the durable overlay itself: the ref's valuation rules D-3 false —

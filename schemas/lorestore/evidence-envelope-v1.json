@@ -70,7 +70,7 @@
           "const": "simulation"
         },
         {
-          "description": "A spoken-proof transcript (a `ProofReport`'s derivation).",
+          "description": "A spoken-oath transcript (a `ProofReport`'s derivation).",
           "type": "string",
           "const": "proof"
         },

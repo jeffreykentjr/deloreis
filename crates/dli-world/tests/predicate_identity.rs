@@ -144,13 +144,13 @@ fn accepted_decls(identity_first: bool) -> Vec<Decl> {
     let facts = vec![
         fact(
             "current-work",
-            "mara",
+            "nara",
             "software",
             ProvenanceMarker::Ratified,
         ),
         fact(
             "current-job",
-            "mara",
+            "nara",
             "employment",
             ProvenanceMarker::Ratified,
         ),
@@ -207,13 +207,13 @@ fn missing_predicate_identity_provenance_is_reported_not_dropped() {
     decls.extend([
         fact(
             "current-work",
-            "mara",
+            "nara",
             "software",
             ProvenanceMarker::Ratified,
         ),
         fact(
             "current-job",
-            "mara",
+            "nara",
             "employment",
             ProvenanceMarker::Ratified,
         ),
@@ -249,8 +249,8 @@ fn facts_before_and_after_identity_have_identical_verdicts_and_support() {
 fn transitive_predicate_identity_and_self_merge_are_stable() {
     let mut decls = vec![ratify("D-1"), functional("a")];
     decls.extend([
-        fact("a", "mara", "one", ProvenanceMarker::Ratified),
-        fact("c", "mara", "two", ProvenanceMarker::Ratified),
+        fact("a", "nara", "one", ProvenanceMarker::Ratified),
+        fact("c", "nara", "two", ProvenanceMarker::Ratified),
         predicate_same_as("a", "b", ProvenanceMarker::Ratified),
         predicate_same_as("b", "c", ProvenanceMarker::Ratified),
         predicate_same_as("c", "c", ProvenanceMarker::Ratified),
@@ -265,12 +265,12 @@ fn transitive_predicate_identity_and_self_merge_are_stable() {
 fn incompatible_observed_arity_is_reported_and_does_not_partially_merge() {
     let mut decls = vec![ratify("D-1"), functional("left")];
     decls.extend([
-        fact("left", "mara", "one", ProvenanceMarker::Ratified),
+        fact("left", "nara", "one", ProvenanceMarker::Ratified),
         Decl::Fact(FactDecl {
             atom: AtomExpr {
                 pred: id("right"),
                 args: vec![
-                    Term::Sym(id("mara")),
+                    Term::Sym(id("nara")),
                     Term::Sym(id("two")),
                     Term::Sym(id("extra")),
                 ],
@@ -295,11 +295,11 @@ fn incompatible_observed_arity_is_reported_and_does_not_partially_merge() {
 fn unrelated_multiple_observed_arities_do_not_raise_identity_findings() {
     let world = compile(&pack(vec![
         ratify("D-1"),
-        fact("marker", "mara", "one", ProvenanceMarker::Ratified),
+        fact("marker", "nara", "one", ProvenanceMarker::Ratified),
         Decl::Fact(FactDecl {
             atom: AtomExpr {
                 pred: id("marker"),
-                args: vec![Term::Sym(id("mara")), Term::Sym(id("two"))],
+                args: vec![Term::Sym(id("nara")), Term::Sym(id("two"))],
             },
             triple: false,
             provenance: Some(annotation(ProvenanceMarker::Ratified, Some("D-1"))),
@@ -318,7 +318,7 @@ fn entity_and_predicate_identity_are_confluent_in_arrival_order() {
         functional("current-work"),
         fact(
             "current-work",
-            "mara",
+            "nara",
             "software",
             ProvenanceMarker::Ratified,
         ),
@@ -329,7 +329,7 @@ fn entity_and_predicate_identity_are_confluent_in_arrival_order() {
             ProvenanceMarker::Ratified,
         ),
     ];
-    let entity = entity_same_as("mara", "moira");
+    let entity = entity_same_as("nara", "moira");
     let predicate = predicate_same_as("current-work", "current-job", ProvenanceMarker::Ratified);
     let mut entity_first = common.clone();
     entity_first.insert(1, entity.clone());
@@ -356,8 +356,8 @@ fn merged_predicate_fluent_spans_clash_and_defeat_unpersists_them() {
         ratify("D-merge"),
         event("e", "D-left"),
         inertial("current-work", "D-inertia"),
-        state("mara.current-work", "software", "e", "D-left"),
-        state("mara.current-job", "employment", "e", "D-right"),
+        state("nara.current-work", "software", "e", "D-left"),
+        state("nara.current-job", "employment", "e", "D-right"),
         predicate_same_as("current-work", "current-job", ProvenanceMarker::Ratified),
     ];
     // The helper's identity declaration cites D-1, so use a directly-built
@@ -410,7 +410,7 @@ fn compiled_rules_use_predicate_identity_in_bodies_and_heads() {
         ratify("D-1"),
         fact(
             "current-work",
-            "mara",
+            "nara",
             "software",
             ProvenanceMarker::Ratified,
         ),
@@ -426,7 +426,7 @@ fn compiled_rules_use_predicate_identity_in_bodies_and_heads() {
         .world
         .derived
         .iter()
-        .find(|row| row.atom.pred == "employed" && row.atom.args == ["mara"])
+        .find(|row| row.atom.pred == "employed" && row.atom.args == ["nara"])
         .expect("rule body sees the merged predicate");
     assert_eq!(
         employed

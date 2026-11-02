@@ -1,16 +1,12 @@
 //! The ratified-names view and name-space queries (`LANG-2`).
 //!
-//! The mirror dies (05-language-layer §6). The consuming repo's
-//! `ratified_names.yaml` was a hand-synced copy of world knowledge — the very
-//! drift class the fabric exists to kill. It is deleted as a *source*; the
-//! compiled world *is* the name-space, and anything a legacy consumer still needs
-//! comes from a query. [`ratified_names`] is that query: a generated view of the
+//! The compiled world is the name-space; applications can query it rather
+//! than maintaining a separate writable copy. [`ratified_names`] is that query: a generated view of the
 //! certain layer, never a second writable copy.
 //!
 //! [`vet_candidate`] is the shadow-vet's kernel half: it runs the world-true
 //! screens (uniqueness, fixed-token reuse, aural distinctness, banned-in-name)
-//! over a bare candidate against the settled name-space. The consuming repo's
-//! `fantasy name vet` composes this with its own factory-side screens (05 §3);
+//! over a bare candidate against the settled name-space. Applications may compose this with their own external screens (05 §3);
 //! neither layer can overrule the other's ground truth.
 
 use dli_ast::span::Span;
@@ -47,13 +43,13 @@ pub struct RatifiedName {
 /// use dli_syntax::parse_document;
 ///
 /// let src = "scope language\n\
-///            name gwern \"Gwern\" place in lowlands ratified D-111\n\
-///            name mist \"Mist\" place in lowlands proposed agent:run assumes h-x\n";
+///            name joren \"Joren\" place in moorlands ratified D-111\n\
+///            name mist \"Mist\" place in moorlands proposed agent:run assumes h-x\n";
 /// let (doc, _d) = parse_document(src);
 /// let model = LanguageModel::from_documents(&[doc]).model;
 /// let view = ratified_names(&model);
 /// assert_eq!(view.len(), 1, "only the ratified name is in the certain layer");
-/// assert_eq!(view[0].name, "Gwern");
+/// assert_eq!(view[0].name, "Joren");
 /// ```
 #[must_use]
 pub fn ratified_names(model: &LanguageModel) -> Vec<RatifiedName> {
@@ -86,7 +82,7 @@ pub fn certain_surfaces(model: &LanguageModel) -> Vec<String> {
 /// of the oracle's two-layer verdict (05 §3).
 ///
 /// Runs only world-true screens: intra-canon uniqueness, fixed-token reuse, aural
-/// distinctness, and banned-vocabulary-in-names. The factory-side screens
+/// distinctness, and banned-vocabulary-in-names. The application-side screens
 /// (AI-tics, pop-culture collisions, English homophones, anachronism) are *not*
 /// run here — a candidate that fails only those is kernel-clean, because their
 /// ground truth is a fact about our world, not the story's.
@@ -96,11 +92,11 @@ pub fn certain_surfaces(model: &LanguageModel) -> Vec<String> {
 /// use dli_syntax::parse_document;
 ///
 /// let src = "scope language\n\
-///            name gwern \"Gwern\" place in lowlands ratified D-111\n";
+///            name joren \"Joren\" place in moorlands ratified D-111\n";
 /// let (doc, _d) = parse_document(src);
 /// let model = LanguageModel::from_documents(&[doc]).model;
 /// // A settled name collides; an unrelated one does not.
-/// assert!(!vet_candidate(&model, "Gwern").is_empty());
+/// assert!(!vet_candidate(&model, "Joren").is_empty());
 /// assert!(vet_candidate(&model, "Irondale").is_empty());
 /// ```
 #[must_use]
@@ -178,10 +174,10 @@ pub fn vet_candidate(model: &LanguageModel, candidate: &str) -> Vec<LangFinding>
 /// ```
 /// use dli_world::language::vet_in_set;
 /// // Two cast members who sound too alike clash within their scene.
-/// let clashes = vet_in_set("Branwen", "scene-3-cast", &["Branwyn", "Aalto"]);
+/// let clashes = vet_in_set("Isobel", "scene-3-cast", &["Isobell", "Idal"]);
 /// assert!(clashes.iter().any(|f| f.code() == "name.set-clash"));
 /// // A distinct name is clean in the same set.
-/// assert!(vet_in_set("Aalto", "scene-3-cast", &["Branwen", "Enfys"]).is_empty());
+/// assert!(vet_in_set("Idal", "scene-3-cast", &["Isobel", "Linet"]).is_empty());
 /// ```
 #[must_use]
 pub fn vet_in_set(candidate: &str, set: &str, members: &[&str]) -> Vec<LangFinding> {

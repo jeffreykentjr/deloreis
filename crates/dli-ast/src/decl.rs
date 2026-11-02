@@ -340,7 +340,7 @@ pub struct RuleDecl {
 /// `state <name> [= <value>] [time]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct StateDecl {
-    /// The state name (may be dotted, e.g. `gwern.water-status`).
+    /// The state name (may be dotted, e.g. `joren.water-status`).
     pub name: Ident,
     /// The value the state takes, if written.
     pub value: Option<Term>,
@@ -585,7 +585,7 @@ pub struct NameDecl {
     pub name: Ident,
     /// The rendered label, if written.
     pub label: Option<String>,
-    /// Remaining header tokens (`person.given in cymric-fringe`).
+    /// Remaining header tokens (`person.given in elder-tongue-fringe`).
     pub head: Vec<String>,
     /// The typed interior: each interior clause (composition, bearer, provenance)
     /// pre-classified into a [`NameItem`](crate::language::NameItem) at parse
@@ -631,7 +631,7 @@ pub struct NarrationDecl {
 /// `variant <path>`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct VariantDecl {
-    /// The variant path (`turning/keep-stamped`).
+    /// The variant path (`moon-cycle/winter`).
     pub path: Ident,
     /// The captured body clauses.
     pub body: Vec<Clause>,
@@ -644,7 +644,7 @@ pub struct VariantDecl {
 pub struct RatifyDecl {
     /// The ratifying decision id.
     pub decision: Ident,
-    /// The typed interior: the `h-cymric := true` valuation lines and the
+    /// The typed interior: the `h-elder-tongue := true` valuation lines and the
     /// decision ids the body cites, structured at parse time (LS-9), so the
     /// language compiler and the citation gate read typed AST instead of
     /// re-lexing clause text.
@@ -670,7 +670,7 @@ pub struct PrincipleDecl {
 pub struct ProofDecl {
     /// The proof name.
     pub name: Ident,
-    /// Remaining header tokens (`speaker protagonist in spoken-proof`).
+    /// Remaining header tokens (`speaker protagonist in spoken-oath`).
     pub head: Vec<String>,
     /// The typed body: each interior line pre-parsed into a
     /// [`ProofOp`](crate::proof::ProofOp) by the front end, with the normalized

@@ -6,7 +6,7 @@
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     }
   ],
@@ -19,9 +19,9 @@
         "result": {
           "findings": [],
           "rendered": [
-            "question q-1 \"Who raised the Tide-Bell?\""
+            "question q-1 \"Who raised the Bellsong?\""
           ],
-          "workspace_digest": "jcs:sha256:4f0d9307db4708ce6120171969e982130513539d6e753ee56593da4015dc071a"
+          "workspace_digest": "jcs:sha256:9fdbd4327e1b613e57a6424a91bebe51ceef98130c991b1ca2dd373c741fcaf7"
         }
       },
       "send": {
@@ -30,7 +30,7 @@
         "op": "author.open_question",
         "params": {
           "id": "q-1",
-          "prompt": "Who raised the Tide-Bell?",
+          "prompt": "Who raised the Bellsong?",
           "workspace": "ws-1"
         }
       }

@@ -59,7 +59,7 @@ struct AttestationBatch {
 /// A configured question that currently needs an answer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MissingAttestation {
-    /// The full bounded question the factory must pose.
+    /// The full bounded question the caller must pose.
     pub question: Question,
     /// The fingerprint an accepted answer must carry.
     pub fingerprint: ContentHash,

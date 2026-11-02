@@ -28,7 +28,7 @@ fn result(response: dli_serve::Response) -> Value {
 fn fixture() -> (tempfile::TempDir, Store, std::path::PathBuf) {
     let root = tempfile::tempdir().unwrap();
     let (document, diagnostics) = dli_syntax::parse_document(
-        "scope demo\nratify d1\nperson mara \"Mara\" ratified d1\nfact mara rank gold ratified d1\n",
+        "scope demo\nratify d1\nperson nara \"Nara\" ratified d1\nfact nara rank gold ratified d1\n",
     );
     assert!(
         diagnostics
@@ -79,7 +79,7 @@ fn query(store: &mut Store, workspace: &str, id: &str) -> Value {
             Op::AuthorQuery,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]},
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "gold"}]},
                 "layer": "all",
                 "why": true
             }),
@@ -95,7 +95,7 @@ fn why(store: &mut Store, workspace: &str, id: &str) -> Value {
             Op::AuthorWhy,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}
+                "goal_atom": {"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "gold"}]}
             }),
         ),
         store,
@@ -109,7 +109,7 @@ fn query_value(store: &mut Store, workspace: &str, id: &str, key: &str, value: &
             Op::AuthorQuery,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": key, "args": [{"Sym": "mara"}, {"Sym": value}]},
+                "goal_atom": {"pred": key, "args": [{"Sym": "nara"}, {"Sym": value}]},
                 "layer": "all",
                 "why": true
             }),
@@ -125,7 +125,7 @@ fn why_value(store: &mut Store, workspace: &str, id: &str, key: &str, value: &st
             Op::AuthorWhy,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": key, "args": [{"Sym": "mara"}, {"Sym": value}]}
+                "goal_atom": {"pred": key, "args": [{"Sym": "nara"}, {"Sym": value}]}
             }),
         ),
         store,
@@ -241,7 +241,7 @@ fn direct_defeat_and_nested_restoration_reuse_one_symbolic_compile() {
     let (_root, mut store, path) = fixture();
     let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
     let workspace = open(&mut store);
-    let d1_claim = claim_id(&lorestore, false, "mara");
+    let d1_claim = claim_id(&lorestore, false, "nara");
 
     let live_query = query(&mut store, &workspace, "q-live");
     let live_why = why(&mut store, &workspace, "why-live");
@@ -352,7 +352,7 @@ fn record_add_discard_materialize_and_reload_invalidate_at_structural_boundaries
             Op::AuthorAddFact,
             json!({
                 "workspace": workspace,
-                "entity": "mara",
+                "entity": "nara",
                 "key": "title",
                 "value": "warden",
                 "provenance": {
@@ -383,7 +383,7 @@ fn record_add_discard_materialize_and_reload_invalidate_at_structural_boundaries
             Op::AuthorAddFact,
             json!({
                 "workspace": workspace,
-                "entity": "mara",
+                "entity": "nara",
                 "key": "title",
                 "value": "keeper",
                 "provenance": {
@@ -422,7 +422,7 @@ fn materialize_installs_the_decision_stamped_base_before_returning() {
             Op::AuthorAddFact,
             json!({
                 "workspace": workspace,
-                "entity": "mara",
+                "entity": "nara",
                 "key": "title",
                 "value": "silver",
                 "provenance": {"kind": "proposed", "origin": "cache-materialize"}
@@ -482,7 +482,7 @@ fn stale_main_materialize_installs_the_exact_current_parent_fold() {
             Op::AuthorAddFact,
             json!({
                 "workspace": sibling,
-                "entity": "mara",
+                "entity": "nara",
                 "key": "title",
                 "value": "keeper",
                 "provenance": {"kind": "cited", "decisions": ["d1"], "state": "ratified"}
@@ -505,7 +505,7 @@ fn stale_main_materialize_installs_the_exact_current_parent_fold() {
             Op::AuthorAddFact,
             json!({
                 "workspace": stale,
-                "entity": "mara",
+                "entity": "nara",
                 "key": "color",
                 "value": "blue",
                 "provenance": {"kind": "cited", "decisions": ["d1"], "state": "ratified"}
@@ -559,7 +559,7 @@ fn stale_main_materialize_remaps_workspace_local_support_by_exact_name() {
             Op::AuthorAddFact,
             json!({
                 "workspace": stale,
-                "entity": "mara",
+                "entity": "nara",
                 "key": "color",
                 "value": "blue",
                 "provenance": {"kind": "proposed", "origin": "stale-skew"}
@@ -602,7 +602,7 @@ fn stale_main_materialize_checks_the_exact_merged_candidate_before_cas() {
     let (document, diagnostics) = dli_syntax::parse_document(concat!(
         "scope demo\n",
         "ratify d1\n",
-        "person mara \"Mara\" ratified d1\n",
+        "person nara \"Nara\" ratified d1\n",
         "functional rank\n",
     ));
     assert!(
@@ -633,7 +633,7 @@ fn stale_main_materialize_checks_the_exact_merged_candidate_before_cas() {
                 Op::AuthorAddFact,
                 json!({
                     "workspace": workspace,
-                    "entity": "mara",
+                    "entity": "nara",
                     "key": "rank",
                     "value": value,
                     "provenance": {"kind": "cited", "decisions": ["d1"], "state": "ratified"}
@@ -747,7 +747,7 @@ fn exact_candidate_oracle_does_not_self_report_a_staged_rule_as_duplicate() {
             Op::AuthorAddFact,
             json!({
                 "workspace": workspace,
-                "entity": "mara",
+                "entity": "nara",
                 "key": "title",
                 "value": "warden",
                 "provenance": {"kind": "cited", "decisions": ["d1"], "state": "ratified"}
@@ -812,7 +812,7 @@ fn accepted_fact_history_is_not_rechecked_as_a_pending_contradiction() {
             Op::AuthorAddFact,
             json!({
                 "workspace": workspace,
-                "entity": "mara",
+                "entity": "nara",
                 "key": "title",
                 "value": "warden",
                 "provenance": {"kind": "cited", "decisions": ["d1"], "state": "ratified"}
@@ -829,7 +829,7 @@ fn accepted_fact_history_is_not_rechecked_as_a_pending_contradiction() {
         &mut store,
     ));
 
-    let d1_claim = claim_id(&lorestore, false, "mara");
+    let d1_claim = claim_id(&lorestore, false, "nara");
     defeat(
         &mut store,
         &workspace,
@@ -844,7 +844,7 @@ fn accepted_fact_history_is_not_rechecked_as_a_pending_contradiction() {
             Op::AuthorAddFact,
             json!({
                 "workspace": workspace,
-                "entity": "mara",
+                "entity": "nara",
                 "key": "title",
                 "value": "keeper",
                 "provenance": {"kind": "proposed", "origin": "replacement-title"}
@@ -896,7 +896,7 @@ fn cache_enabled_and_forced_miss_match_active_blocked_and_restored_wire_bytes() 
     let (_root, mut store, path) = fixture();
     let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
     let workspace = open(&mut store);
-    let d1_claim = claim_id(&lorestore, false, "mara");
+    let d1_claim = claim_id(&lorestore, false, "nara");
 
     let assert_equal = |store: &mut Store, label: &str| {
         let enabled_query = query(store, &workspace, &format!("{label}-query-enabled"));

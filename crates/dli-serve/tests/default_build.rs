@@ -598,7 +598,7 @@ fn the_structural_key_is_a_recomputable_digest_of_the_declaration() {
     use dli_serve::author::digest::digest_of;
 
     let decl = Decl::Term(TermDecl {
-        name: Ident::synthetic("hedgeway"),
+        name: Ident::synthetic("hedgerow"),
         label: Some("the pleached boundary road".to_owned()),
         provenance: None,
     });
@@ -631,7 +631,7 @@ fn the_structural_key_is_a_recomputable_digest_of_the_declaration() {
     //    present changes the content and so changes the key — that is content
     //    addressing working, not a defect.)
     let dialect = Decl::Dialect(DialectDecl {
-        name: Ident::synthetic("cymric-fringe"),
+        name: Ident::synthetic("elder-tongue-fringe"),
         label: None,
         body: DialectBody::default(),
         provenance: None,
@@ -676,7 +676,7 @@ fn the_structural_key_is_a_recomputable_digest_of_the_declaration() {
             "author.add_term",
             &json!({
                 "workspace": workspace,
-                "id": "hedgeway",
+                "id": "hedgerow",
                 "label": "the pleached boundary road",
                 "provenance": { "kind": "proposed", "origin": "dm4-key" },
             }),
@@ -697,7 +697,7 @@ fn the_structural_key_is_a_recomputable_digest_of_the_declaration() {
     // The staged declaration carries the tool's provenance, so rebuild the same
     // declaration rather than reusing `decl` above, which carries none.
     let with_provenance = Decl::Term(TermDecl {
-        name: Ident::synthetic("hedgeway"),
+        name: Ident::synthetic("hedgerow"),
         label: Some("the pleached boundary road".to_owned()),
         provenance: Some(dli_ast::annot::Annotation {
             marker: dli_ast::annot::ProvenanceMarker::Proposed,

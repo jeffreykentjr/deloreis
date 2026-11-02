@@ -7,7 +7,7 @@
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     }
   ],
@@ -22,7 +22,7 @@
           "rendered": [
             "functional rank proposed session-fd"
           ],
-          "workspace_digest": "jcs:sha256:11fa3699cc298e747315eebec8c54882c312202b2ea6d42f0efd8ed0fb50482a"
+          "workspace_digest": "jcs:sha256:8052d64f202d6e4503212e6415d1ae96e5c64066576b736956527e5458582e1b"
         }
       },
       "send": {

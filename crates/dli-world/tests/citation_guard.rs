@@ -48,7 +48,7 @@ fn a_term_citing_a_declared_decision_is_clean() {
 fn a_term_citing_an_undeclared_decision_is_not_gated() {
     // A `term`'s `decided <d-id>` is language-layer *provenance*, not assertability
     // authority: it may name a decision recorded outside this corpus (the vendored
-    // TPtH packs cite external canon ids like `D-0181` on terms this way). So an
+    // storybook packs cite external canon ids like `D-0181` on terms this way). So an
     // undeclared term citation is NOT a finding — unlike a proof/ratify citation.
     let world = world_of(
         "scope demo\n\

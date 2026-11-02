@@ -48,9 +48,9 @@ use crate::lexer::{Line, Token, TokenKind, lines, to_u32};
 /// ```
 /// use dli_syntax::parser::parse_document;
 ///
-/// let (doc, diags) = parse_document("scope saltmarket\nplace weir \"The Weir\" proposed\n");
+/// let (doc, diags) = parse_document("scope storybook\nplace weir \"The Weir\" proposed\n");
 /// assert!(diags.is_empty());
-/// assert_eq!(doc.scope.unwrap().name.text, "saltmarket");
+/// assert_eq!(doc.scope.unwrap().name.text, "storybook");
 /// assert_eq!(doc.decls.len(), 1);
 /// ```
 #[must_use]
@@ -209,12 +209,12 @@ fn check_origins(decls: &[Decl], diags: &mut Vec<Diagnostic>) {
 ///
 /// let clause = |t: &str| Clause { text: t.to_owned(), span: Span::synthetic() };
 ///
-/// let atom = parse_clause_atom(&clause("adjacent(the-shallows, saltmarket)")).unwrap();
+/// let atom = parse_clause_atom(&clause("adjacent(riverside, storybook)")).unwrap();
 /// assert_eq!(atom.pred.text, "adjacent");
 /// assert_eq!(atom.args.len(), 2);
 ///
 /// // A slot fact maps to `slot(subject, value)`.
-/// let slot = parse_clause_atom(&clause("mara.trade = eel-fisher")).unwrap();
+/// let slot = parse_clause_atom(&clause("nara.trade = eel-fisher")).unwrap();
 /// assert_eq!(slot.pred.text, "trade");
 ///
 /// // A rule body is not a single atom.

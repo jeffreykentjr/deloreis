@@ -1,4 +1,4 @@
-//! The diegetic proof checker — the Concordance-class engine.
+//! The diegetic proof checker — the Lore-register-class engine.
 //!
 //! A **proof** is one casting written out as data: its premises, its steps, its
 //! spends, and its close, run `in <practice>` (`docs/spec/04-practices.md` §5).
@@ -8,7 +8,7 @@
 //! *refinement* of one of the seven classes `L1`..`L7` (`docs/spec/04` §2).
 //!
 //! The engine knows nothing about any particular practice: proof-magic,
-//! true-naming, and the Turning all check here because the practice it runs
+//! true-naming and other declared practices check here because the practice it runs
 //! against is [data all the way down](crate::practice) (charter koan 10). The
 //! seven behaviours it realizes:
 //!
@@ -474,7 +474,7 @@ pub struct ProofReport {
 /// let src = "\
 /// scope magic
 /// cycle tide(4) = ebb | slack | flood | high  proposed
-/// practice spoken-proof proposed {
+/// practice spoken-oath proposed {
 ///   kind ground = door | field | ore
 ///   resource debt : linear conserved
 ///   rule ward-form(ground, fibre)
@@ -483,8 +483,8 @@ pub struct ProofReport {
 ///   error wrong-hour refines L3 side-condition [timing] over cycle tide
 ///   cost material
 /// }
-/// proof e01-s04 speaker protagonist in spoken-proof {
-///   premise p1 holds(enfys, consent(household, door)) cited D-0113 cue \"line 112\"
+/// proof e01-s04 speaker protagonist in spoken-oath {
+///   premise p1 holds(linet, consent(household, door)) cited D-0113 cue \"line 112\"
 ///   premise p2 phase(tide, slack) from-scene cue \"line 118\"
 ///   premise p3 debt(1) drawn-against p1
 ///   step s1 instantiate ward-form with ground = door, fibre = withy
@@ -505,7 +505,7 @@ pub struct ProofReport {
 ///     })
 ///     .expect("one proof");
 /// let scene = SceneProjection::new()
-///     .seat("holds(enfys, consent(household, door))")
+///     .seat("holds(linet, consent(household, door))")
 ///     .at_phase("tide", "slack");
 /// let report = check_proof(&practices[0], proof, &scene);
 /// assert!(
@@ -1582,7 +1582,7 @@ fn failed_at(practice: &PracticeDef, finding: &ProofFinding) -> ProofVerdict {
             (refining_error(practice, class, None), at.clone())
         }
         // A bad spoke is the phase equivalent of a bad instantiation (L4); it binds
-        // by class, like the-turning's `mislaid-leaf`.
+        // by class, like tide-cycle's `mislaid-leaf`.
         ProofFinding::UnknownSpoke { label, .. } => {
             (refining_error(practice, class, None), label.clone())
         }

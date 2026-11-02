@@ -99,21 +99,21 @@ fn atom_index(world: &World, name: &str) -> Atom {
 
 // --- Golden worlds ----------------------------------------------------------
 
-/// The saltmarket golden: two decided adjacency facts on one map decision, plus
+/// The storybook golden: two decided adjacency facts on one map decision, plus
 /// an open question whose options each imply who keeps the ledger.
-fn saltmarket_world() -> World {
+fn storybook_world() -> World {
     let document = Document {
         scope: None,
         decls: vec![
             decided_fact(
                 "adjacent",
-                vec![sym("saltmarket"), sym("the-shallows")],
-                "d-saltmarket-map",
+                vec![sym("storybook"), sym("riverside")],
+                "d-storybook-map",
             ),
             decided_fact(
                 "adjacent",
-                vec![sym("the-shallows"), sym("the-weir")],
-                "d-saltmarket-map",
+                vec![sym("riverside"), sym("the-weir")],
+                "d-storybook-map",
             ),
             Decl::Question(QuestionDecl {
                 name: Ident::synthetic("who-keeps-the-ledger"),
@@ -124,7 +124,7 @@ fn saltmarket_world() -> World {
                         "keeps",
                         vec![sym("old-fen"), sym("the-salt-ledger")],
                     ),
-                    option("mara", "keeps", vec![sym("mara"), sym("the-salt-ledger")]),
+                    option("nara", "keeps", vec![sym("nara"), sym("the-salt-ledger")]),
                 ],
                 provenance: Some(provenance(ProvenanceMarker::Proposed, &[])),
             }),
@@ -156,8 +156,8 @@ fn saltmarket_world() -> World {
 fn mixed_keeper_world() -> World {
     let mut world = World::new();
     world.assert_fact(ga("keeps", &["fen"]), Ann::unconditional());
-    let option = world.interner.intern("mara-option");
-    world.assert_fact(ga("keeps", &["mara"]), Ann::supported(PosBool::pos(option)));
+    let option = world.interner.intern("nara-option");
+    world.assert_fact(ga("keeps", &["nara"]), Ann::supported(PosBool::pos(option)));
     world.fixpoint().unwrap()
 }
 
@@ -165,8 +165,8 @@ fn mixed_keeper_world() -> World {
 
 #[test]
 fn why_renders_the_support_antichain_over_the_golden() {
-    let world = saltmarket_world();
-    let goal = query(atom("reachable", vec![sym("saltmarket"), sym("the-weir")]));
+    let world = storybook_world();
+    let goal = query(atom("reachable", vec![sym("storybook"), sym("the-weir")]));
     let opts = QueryOpts {
         why: true,
         ..Default::default()
@@ -174,19 +174,19 @@ fn why_renders_the_support_antichain_over_the_golden() {
     let answer = world.query_with(&goal, &opts).unwrap();
     assert_eq!(answer.rows.len(), 1);
 
-    let map = atom_index(&world, "d-saltmarket-map");
+    let map = atom_index(&world, "d-storybook-map");
     let why = answer.rows[0].why.as_ref().expect("why attached");
     // The two-hop closure rests on one witness: the map decision (both hops
     // cite it; absorption collapses the conjunction to a single claim).
     assert_eq!(why.antichain, vec![vec![ClaimId(map.0)]]);
-    assert_eq!(why.rendered, vec!["d-saltmarket-map".to_owned()]);
+    assert_eq!(why.rendered, vec!["d-storybook-map".to_owned()]);
     assert_eq!(why.min_why(), Some(&vec![ClaimId(map.0)]));
 }
 
 #[test]
 fn why_is_absent_unless_requested() {
-    let world = saltmarket_world();
-    let goal = query(atom("reachable", vec![sym("saltmarket"), sym("the-weir")]));
+    let world = storybook_world();
+    let goal = query(atom("reachable", vec![sym("storybook"), sym("the-weir")]));
 
     let plain = world.query_with(&goal, &QueryOpts::default()).unwrap();
     assert!(plain.rows.iter().all(|row| row.why.is_none()));
@@ -237,13 +237,13 @@ fn why_not_on_a_proposed_fact_names_its_proposal_var() {
         scope: None,
         decls: vec![fact(
             "keeps",
-            vec![sym("mara"), sym("the-salt-ledger")],
+            vec![sym("nara"), sym("the-salt-ledger")],
             Some(provenance(ProvenanceMarker::Proposed, &[])),
         )],
     };
     let world = World::lower(&document).unwrap().fixpoint().unwrap();
 
-    let goal = atom("keeps", vec![sym("mara"), sym("the-salt-ledger")]);
+    let goal = atom("keeps", vec![sym("nara"), sym("the-salt-ledger")]);
     let wn = why_not(&world, &goal);
     assert!(wn.known);
     // Possible, not certain: the proposal awaits a ruling.
@@ -289,8 +289,8 @@ fn why_not_reads_the_defeater_as_blame() {
 
 #[test]
 fn why_not_on_an_unknown_atom_is_marked_unknown() {
-    let world = saltmarket_world();
-    let wn = why_not(&world, &atom("floats", vec![sym("saltmarket")]));
+    let world = storybook_world();
+    let wn = why_not(&world, &atom("floats", vec![sym("storybook")]));
     assert!(!wn.known);
     assert!(wn.blocking.is_empty());
     assert_eq!(wn.defeater, None);
@@ -338,7 +338,7 @@ fn layer_possible_keeps_certain_and_shadow() {
         .map(|row| row.bindings["who"].as_str())
         .collect();
     who.sort_unstable();
-    assert_eq!(who, vec!["fen", "mara"]);
+    assert_eq!(who, vec!["fen", "nara"]);
 
     // All coincides with Possible on the query surface (dead atoms never
     // appear in any layer).
@@ -358,7 +358,7 @@ fn layer_possible_keeps_certain_and_shadow() {
 
 #[test]
 fn fork_overlay_changes_answers_without_re_lowering() {
-    let world = saltmarket_world();
+    let world = storybook_world();
     let goal = query(atom("keeps", vec![var("who"), sym("the-salt-ledger")]));
 
     // Base: both keepers are merely possible while the question is open.
@@ -369,10 +369,10 @@ fn fork_overlay_changes_answers_without_re_lowering() {
     // A fork overlay ruling for old-fen (and its exclusivity sibling false, as
     // the fork lane would). Applied over the ambient ledger.
     let old_fen = atom_index(&world, "old-fen");
-    let mara = atom_index(&world, "mara");
+    let nara = atom_index(&world, "nara");
     let mut overlay = Valuation::new();
     overlay.set(old_fen, true);
-    overlay.set(mara, false);
+    overlay.set(nara, false);
     let forked = world
         .query_with(
             &goal,
@@ -484,9 +484,9 @@ fn as_of_an_unknown_point_filters_nothing() {
 
 #[test]
 fn query_is_the_default_options_case() {
-    let world = saltmarket_world();
+    let world = storybook_world();
     for goal in [
-        atom("reachable", vec![sym("saltmarket"), var("Z")]),
+        atom("reachable", vec![sym("storybook"), var("Z")]),
         atom("keeps", vec![var("who"), sym("the-salt-ledger")]),
     ] {
         let q = query(goal);

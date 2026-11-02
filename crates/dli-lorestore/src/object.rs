@@ -152,7 +152,7 @@ pub struct ExpertBody {
     /// The declaration name (or the decision id for `Ratify`).
     pub name: String,
     /// Header tokens after the name (e.g. `severity error`, `speaker protagonist
-    /// in spoken-proof`, `over order`). Empty for declarations with no header.
+    /// in spoken-oath`, `over order`). Empty for declarations with no header.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub head: Vec<String>,
     /// The whitespace-normalized clause body lines, in source order.
@@ -455,7 +455,7 @@ mod tests {
             crate::ClaimId::from_label("test/standing"),
             dli_eval::world::GroundAtom {
                 pred: "person".to_owned(),
-                args: vec!["mara".to_owned()],
+                args: vec!["nara".to_owned()],
             },
             PosBool::truth(),
             PosBool::FALSE,

@@ -65,11 +65,11 @@ fn finding_codes(result: &Value) -> Vec<String> {
 /// A base store with one ratified place, built through the read-complete
 /// `with_pack` constructor so the reads evaluate `base + staged`.
 fn base_store() -> Store {
-    let source = "scope tpth\nratify D-0001\nplace saltmere \"Saltmere\"  ratified D-0001\n";
+    let source = "scope storybook\nratify D-0001\nplace saltmere \"Saltmere\"  ratified D-0001\n";
     let (document, diagnostics) = dli_syntax::parse_document(source);
     assert!(diagnostics.is_empty(), "base parses: {diagnostics:?}");
     Store::with_pack(Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     })
     .expect("base compiles")
@@ -116,26 +116,26 @@ fn add_relation(store: &mut Store, ws: &str, relation: &str, from: &str, to: &st
 #[allow(clippy::too_many_lines)]
 fn end_to_end_self_check_session() {
     let mut store = base_store();
-    let ws = open_scope(&mut store, "tpth");
+    let ws = open_scope(&mut store, "storybook");
 
     // 1. Author the artifact: a person, her tongue, and two relations — one to a
     //    known base entity (saltmere), one to an entity not yet introduced.
-    add_entity(&mut store, &ws, "mara");
+    add_entity(&mut store, &ws, "nara");
     send(
         &mut store,
         "add-fact",
         Op::AuthorAddFact,
-        json!({ "workspace": ws, "entity": "mara", "key": "tongue", "value": "low-saltish", "provenance": proposed() }),
+        json!({ "workspace": ws, "entity": "nara", "key": "tongue", "value": "low-saltish", "provenance": proposed() }),
     );
     // A relation to the ratified base place resolves — proof the staged world
     // sees the base's entities.
-    let dwells = add_relation(&mut store, &ws, "dwells", "mara", "saltmere");
+    let dwells = add_relation(&mut store, &ws, "dwells", "nara", "saltmere");
     assert!(
         !finding_codes(result(&dwells)).contains(&"entity.unknown".to_owned()),
         "a relation to a known base entity raises no unknown-entity finding"
     );
     // A relation to an entity the agent has not introduced stages, but flags.
-    let serves = add_relation(&mut store, &ws, "serves", "mara", "the-warden");
+    let serves = add_relation(&mut store, &ws, "serves", "nara", "the-warden");
     assert!(
         finding_codes(result(&serves)).contains(&"entity.unknown".to_owned()),
         "a relation to an unintroduced entity flags entity.unknown"
@@ -181,11 +181,11 @@ fn end_to_end_self_check_session() {
         &mut store,
         "query",
         Op::AuthorQuery,
-        json!({ "workspace": ws, "goal": "serves(mara, ?who)", "why": true }),
+        json!({ "workspace": ws, "goal": "serves(nara, ?who)", "why": true }),
     );
     let rows = result(&query)["rows"].as_array().unwrap().clone();
     assert_eq!(rows.len(), 1, "one staged serves-row over the staged world");
-    assert_eq!(rows[0]["atom"], "serves(mara, the-warden)");
+    assert_eq!(rows[0]["atom"], "serves(nara, the-warden)");
     assert_eq!(
         rows[0]["status"], "possible",
         "a proposed claim is possible, never certain"
@@ -207,7 +207,7 @@ fn end_to_end_self_check_session() {
             .is_some_and(|changes| {
                 changes.iter().any(|change| {
                     change["atom"]["pred"] == "serves"
-                        && change["atom"]["args"] == json!(["mara", "the-warden"])
+                        && change["atom"]["args"] == json!(["nara", "the-warden"])
                         && change["before"]["status"] == "dead"
                         && change["after"]["status"] == "possible"
                 })
@@ -225,7 +225,7 @@ fn end_to_end_self_check_session() {
         &mut store,
         "why",
         Op::AuthorWhy,
-        json!({ "workspace": ws, "atom": "serves(mara, the-warden)" }),
+        json!({ "workspace": ws, "atom": "serves(nara, the-warden)" }),
     );
     let why_not = &result(&why)["why_not"];
     assert_eq!(
@@ -286,7 +286,7 @@ fn end_to_end_self_check_session() {
     assert!(
         rendered
             .iter()
-            .any(|line| line.as_str().unwrap().contains("scope tpth")),
+            .any(|line| line.as_str().unwrap().contains("scope storybook")),
         "materialize returns the canonical scoped surface"
     );
 }
@@ -296,10 +296,10 @@ fn end_to_end_self_check_session() {
 #[test]
 fn query_enumerates_over_the_staged_world() {
     let mut store = base_store();
-    let ws = open_scope(&mut store, "tpth");
-    add_entity(&mut store, &ws, "mara");
+    let ws = open_scope(&mut store, "storybook");
+    add_entity(&mut store, &ws, "nara");
     add_entity(&mut store, &ws, "fen");
-    add_relation(&mut store, &ws, "serves", "mara", "saltmere");
+    add_relation(&mut store, &ws, "serves", "nara", "saltmere");
     add_relation(&mut store, &ws, "serves", "fen", "saltmere");
 
     // A variable in the second slot enumerates; a variable in the first slot
@@ -317,16 +317,16 @@ fn query_enumerates_over_the_staged_world() {
 #[test]
 fn query_certain_layer_hides_proposed_rows() {
     let mut store = base_store();
-    let ws = open_scope(&mut store, "tpth");
-    add_entity(&mut store, &ws, "mara");
-    add_relation(&mut store, &ws, "serves", "mara", "saltmere");
+    let ws = open_scope(&mut store, "storybook");
+    add_entity(&mut store, &ws, "nara");
+    add_relation(&mut store, &ws, "serves", "nara", "saltmere");
 
     // The proposed claim is possible, never certain: the certain floor drops it.
     let certain = send(
         &mut store,
         "q-cert",
         Op::AuthorQuery,
-        json!({ "workspace": ws, "goal": "serves(mara, saltmere)", "layer": "certain" }),
+        json!({ "workspace": ws, "goal": "serves(nara, saltmere)", "layer": "certain" }),
     );
     assert!(
         result(&certain)["rows"].as_array().unwrap().is_empty(),
@@ -336,7 +336,7 @@ fn query_certain_layer_hides_proposed_rows() {
         &mut store,
         "q-all",
         Op::AuthorQuery,
-        json!({ "workspace": ws, "goal": "serves(mara, saltmere)" }),
+        json!({ "workspace": ws, "goal": "serves(nara, saltmere)" }),
     );
     assert_eq!(result(&all)["rows"].as_array().unwrap().len(), 1);
 }
@@ -344,7 +344,7 @@ fn query_certain_layer_hides_proposed_rows() {
 #[test]
 fn query_bad_goal_is_a_schema_violation() {
     let mut store = base_store();
-    let ws = open_scope(&mut store, "tpth");
+    let ws = open_scope(&mut store, "storybook");
     let response = send(
         &mut store,
         "q-bad",
@@ -367,12 +367,12 @@ fn query_bad_goal_is_a_schema_violation() {
 #[test]
 fn query_unknown_predicate_is_empty_not_error() {
     let mut store = base_store();
-    let ws = open_scope(&mut store, "tpth");
+    let ws = open_scope(&mut store, "storybook");
     let response = send(
         &mut store,
         "q-unknown",
         Op::AuthorQuery,
-        json!({ "workspace": ws, "goal": "flies(mara)" }),
+        json!({ "workspace": ws, "goal": "flies(nara)" }),
     );
     // Asked and answered, nothing matched — a diagnosed absence, not a fault.
     assert!(response.ok);
@@ -382,9 +382,9 @@ fn query_unknown_predicate_is_empty_not_error() {
 #[test]
 fn findings_partitions_by_severity_with_repairs() {
     let mut store = base_store();
-    let ws = open_scope(&mut store, "tpth");
-    add_entity(&mut store, &ws, "mara");
-    add_relation(&mut store, &ws, "serves", "mara", "the-warden");
+    let ws = open_scope(&mut store, "storybook");
+    add_entity(&mut store, &ws, "nara");
+    add_relation(&mut store, &ws, "serves", "nara", "the-warden");
 
     let findings = send(
         &mut store,
@@ -409,7 +409,7 @@ fn findings_partitions_by_severity_with_repairs() {
 #[test]
 fn why_reports_unknown_for_an_underived_atom() {
     let mut store = base_store();
-    let ws = open_scope(&mut store, "tpth");
+    let ws = open_scope(&mut store, "storybook");
     let why = send(
         &mut store,
         "why-unknown",
@@ -428,15 +428,15 @@ fn why_reports_unknown_for_an_underived_atom() {
 fn check_flags_a_contradiction_against_the_base() {
     // The base rules saltmere's `kind` certain; a staged fact setting it otherwise
     // contradicts canon, and author.check surfaces it as an error.
-    let source = "scope tpth\nratify D-0001\nplace saltmere \"Saltmere\"  ratified D-0001\nsaltmere.region = tidewater  ratified D-0001\n";
+    let source = "scope storybook\nratify D-0001\nplace saltmere \"Saltmere\"  ratified D-0001\nsaltmere.region = tidewater  ratified D-0001\n";
     let (document, diagnostics) = dli_syntax::parse_document(source);
     assert!(diagnostics.is_empty(), "base parses: {diagnostics:?}");
     let mut store = Store::with_pack(Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     })
     .expect("base compiles");
-    let ws = open_scope(&mut store, "tpth");
+    let ws = open_scope(&mut store, "storybook");
     send(
         &mut store,
         "contradict",
@@ -468,7 +468,7 @@ fn check_flags_a_contradiction_against_the_base() {
 #[test]
 fn list_workspaces_recovers_open_context() {
     let mut store = base_store();
-    let scope_ws = open_scope(&mut store, "tpth");
+    let scope_ws = open_scope(&mut store, "storybook");
     let fork_response = send(
         &mut store,
         "open-fork",
@@ -479,7 +479,7 @@ fn list_workspaces_recovers_open_context() {
         .as_str()
         .unwrap()
         .to_owned();
-    add_entity(&mut store, &scope_ws, "mara");
+    add_entity(&mut store, &scope_ws, "nara");
 
     let list = send(&mut store, "list", Op::AuthorListWorkspaces, json!({}));
     let workspaces = result(&list)["workspaces"].as_array().unwrap();
@@ -490,7 +490,7 @@ fn list_workspaces_recovers_open_context() {
         .find(|w| w["workspace"] == scope_ws.as_str())
         .expect("the scope workspace is listed");
     assert_eq!(scope_row["mode"], "scope");
-    assert_eq!(scope_row["base"], "tpth");
+    assert_eq!(scope_row["base"], "storybook");
     assert_eq!(scope_row["staged"], 1, "one declaration is staged");
     assert!(!scope_row["workspace_digest"].as_str().unwrap().is_empty());
 
@@ -526,7 +526,7 @@ fn read_tools_reject_an_unknown_workspace() {
 fn read_tools_reject_unknown_fields() {
     // H2: an unknown top-level field is a schema-violation, never silently dropped.
     let mut store = base_store();
-    let ws = open_scope(&mut store, "tpth");
+    let ws = open_scope(&mut store, "storybook");
     let response = send(
         &mut store,
         "unknown-field",

@@ -131,16 +131,16 @@ fn gauntlet(with_same_as: bool) -> Pack {
     let mut decls = vec![
         ratify_decl("D-1"),
         ratify_decl("D-9"),
-        entity(EntityKind::Place, "mara", "D-1"),
+        entity(EntityKind::Place, "nara", "D-1"),
         entity(EntityKind::Place, "moira", "D-1"),
         // h.weir#0
-        fact("linked", &["mara", "camelot"], Some(proposed())),
+        fact("linked", &["nara", "camelot"], Some(proposed())),
     ];
     if with_same_as {
-        decls.push(same_as("mara", "moira", Some(ratified("D-9"))));
+        decls.push(same_as("nara", "moira", Some(ratified("D-9"))));
     }
     // h.weir#1 — #2 if the same-as above burned an index
-    decls.push(fact("omen", &["mara", "storm"], Some(proposed())));
+    decls.push(fact("omen", &["nara", "storm"], Some(proposed())));
     pack("weir", decls)
 }
 
@@ -198,7 +198,7 @@ fn same_as_lowers_to_a_carriage_object_then_its_atom() {
         "the atom object carries no body"
     );
     assert_eq!(next.atom.pred, "same-as");
-    assert_eq!(next.atom.args, vec!["mara".to_owned(), "moira".to_owned()]);
+    assert_eq!(next.atom.args, vec!["nara".to_owned(), "moira".to_owned()]);
 }
 
 // ── the interner lock-step pin ───────────────────────────────────────
@@ -299,7 +299,7 @@ fn expected_claim_id_re_derives_for_both_the_carriage_and_the_atom() {
         .expect("carriage object");
     assert_eq!(
         expected_claim_id(carriage),
-        ClaimId::from_label("decl:SameAs:mara=moira"),
+        ClaimId::from_label("decl:SameAs:nara=moira"),
         "the carriage claim id is minted from the decl kind and display name"
     );
 
@@ -309,7 +309,7 @@ fn expected_claim_id_re_derives_for_both_the_carriage_and_the_atom() {
         .expect("atom object");
     assert_eq!(
         expected_claim_id(atom_obj),
-        ClaimId::from_label("atom:same-as(mara, moira)"),
+        ClaimId::from_label("atom:same-as(nara, moira)"),
         "the atom claim id is minted from the rendered ground atom, the SAME scheme every fact uses"
     );
 }
@@ -340,7 +340,7 @@ fn same_as_round_trips_through_reconstruct_pack() {
         })
         .collect();
     assert_eq!(recovered.len(), 1, "the same-as decl survives the store");
-    assert_eq!(recovered[0].left.text, "mara");
+    assert_eq!(recovered[0].left.text, "nara");
     assert_eq!(recovered[0].right.text, "moira");
     assert_eq!(
         recovered[0].provenance,
@@ -431,9 +431,9 @@ fn defeat_gauntlet() -> Pack {
             ratify_decl("D-1"),
             ratify_decl("D-9"),
             functional("rank", Some(ratified("D-1"))),
-            fact("rank", &["mara", "gold"], Some(ratified("D-1"))),
+            fact("rank", &["nara", "gold"], Some(ratified("D-1"))),
             fact("rank", &["moira", "silver"], Some(ratified("D-1"))),
-            same_as("mara", "moira", Some(ratified("D-9"))),
+            same_as("nara", "moira", Some(ratified("D-9"))),
         ],
     )
 }
@@ -502,9 +502,9 @@ fn assert_unmerged_and_control_certain(refolded: &CompiledWorld) {
         fd_after.is_empty(),
         "the durable defeat must un-merge the slot on the next read: {fd_after:?}"
     );
-    let mara_rank_status = refolded.model().atoms().iter().find_map(|atom| {
+    let nara_rank_status = refolded.model().atoms().iter().find_map(|atom| {
         (atom.atom.pred.text == "rank"
-            && matches!(&atom.atom.args[0], Term::Sym(subj) if subj.text == "mara"))
+            && matches!(&atom.atom.args[0], Term::Sym(subj) if subj.text == "nara"))
         .then(|| {
             atom.ann.status(
                 &refolded.model().world.valuation,
@@ -513,7 +513,7 @@ fn assert_unmerged_and_control_certain(refolded: &CompiledWorld) {
         })
     });
     assert_eq!(
-        mara_rank_status,
+        nara_rank_status,
         Some(Status::Certain),
         "D-1's own fact is untouched by defeating D-9"
     );

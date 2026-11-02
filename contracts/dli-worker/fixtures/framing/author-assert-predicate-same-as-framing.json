@@ -11,7 +11,9 @@
           "dli": "2.0.0",
           "id": "pre-1",
           "op": "author.open",
-          "params": {"scope": "saltmarket"}
+          "params": {
+            "scope": "storybook"
+          }
         }
       ],
       "control": {
@@ -22,7 +24,10 @@
           "workspace": "ws-1",
           "left": "current-work",
           "right": "current-job",
-          "provenance": {"kind": "proposed", "origin": "benign-control"}
+          "provenance": {
+            "kind": "proposed",
+            "origin": "benign-control"
+          }
         }
       },
       "attack": {
@@ -33,19 +38,35 @@
           "workspace": "ws-1",
           "left": "current-work",
           "right": "current-job",
-          "provenance": {"kind": "proposed", "origin": "__DLI_FRAME_ATTACK__"}
+          "provenance": {
+            "kind": "proposed",
+            "origin": "__DLI_FRAME_ATTACK__"
+          }
         }
       },
-      "changed_paths": ["/params/provenance/origin"],
-      "compare_paths": ["/ok", "/result/findings"],
-      "allow_taint_paths": ["/result/workspace_digest", "/result/diff_rows", "/result/staged"],
+      "changed_paths": [
+        "/params/provenance/origin"
+      ],
+      "compare_paths": [
+        "/ok",
+        "/result/findings"
+      ],
+      "allow_taint_paths": [
+        "/result/workspace_digest",
+        "/result/diff_rows",
+        "/result/staged"
+      ],
       "probe": {
         "dli": "2.0.0",
         "id": "probe",
         "op": "author.status",
-        "params": {"workspace": "ws-1"}
+        "params": {
+          "workspace": "ws-1"
+        }
       },
-      "probe_compare_paths": ["/ok"]
+      "probe_compare_paths": [
+        "/ok"
+      ]
     }
   ]
 }

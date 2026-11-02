@@ -42,9 +42,9 @@ use dli_core::Grade;
 /// for change detection. Subject fingerprints cover fact content, standing,
 /// and resolved support; [`fingerprint_facts`] remains the atom-only primitive
 /// for callers that explicitly need that projection. It needs no cryptographic
-/// strength because the factory that writes the store is trusted and the threat
+/// strength because the application that writes the store is trusted and the threat
 /// is accidental drift, not adversarial collision. It is deliberately distinct
-/// from the factory-supplied `sha256:` hashes carried in
+/// from the caller-supplied `sha256:` hashes carried in
 /// [`Attestation::rationale_hash`] and [`PromptRef::hash`].
 #[derive(
     Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
@@ -82,9 +82,9 @@ impl std::fmt::Display for QuestionKey {
 pub struct Question {
     /// The question class, e.g. `dialect-real-basis`.
     pub kind: String,
-    /// The rendered atom under judgment, e.g. `name-basis(enfys, welsh-common-given)`.
+    /// The rendered atom under judgment, e.g. `name-basis(linet, welsh-common-given)`.
     pub atom: String,
-    /// The world entity whose current content decides staleness, e.g. `enfys`.
+    /// The world entity whose current content decides staleness, e.g. `linet`.
     /// The staleness anchor: when the world's facts about this subject change,
     /// the attestation goes stale and joins the re-attestation queue.
     pub subject: String,
@@ -120,7 +120,7 @@ pub struct ModelRef {
 pub struct PromptRef {
     /// The template reference, e.g. `naming/dialect-basis@v3`.
     pub template: String,
-    /// A `sha256:` hash of the rendered prompt, supplied by the factory.
+    /// A `sha256:` hash of the rendered prompt, supplied by the caller.
     pub hash: String,
 }
 
@@ -170,7 +170,7 @@ pub struct Attestation {
     /// replay. New server requests accept only `yes` or `no`.
     pub answer: String,
     /// A `sha256:` hash of the model's rationale; the full text lives in the
-    /// sweep manifest. Factory-supplied — stored and compared, never recomputed.
+    /// sweep manifest. Caller-supplied — stored and compared, never recomputed.
     pub rationale_hash: String,
     /// The model that produced the judgment.
     pub model: ModelRef,
@@ -222,7 +222,7 @@ impl Attestation {
     ///
     /// let atom = AtomExpr {
     ///     pred: Ident::synthetic("rings"),
-    ///     args: vec![Term::Sym(Ident::synthetic("tide-bell"))],
+    ///     args: vec![Term::Sym(Ident::synthetic("bellsong"))],
     /// };
     /// let taken = fingerprint_facts([&atom]);
     /// // Same content re-fingerprints identically — fresh.
@@ -330,7 +330,7 @@ impl AttestationStore {
 pub enum AttestFinding {
     /// A check demanded an attestation the store lacks. The kernel reports this
     /// rather than guessing or defaulting an answer: attestation-missing is a
-    /// finding, because the kernel never calls a model (spec §3). The factory
+    /// finding, because the kernel never calls a model (spec §3). The caller
     /// answers it by running a sweep and committing a record.
     Missing {
         /// The question whose attestation is absent.
@@ -372,7 +372,7 @@ impl AttestFinding {
 /// use dli_world::attest::{require_attestation, AttestationStore, QuestionKey};
 ///
 /// let store = AttestationStore::new();
-/// let key = QuestionKey("dialect-real-basis::name-basis(enfys, welsh)".to_owned());
+/// let key = QuestionKey("dialect-real-basis::name-basis(linet, welsh)".to_owned());
 /// let finding = require_attestation(&store, &key).unwrap_err();
 /// assert_eq!(finding.code(), "attest.missing");
 /// ```
@@ -425,8 +425,8 @@ pub struct RatifiedFact {
 /// let head = Attestation {
 ///     question: Question {
 ///         kind: "dialect-real-basis".to_owned(),
-///         atom: "name-basis(enfys, welsh)".to_owned(),
-///         subject: "enfys".to_owned(),
+///         atom: "name-basis(linet, welsh)".to_owned(),
+///         subject: "linet".to_owned(),
 ///     },
 ///     answer: "yes".to_owned(),
 ///     rationale_hash: "sha256:c41a".to_owned(),
@@ -472,7 +472,7 @@ pub fn ratification_exit(head: &Attestation, ruling: impl Into<String>) -> Optio
 /// fingerprint depends on the *content* of the fact set and not on iteration
 /// order or repetition. This is the projection [`crate::sweep`] recomputes for a
 /// subject's current facts and compares against each head's stored fingerprint;
-/// the factory computes the stored fingerprint the same way when it takes the
+/// the caller computes the stored fingerprint the same way when it takes the
 /// attestation. Source spans are excluded — only the rendered atom (predicate
 /// and arguments) is hashed — so an unrelated edit that moves a fact does not
 /// spuriously stale it.
@@ -483,10 +483,10 @@ pub fn ratification_exit(head: &Attestation, ruling: impl Into<String>) -> Optio
 /// use dli_ast::term::{AtomExpr, Term};
 ///
 /// let a = AtomExpr { pred: Ident::synthetic("rings"),
-///     args: vec![Term::Sym(Ident::synthetic("tide-bell"))] };
+///     args: vec![Term::Sym(Ident::synthetic("bellsong"))] };
 /// let b = AtomExpr { pred: Ident::synthetic("adjacent"),
-///     args: vec![Term::Sym(Ident::synthetic("saltmarket")),
-///                Term::Sym(Ident::synthetic("the-shallows"))] };
+///     args: vec![Term::Sym(Ident::synthetic("storybook")),
+///                Term::Sym(Ident::synthetic("riverside"))] };
 ///
 /// // Order-independent: {a, b} fingerprints the same either way.
 /// assert_eq!(fingerprint_facts([&a, &b]), fingerprint_facts([&b, &a]));
@@ -511,7 +511,7 @@ pub fn fingerprint_strings(values: impl IntoIterator<Item = String>) -> ContentH
     ContentHash(format!("fnv1a64:{:016x}", fnv1a64(preimage.as_bytes())))
 }
 
-/// A canonical, span-free rendering of an atom, e.g. `rings(tide-bell)`.
+/// A canonical, span-free rendering of an atom, e.g. `rings(bellsong)`.
 fn render_atom(atom: &AtomExpr) -> String {
     let args: Vec<String> = atom.args.iter().map(render_term).collect();
     format!("{}({})", atom.pred.text, args.join(","))

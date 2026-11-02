@@ -68,7 +68,7 @@ fn doc(pack: &str, decls: Vec<Decl>) -> Document {
 fn deferred_forms() -> Vec<Decl> {
     vec![
         Decl::Use(UseDecl {
-            target: id("cymric-fringe"),
+            target: id("elder-tongue-fringe"),
             span: Span::synthetic(),
         }),
         Decl::Draft(DraftDecl {
@@ -84,7 +84,7 @@ fn deferred_forms() -> Vec<Decl> {
             provenance: Some(proposed()),
         }),
         Decl::Variant(VariantDecl {
-            path: id("turning/keep-stamped"),
+            path: id("moon-cycle/winter"),
             body: Vec::new(),
             provenance: Some(proposed()),
         }),

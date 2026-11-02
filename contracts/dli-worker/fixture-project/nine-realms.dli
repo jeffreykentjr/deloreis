@@ -1,0 +1,78 @@
+scope nine-realms
+
+ratify d-0001
+ratify d-0002
+ratify d-0003
+ratify d-0004
+ratify d-0005
+ratify d-0006
+ratify d-0007
+ratify d-0008
+ratify d-0009
+ratify d-0010
+ratify d-0011
+ratify d-0012
+ratify d-0013
+ratify d-0014
+era elder-age < the-binding-age < the-wolf-age < after-ragnarok decided d-0001
+event the-world-shaped       during elder-age decided d-0002
+event the-wall-raised        during elder-age decided d-0002
+event the-binding-of-fenrir  during the-binding-age decided d-0003
+event the-death-of-baldr     during the-binding-age decided d-0003
+event fimbulwinter-falls     during the-wolf-age proposed
+event the-last-battle        during the-wolf-age decided d-0004
+before the-binding-of-fenrir -> the-death-of-baldr decided d-0003
+narration vantage after-ragnarok
+cycle season(4) = winter | spring | summer | autumn decided d-0009
+cycle great-year(4) = gold | strife | doom | reborn decided d-0009
+rule elder-age-held-back over order decided d-0010
+  : listener-learns(during elder-age _) requires act > 1
+place asgard       "Asgard"       decided d-0004
+place vanaheim     "Vanaheim"     decided d-0004
+place alfheim      "Alfheim"      decided d-0004
+place midgard      "Midgard"      decided d-0005
+place jotunheim    "Jotunheim"    decided d-0005
+place svartalfheim "Svartalfheim" decided d-0005
+place muspelheim   "Muspelheim"   decided d-0006
+place niflheim     "Niflheim"     decided d-0006
+place helheim      "Helheim"      decided d-0006
+adjacent(asgard, midgard)       decided d-0004
+adjacent(asgard, vanaheim)      decided d-0004
+adjacent(midgard, jotunheim)    decided d-0005
+adjacent(midgard, svartalfheim) decided d-0005
+adjacent(vanaheim, alfheim)     decided d-0005
+adjacent(muspelheim, niflheim)  decided d-0006
+adjacent(niflheim, helheim)     decided d-0006
+adjacent(jotunheim, niflheim)   decided d-0006
+adjacent(asgard, alfheim)       proposed
+person odin     "Odin All-Father" decided d-0006
+person thor     "Thor"            decided d-0007
+person loki     "Loki"            decided d-0007
+person heimdall "Heimdall"        decided d-0007
+thing gungnir "Gungnir"      decided d-0008
+thing sol     "Sol, the Sun" decided d-0008
+fact odin rules asgard       decided d-0006
+fact thor guards midgard     decided d-0007
+fact heimdall watches asgard decided d-0007
+state sol.course = crossing until the-last-battle decided d-0008
+state sol.course = devoured since the-last-battle decided d-0008
+warded(asgard)  ratified d-0011
+stormed(asgard) proposed
+rule ward-holds ratified d-0011
+  ward-holds($r) :- warded($r), not stormed($r)
+term the-doom "Ragnarok, the fated fall of the gods and the burning of the Nine Realms" decided d-0012
+banned gunpowder d-0013 "the Nine Realms keep to seax and spear — no black-powder anachronism"
+banned clockwork d-0013 "fate is spun by the Norns, never geared — no mechanism in-world"
+fork what-does-wisdom-cost
+  option an-eye-at-the-well
+  option a-nine-day-hanging
+hypothesis h-return "the world rises again, green, out of the sea after the fire"
+question who-holds-the-reborn-world "Who holds the world after the fire?"
+  option the-sons-of-thor  implies holds(the-sons-of-thor, after-ragnarok)
+  option baldr-returned
+holds(baldr, after-ragnarok) proposed assumes baldr-returned and h-return
+hypothesis h-seer-foresaw "the seeress foresaw the doom from the first, and sang it before it came"
+event the-first-prophecy  during the-binding-age proposed assumes h-seer-foresaw
+ratify d-0014 {
+  h-seer-foresaw := true
+}

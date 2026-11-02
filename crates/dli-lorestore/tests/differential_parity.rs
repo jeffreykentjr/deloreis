@@ -242,7 +242,7 @@ fn walk_dli(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
 /// whether the stored object carries an `expert_body`, while the write paths pick
 /// theirs at six separate call sites. Nothing structurally forces those two
 /// choices to agree, and if they ever diverge the validator would enforce an id
-/// the engine never mints — turning a guard into the bug.
+/// the engine never mints — making a guard into the bug.
 ///
 /// So the agreement is asserted end-to-end rather than argued: lower every
 /// example pack and require that the validator re-derives exactly the id the

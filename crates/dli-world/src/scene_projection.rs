@@ -38,7 +38,7 @@
 //! pool equals the certain layer. This is the conservative choice, not a liberal
 //! one — it fabricates no atom (every atom placed on stage is one the world
 //! already holds certain), whereas an empty knowledge/presence set would fabricate
-//! *absence*, turning valid castings into spurious L2 fizzles.
+//! *absence*, converting valid castings into spurious L2 fizzles.
 //!
 //! **Speaker-relative refinement (opt-in).** When the corpus *does* model speaker
 //! knowledge with ground `knows(<speaker>, <subject>)` certain facts, a named
@@ -101,7 +101,7 @@ use crate::check::CompiledWorld;
 /// scope demo
 /// ratify d-1
 /// cycle tide(4) = ebb | slack | flood | high  proposed
-/// fact enfys holds consent  decided d-1
+/// fact linet holds consent  decided d-1
 /// fact tide phase slack  decided d-1
 /// ";
 /// let (doc, diags) = parse_document(src);
@@ -109,10 +109,10 @@ use crate::check::CompiledWorld;
 /// let world = compile(&Pack { name: "demo".to_owned(), documents: vec![doc] })
 ///     .expect("the demo world compiles");
 ///
-/// let scene = project_scene(&world, Some("enfys"));
+/// let scene = project_scene(&world, Some("linet"));
 /// // The certain consent fact is in the pool (full-information default).
 /// assert_eq!(
-///     scene.availability("holds(enfys, consent)"),
+///     scene.availability("holds(linet, consent)"),
 ///     PremiseStatus::Available,
 /// );
 /// // The tide's phase in force and its declared spokes are read from the world.
@@ -450,12 +450,12 @@ mod tests {
     fn certain_layer_is_the_full_information_pool() {
         let world = world(vec![
             ratify("d-1"),
-            fact("holds", vec![sym("enfys"), sym("consent")], "d-1"),
+            fact("holds", vec![sym("linet"), sym("consent")], "d-1"),
         ]);
         let scene = project_scene(&world, None);
         // The certain fact is seated (certain ∩ known ∩ present) under the default.
         assert_eq!(
-            scene.availability("holds(enfys, consent)"),
+            scene.availability("holds(linet, consent)"),
             PremiseStatus::Available,
         );
         // A fact canon never asserts is absent (a fizzle), never a denial.
@@ -472,19 +472,19 @@ mod tests {
             ratify("d-1"),
             fact(
                 "calls",
-                vec![sym("enfys"), Term::Str("warden".to_owned())],
+                vec![sym("linet"), Term::Str("warden".to_owned())],
                 "d-1",
             ),
         ]);
         let scene = project_scene(&world, None);
 
         assert_eq!(
-            scene.availability(r#"calls(enfys, "warden")"#),
+            scene.availability(r#"calls(linet, "warden")"#),
             PremiseStatus::Available,
             "the quoted world fact must match the same quoted proof atom",
         );
         assert_eq!(
-            scene.availability("calls(enfys, warden)"),
+            scene.availability("calls(linet, warden)"),
             PremiseStatus::Absent,
             "a bare symbol must not match a string literal with the same text",
         );
@@ -496,7 +496,7 @@ mod tests {
         let world = world(vec![Decl::Fact(FactDecl {
             atom: AtomExpr {
                 pred: id("holds"),
-                args: vec![sym("enfys"), sym("consent")],
+                args: vec![sym("linet"), sym("consent")],
             },
             triple: false,
             provenance: Some(Annotation {
@@ -509,7 +509,7 @@ mod tests {
         })]);
         let scene = project_scene(&world, None);
         assert_eq!(
-            scene.availability("holds(enfys, consent)"),
+            scene.availability("holds(linet, consent)"),
             PremiseStatus::Absent,
             "shadow lore is not projected as an available premise",
         );
@@ -551,15 +551,15 @@ mod tests {
 
     #[test]
     fn a_named_speaker_narrows_the_pool_by_recorded_knowledge() {
-        // The corpus records what enfys knows: the door, but not the well.
+        // The corpus records what linet knows: the door, but not the well.
         let world = world(vec![
             ratify("d-1"),
-            fact("knows", vec![sym("enfys"), sym("door")], "d-1"),
+            fact("knows", vec![sym("linet"), sym("door")], "d-1"),
             fact("warded", vec![sym("door")], "d-1"),
             fact("warded", vec![sym("well")], "d-1"),
         ]);
         // For the knowing speaker, only the door-subject premise is in the pool.
-        let scene = project_scene(&world, Some("enfys"));
+        let scene = project_scene(&world, Some("linet"));
         assert_eq!(
             scene.availability("warded(door)"),
             PremiseStatus::Available,

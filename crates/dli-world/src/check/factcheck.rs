@@ -197,7 +197,7 @@ fn classify(
 
     let certain = certain_values(world, alias, &slot);
     // Compare on the normalized value key, so cosmetic drift (`gold` vs `Gold`,
-    // `tide-bell` vs `tide bell`) is not read as a distinct value — neither a
+    // `bell-song` vs `bell song`) is not read as a distinct value — neither a
     // false contradiction nor a phantom second value that would silently switch
     // the detector off (issue 49, sub-claim 1). Distinctness is counted on the
     // keys; the raw spelling is kept for the message.
@@ -353,13 +353,13 @@ impl RejectedClaim {
 impl KilledToken {
     /// Whether this token appears in `text` under its match mode.
     ///
-    /// Hyphen, space, and run-together spelling are treated as equivalent, so a
-    /// killed `tide-bell` is caught whether a draft writes `tide-bell`,
-    /// `tide bell`, or `tidebell` — the separator-stripping evasion (R2/D) does
-    /// not slip a killed token past the guard. The modes differ only in strictness
+    /// A killed `bell-song` is caught whether a draft writes `bell-song`,
+    /// `bell song`, or `bellsong`: the separator-stripping evasion does not
+    /// slip that token past the guard. A single-word needle does not match a
+    /// split spelling in word or phrase mode. The modes differ in strictness
     /// at the boundary: [`Word`](MatchMode::Word) and [`Phrase`](MatchMode::Phrase)
     /// match a whole token run and reject a longer word that merely contains it
-    /// (`tidebells` is not `tide-bell`), while [`Substring`](MatchMode::Substring)
+    /// (`bellsongs` is not `bellsong`), while [`Substring`](MatchMode::Substring)
     /// is liberal and matches anywhere in the separator-stripped text.
     #[must_use]
     pub fn matches(&self, text: &str) -> bool {
@@ -462,7 +462,7 @@ fn normalize(text: &str) -> String {
 }
 
 /// A normalized string with its word separators removed — the concatenated
-/// canonical form (`tide bell` → `tidebell`), so hyphenation, spacing, and
+/// canonical form (`bell song` → `bellsong`), so hyphenation, spacing, and
 /// run-together spelling all compare equal.
 fn strip_spaces(normalized: &str) -> String {
     normalized.split(' ').collect()
@@ -472,10 +472,10 @@ fn strip_spaces(normalized: &str) -> String {
 /// Both inputs are already [`normalize`]d.
 ///
 /// This treats hyphen, space, and concatenation as equivalent at token
-/// boundaries: `tide-bell` (normalized to `tide bell`) matches `tidebell` and
-/// `tide bell` alike. It does not join arbitrary fragments such as `ti debell`,
+/// boundaries: `bell-song` (normalized to `bell song`) matches `bellsong` and
+/// `bell song` alike. It does not join arbitrary fragments such as `be llsong`,
 /// and it never matches a longer word that merely contains the needle
-/// (`tidebells`). Those boundaries separate
+/// (`bellsongs`). Those boundaries separate
 /// [`Word`](MatchMode::Word)/[`Phrase`](MatchMode::Phrase) from the liberal
 /// [`Substring`](MatchMode::Substring).
 fn phrase_present(haystack: &str, needle: &str) -> bool {

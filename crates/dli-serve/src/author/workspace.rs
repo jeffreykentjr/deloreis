@@ -836,7 +836,7 @@ mod tests {
     }
 
     fn indexed_base() -> (dli_world::CompiledWorld, Vec<dli_ast::decl::Document>) {
-        let source = "scope saltmarket\nratify d-1\nperson world \"World\" decided d-1\nworld.holds = old decided d-1\n";
+        let source = "scope storybook\nratify d-1\nperson world \"World\" decided d-1\nworld.holds = old decided d-1\n";
         let (document, diagnostics) = dli_syntax::parse_document(source);
         assert!(
             diagnostics
@@ -846,7 +846,7 @@ mod tests {
         );
         let documents = vec![document];
         let world = dli_world::compile(&dli_world::pack::Pack {
-            name: "saltmarket".to_owned(),
+            name: "storybook".to_owned(),
             documents: documents.clone(),
         })
         .expect("indexed base compiles");
@@ -909,8 +909,8 @@ mod tests {
     /// and a discard so the streamed and re-absorbed paths both prove it.
     #[test]
     fn incremental_reseal_equals_whole_snapshot() {
-        let mut ws = scope("saltmarket");
-        ws.push_decl(person("mara"));
+        let mut ws = scope("storybook");
+        ws.push_decl(person("nara"));
         ws.push_decl(person("the-warden"));
         ws.suppositions.push("h".to_owned());
         ws.reseal();
@@ -936,11 +936,11 @@ mod tests {
     /// the pre-1.7.0 `Snapshot` shape exactly).
     #[test]
     fn target_branch_moves_the_fence_and_is_absent_when_none() {
-        let mut branchless = scope("saltmarket");
-        branchless.push_decl(person("mara"));
+        let mut branchless = scope("storybook");
+        branchless.push_decl(person("nara"));
 
-        let mut branched = scope("saltmarket");
-        branched.push_decl(person("mara"));
+        let mut branched = scope("storybook");
+        branched.push_decl(person("nara"));
         branched.target_branch = Some("rival".to_owned());
         branched.reseal();
 
@@ -980,15 +980,15 @@ mod tests {
     /// of the staged state, never of the path taken to it.
     #[test]
     fn incremental_reseal_equals_from_scratch() {
-        let mut built = scope("saltmarket");
-        built.push_decl(person("mara"));
+        let mut built = scope("storybook");
+        built.push_decl(person("nara"));
         built.push_decl(person("the-warden"));
-        built.push_decl(person("kes"));
-        built.remove_decl(1); // drop the-warden → [mara, kes]
+        built.push_decl(person("perin"));
+        built.remove_decl(1); // drop the-warden → [nara, perin]
 
-        let mut fresh = scope("saltmarket");
-        fresh.push_decl(person("mara"));
-        fresh.push_decl(person("kes"));
+        let mut fresh = scope("storybook");
+        fresh.push_decl(person("nara"));
+        fresh.push_decl(person("perin"));
 
         assert_eq!(built.decls.len(), 2);
         assert_eq!(built.digest, fresh.digest);
@@ -999,13 +999,13 @@ mod tests {
     /// replacement value in place.
     #[test]
     fn replace_matches_from_scratch() {
-        let mut edited = scope("saltmarket");
-        edited.push_decl(person("mara"));
+        let mut edited = scope("storybook");
+        edited.push_decl(person("nara"));
         edited.push_decl(person("the-warden"));
-        edited.replace_decl(0, person("kes")); // [kes, the-warden]
+        edited.replace_decl(0, person("perin")); // [perin, the-warden]
 
-        let mut fresh = scope("saltmarket");
-        fresh.push_decl(person("kes"));
+        let mut fresh = scope("storybook");
+        fresh.push_decl(person("perin"));
         fresh.push_decl(person("the-warden"));
 
         assert_eq!(edited.digest, fresh.digest);
@@ -1015,27 +1015,27 @@ mod tests {
     /// and declaration order, the base, and a supposition each move it.
     #[test]
     fn reseal_is_deterministic_and_sensitive() {
-        let mut a = scope("saltmarket");
-        a.push_decl(person("mara"));
+        let mut a = scope("storybook");
+        a.push_decl(person("nara"));
         a.push_decl(person("the-warden"));
 
-        let mut same = scope("saltmarket");
-        same.push_decl(person("mara"));
+        let mut same = scope("storybook");
+        same.push_decl(person("nara"));
         same.push_decl(person("the-warden"));
         assert_eq!(a.digest, same.digest, "same state → same fence");
 
-        let mut reordered = scope("saltmarket");
+        let mut reordered = scope("storybook");
         reordered.push_decl(person("the-warden"));
-        reordered.push_decl(person("mara"));
+        reordered.push_decl(person("nara"));
         assert_ne!(a.digest, reordered.digest, "order moves the fence");
 
-        let mut other_base = scope("the-shallows");
-        other_base.push_decl(person("mara"));
+        let mut other_base = scope("riverside");
+        other_base.push_decl(person("nara"));
         other_base.push_decl(person("the-warden"));
         assert_ne!(a.digest, other_base.digest, "the base moves the fence");
 
-        let mut supposed = scope("saltmarket");
-        supposed.push_decl(person("mara"));
+        let mut supposed = scope("storybook");
+        supposed.push_decl(person("nara"));
         supposed.push_decl(person("the-warden"));
         supposed.suppositions.push("h-1".to_owned());
         supposed.reseal();
@@ -1045,8 +1045,8 @@ mod tests {
     /// An empty workspace still seals a stable, domain-shaped fence.
     #[test]
     fn empty_workspace_seals_a_stable_fence() {
-        let a = scope("saltmarket");
-        let b = scope("saltmarket");
+        let a = scope("storybook");
+        let b = scope("storybook");
         assert_eq!(a.digest, b.digest);
         assert!(a.digest.starts_with("jcs:sha256:"));
     }
@@ -1057,7 +1057,7 @@ mod tests {
     #[test]
     fn resolution_index_tracks_append_replace_remove_and_base_state() {
         let (base, documents) = indexed_base();
-        let mut ws = scope("saltmarket");
+        let mut ws = scope("storybook");
         ws.refresh_resolution(&base, &documents);
 
         assert!(ws.known_entities().contains("world"));
@@ -1072,21 +1072,21 @@ mod tests {
             vec!["old"]
         );
 
-        ws.push_decl(entity("mara", EntityKind::Person));
-        ws.push_decl(entity("mara", EntityKind::Place));
+        ws.push_decl(entity("nara", EntityKind::Person));
+        ws.push_decl(entity("nara", EntityKind::Place));
         ws.push_decl(ratify("d-stage"));
-        assert_eq!(ws.entity_sort("mara"), Some("place"));
-        assert_eq!(ws.entities_of_kind("person"), vec!["mara", "world"]);
-        assert_eq!(ws.entities_of_kind("place"), vec!["mara"]);
+        assert_eq!(ws.entity_sort("nara"), Some("place"));
+        assert_eq!(ws.entities_of_kind("person"), vec!["nara", "world"]);
+        assert_eq!(ws.entities_of_kind("place"), vec!["nara"]);
         assert!(ws.known_decisions().contains("d-stage"));
 
         ws.remove_decl(1);
-        assert_eq!(ws.entity_sort("mara"), Some("person"));
+        assert_eq!(ws.entity_sort("nara"), Some("person"));
         assert!(ws.entities_of_kind("place").is_empty());
 
-        ws.replace_decl(0, entity("mara", EntityKind::Thing));
-        assert_eq!(ws.entity_sort("mara"), Some("thing"));
-        assert!(!ws.entities_of_kind("person").contains(&"mara".to_owned()));
+        ws.replace_decl(0, entity("nara", EntityKind::Thing));
+        assert_eq!(ws.entity_sort("nara"), Some("thing"));
+        assert!(!ws.entities_of_kind("person").contains(&"nara".to_owned()));
 
         ws.remove_decl(1);
         assert!(!ws.known_decisions().contains("d-stage"));
@@ -1124,7 +1124,7 @@ mod tests {
         let (base_a, documents_a) = indexed_base();
         let (base_b, documents_b) = alternate_base();
         let mut use_alternate = false;
-        let mut ws = scope("saltmarket");
+        let mut ws = scope("storybook");
         ws.refresh_resolution(&base_a, &documents_a);
         let mut seed = 0xcafe_f00d_u32;
         let mut appends = 0usize;
@@ -1183,7 +1183,7 @@ mod tests {
     fn fact_appends_do_no_historical_resolution_work() {
         const FACTS: usize = 16_384;
         let (base, documents) = indexed_base();
-        let mut ws = scope("saltmarket");
+        let mut ws = scope("storybook");
         ws.refresh_resolution(&base, &documents);
         let staged_visits = ws.resolution.staged_rebuild_visits;
         let base_visits = ws.resolution.base_atom_visits;
@@ -1211,7 +1211,7 @@ mod tests {
         use std::time::Instant;
 
         const HALF: usize = 2500;
-        let mut ws = scope("saltmarket");
+        let mut ws = scope("storybook");
 
         let first_start = Instant::now();
         for i in 0..HALF {

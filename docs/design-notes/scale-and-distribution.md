@@ -1,12 +1,12 @@
 ---
-status: accepted
+status: reference
 title: "Scale and distribution: peer, transactor, and bounded evaluation"
-verdict: "The archive-scale destination is a content-addressed local peer plus a managed transactor and supplementary-Magic-Set segment router. The router bounds exact inputs; the peer evaluates standing and provenance."
+verdict: "Parked design for a possible distributed peer and service; not part of the fiction release."
 ---
 
 # Scale and distribution
 
-This chapter specifies the intended archive-scale boundary. It does not claim
+This parked note records a possible archive-scale boundary. It does not claim
 that a managed service, remote transport, or Magic Set router is implemented
 today. Current lorestore remains the embedded, deterministic implementation;
 the distribution milestones in `../PLAN.md` are deferred.

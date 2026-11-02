@@ -1,6 +1,6 @@
 {
-  "fixture": "golden/author-tegwen-v1",
-  "note": "The worked migration.md §10 scenario, self-contained over the EMPTY base so it is cold-replayable through respond() with no server-provided base (R3/H5): the location gwern is staged in-fork rather than assumed from canon, then a proposed character with a naming nudge, a fact, and a clean relation to gwern, the diff, and the materialized .dli lines as data. Nothing is ratified. (AUTH-2 replays §10 over the pinned corpus where gwern is a real base place.)",
+  "fixture": "golden/author-thalia-v1",
+  "note": "The worked migration.md §10 scenario, self-contained over the EMPTY base so it is cold-replayable through respond() with no server-provided base (R3/H5): the location joren is staged in-fork rather than assumed from canon, then a proposed character with a naming nudge, a fact, and a clean relation to joren, the diff, and the materialized .dli lines as data. Nothing is ratified. (AUTH-2 replays §10 over the pinned corpus where joren is a real base place.)",
   "steps": [
     {
       "expect": {
@@ -9,7 +9,7 @@
         "ok": true,
         "result": {
           "workspace": "ws-1",
-          "workspace_digest": "jcs:sha256:64b026e5397fa0be0b344a7a0278f79a9ae142bfce3dac1b5fda510f8fcd4cd3"
+          "workspace_digest": "jcs:sha256:ff8497f2c04d53543f2c597a9299696444ac14e49cc3b54a98fe26108ef5541e"
         }
       },
       "send": {
@@ -17,7 +17,7 @@
         "id": "1",
         "op": "author.open",
         "params": {
-          "fork": "ep9-cast"
+          "fork": "crossroads-cast"
         }
       }
     },
@@ -32,21 +32,21 @@
               "citations": [],
               "code": "name.unvetted",
               "grade": "asserted",
-              "message": "The name \"gwern\" has not passed the naming oracle; it enters proposed and unvetted.",
+              "message": "The name \"joren\" has not passed the naming oracle; it enters proposed and unvetted.",
               "repair": {
                 "kind": "run-check",
                 "op": "dli.name.check",
                 "params": {
-                  "name": "gwern"
+                  "name": "joren"
                 }
               },
               "severity": "warn"
             }
           ],
           "rendered": [
-            "place gwern \"Gwern\" proposed agent:factory/ep9-cast"
+            "place joren \"Joren\" proposed agent:author/crossroads-cast"
           ],
-          "workspace_digest": "jcs:sha256:c0d3feef9dae1922df141a3089e82c649160c059670dcf918b5082c3aba67dd0"
+          "workspace_digest": "jcs:sha256:e399d3bff0b06d449a36d3e30cd1a17b81877fb361aa0fbb39ca3ba28a74709e"
         }
       },
       "send": {
@@ -54,12 +54,12 @@
         "id": "2",
         "op": "author.add_entity",
         "params": {
-          "id": "gwern",
+          "id": "joren",
           "kind": "place",
-          "name": "Gwern",
+          "name": "Joren",
           "provenance": {
             "kind": "proposed",
-            "origin": "agent:factory/ep9-cast"
+            "origin": "agent:author/crossroads-cast"
           },
           "workspace": "ws-1"
         }
@@ -76,21 +76,21 @@
               "citations": [],
               "code": "name.unvetted",
               "grade": "asserted",
-              "message": "The name \"tegwen\" has not passed the naming oracle; it enters proposed and unvetted.",
+              "message": "The name \"thalia\" has not passed the naming oracle; it enters proposed and unvetted.",
               "repair": {
                 "kind": "run-check",
                 "op": "dli.name.check",
                 "params": {
-                  "name": "tegwen"
+                  "name": "thalia"
                 }
               },
               "severity": "warn"
             }
           ],
           "rendered": [
-            "person tegwen \"Tegwen\" proposed agent:factory/ep9-cast"
+            "person thalia \"Thalia\" proposed agent:author/crossroads-cast"
           ],
-          "workspace_digest": "jcs:sha256:9198b57bfb7e48522c65883abc1b842dce3356a3256035001fef8a92666d7f22"
+          "workspace_digest": "jcs:sha256:5ac909db67434cc298b14be9644779ae05f6cfcf197af3aabc68f99ad3879539"
         }
       },
       "send": {
@@ -98,12 +98,12 @@
         "id": "3",
         "op": "author.add_entity",
         "params": {
-          "id": "tegwen",
+          "id": "thalia",
           "kind": "person",
-          "name": "Tegwen",
+          "name": "Thalia",
           "provenance": {
             "kind": "proposed",
-            "origin": "agent:factory/ep9-cast"
+            "origin": "agent:author/crossroads-cast"
           },
           "workspace": "ws-1"
         }
@@ -117,9 +117,9 @@
         "result": {
           "findings": [],
           "rendered": [
-            "tegwen.trade = net-mender proposed agent:factory/ep9-cast"
+            "thalia.trade = net-mender proposed agent:author/crossroads-cast"
           ],
-          "workspace_digest": "jcs:sha256:9409098c9bbcacd624646f645b887147b29001530aa12a029297efbd05ea91a9"
+          "workspace_digest": "jcs:sha256:f5e5a2c2143b103547ddc44145ebd896051b75e2030432759f458d94c2d91816"
         }
       },
       "send": {
@@ -127,11 +127,11 @@
         "id": "4",
         "op": "author.add_fact",
         "params": {
-          "entity": "tegwen",
+          "entity": "thalia",
           "key": "trade",
           "provenance": {
             "kind": "proposed",
-            "origin": "agent:factory/ep9-cast"
+            "origin": "agent:author/crossroads-cast"
           },
           "value": "net-mender",
           "workspace": "ws-1"
@@ -146,9 +146,9 @@
         "result": {
           "findings": [],
           "rendered": [
-            "located_in(tegwen, gwern) proposed agent:factory/ep9-cast"
+            "located_in(thalia, joren) proposed agent:author/crossroads-cast"
           ],
-          "workspace_digest": "jcs:sha256:4585635d4a17789c88ac3a730900065209c1c630893438f831dbaab8177f1c8d"
+          "workspace_digest": "jcs:sha256:bf445e3851b216cc72464472e487ce86ce040a0df86ea0476a1999ae9c7df45b"
         }
       },
       "send": {
@@ -156,13 +156,13 @@
         "id": "5",
         "op": "author.add_relation",
         "params": {
-          "from": "tegwen",
+          "from": "thalia",
           "provenance": {
             "kind": "proposed",
-            "origin": "agent:factory/ep9-cast"
+            "origin": "agent:author/crossroads-cast"
           },
           "relation": "located_in",
-          "to": "gwern",
+          "to": "joren",
           "workspace": "ws-1"
         }
       }
@@ -186,8 +186,8 @@
                 },
                 "atom": {
                   "args": [
-                    "tegwen",
-                    "gwern"
+                    "thalia",
+                    "joren"
                   ],
                   "pred": "located_in"
                 },
@@ -195,7 +195,7 @@
                   "grade": "asserted",
                   "status": "dead"
                 },
-                "rendered": "located_in(tegwen, gwern): dead (asserted) -> possible (asserted)"
+                "rendered": "located_in(thalia, joren): dead (asserted) -> possible (asserted)"
               },
               {
                 "after": {
@@ -204,7 +204,7 @@
                 },
                 "atom": {
                   "args": [
-                    "tegwen",
+                    "thalia",
                     "net-mender"
                   ],
                   "pred": "trade"
@@ -213,7 +213,7 @@
                   "grade": "asserted",
                   "status": "dead"
                 },
-                "rendered": "trade(tegwen, net-mender): dead (asserted) -> possible (asserted)"
+                "rendered": "trade(thalia, net-mender): dead (asserted) -> possible (asserted)"
               }
             ]
           },
@@ -222,12 +222,12 @@
               "citations": [],
               "code": "name.unvetted",
               "grade": "asserted",
-              "message": "The name \"gwern\" has not passed the naming oracle; it enters proposed and unvetted.",
+              "message": "The name \"joren\" has not passed the naming oracle; it enters proposed and unvetted.",
               "repair": {
                 "kind": "run-check",
                 "op": "dli.name.check",
                 "params": {
-                  "name": "gwern"
+                  "name": "joren"
                 }
               },
               "severity": "warn"
@@ -236,22 +236,22 @@
               "citations": [],
               "code": "name.unvetted",
               "grade": "asserted",
-              "message": "The name \"tegwen\" has not passed the naming oracle; it enters proposed and unvetted.",
+              "message": "The name \"thalia\" has not passed the naming oracle; it enters proposed and unvetted.",
               "repair": {
                 "kind": "run-check",
                 "op": "dli.name.check",
                 "params": {
-                  "name": "tegwen"
+                  "name": "thalia"
                 }
               },
               "severity": "warn"
             }
           ],
           "rendered": [
-            "place gwern \"Gwern\" proposed agent:factory/ep9-cast",
-            "person tegwen \"Tegwen\" proposed agent:factory/ep9-cast",
-            "tegwen.trade = net-mender proposed agent:factory/ep9-cast",
-            "located_in(tegwen, gwern) proposed agent:factory/ep9-cast"
+            "place joren \"Joren\" proposed agent:author/crossroads-cast",
+            "person thalia \"Thalia\" proposed agent:author/crossroads-cast",
+            "thalia.trade = net-mender proposed agent:author/crossroads-cast",
+            "located_in(thalia, joren) proposed agent:author/crossroads-cast"
           ],
           "rows": [
             {
@@ -260,13 +260,13 @@
                 "status": "possible",
                 "support": [
                   [
-                    "+h.agent:factory/ep9-cast"
+                    "+h.agent:author/crossroads-cast"
                   ]
                 ]
               },
-              "atom": "located_in(tegwen, gwern)",
+              "atom": "located_in(thalia, joren)",
               "introduced": true,
-              "rendered": "located_in(tegwen, gwern): dead (asserted) -> possible (asserted)",
+              "rendered": "located_in(thalia, joren): dead (asserted) -> possible (asserted)",
               "retracted": false
             },
             {
@@ -275,17 +275,17 @@
                 "status": "possible",
                 "support": [
                   [
-                    "+h.agent:factory/ep9-cast"
+                    "+h.agent:author/crossroads-cast"
                   ]
                 ]
               },
-              "atom": "trade(tegwen, net-mender)",
+              "atom": "trade(thalia, net-mender)",
               "introduced": true,
-              "rendered": "trade(tegwen, net-mender): dead (asserted) -> possible (asserted)",
+              "rendered": "trade(thalia, net-mender): dead (asserted) -> possible (asserted)",
               "retracted": false
             }
           ],
-          "workspace_digest": "jcs:sha256:4585635d4a17789c88ac3a730900065209c1c630893438f831dbaab8177f1c8d"
+          "workspace_digest": "jcs:sha256:bf445e3851b216cc72464472e487ce86ce040a0df86ea0476a1999ae9c7df45b"
         }
       },
       "send": {
@@ -305,14 +305,14 @@
         "result": {
           "findings": [],
           "rendered": [
-            "scope ep9-cast",
+            "scope crossroads-cast",
             "",
-            "place gwern \"Gwern\" proposed agent:factory/ep9-cast",
-            "person tegwen \"Tegwen\" proposed agent:factory/ep9-cast",
-            "tegwen.trade = net-mender proposed agent:factory/ep9-cast",
-            "located_in(tegwen, gwern) proposed agent:factory/ep9-cast"
+            "place joren \"Joren\" proposed agent:author/crossroads-cast",
+            "person thalia \"Thalia\" proposed agent:author/crossroads-cast",
+            "thalia.trade = net-mender proposed agent:author/crossroads-cast",
+            "located_in(thalia, joren) proposed agent:author/crossroads-cast"
           ],
-          "workspace_digest": "jcs:sha256:4585635d4a17789c88ac3a730900065209c1c630893438f831dbaab8177f1c8d"
+          "workspace_digest": "jcs:sha256:bf445e3851b216cc72464472e487ce86ce040a0df86ea0476a1999ae9c7df45b"
         }
       },
       "send": {

@@ -1,13 +1,13 @@
 {
   "fixture": "golden/author-why-v1",
-  "note": "author.why explains a staged atom's standing — the blocking rulings/defeater (why-not) and, when derived, the support antichain.",
+  "note": "author.why explains a staged atom's standing \u2014 the blocking rulings/defeater (why-not) and, when derived, the support antichain.",
   "precondition": [
     {
       "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     }
   ],
@@ -22,13 +22,13 @@
           "blocked_supports": [],
           "blocking_defeats": [],
           "why_not": {
-            "atom": "adjacent(saltmarket, the-shallows)",
+            "atom": "adjacent(storybook, riverside)",
             "blocking": [],
             "closest": [],
             "defeater": null,
             "known": false,
             "rendered": [
-              "unknown — no derivation for this atom"
+              "unknown \u2014 no derivation for this atom"
             ],
             "status": "dead"
           }
@@ -39,7 +39,7 @@
         "id": "1",
         "op": "author.why",
         "params": {
-          "atom": "adjacent(saltmarket, the-shallows)",
+          "atom": "adjacent(storybook, riverside)",
           "workspace": "ws-1"
         }
       }

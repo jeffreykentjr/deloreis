@@ -1,5 +1,5 @@
 {
-  "fixture": "golden/check-proof-turning-v1",
+  "fixture": "golden/check-proof-cycle-v1",
   "steps": [
     {
       "expect": {

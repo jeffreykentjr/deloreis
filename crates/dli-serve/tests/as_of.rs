@@ -43,24 +43,24 @@ fn base(source: &str) -> Store {
         "base source parses: {diagnostics:?}"
     );
     Store::with_pack(dli_world::pack::Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     })
     .expect("base compiles")
 }
 
 /// A base declaring decisions `d-1`/`d-2` (both ratified), the person
-/// `gwern`, events `dawn`/`noon`, and `dawn before noon` — the exact
+/// `joren`, events `dawn`/`noon`, and `dawn before noon` — the exact
 /// `commons`/`enclosed` scenario `docs/decisions.md` DL-0081/DL-0082 and the
 /// design spec both use, with a SECOND ratified decision so the
 /// defeat-safety test can defeat one value's citation without touching the
 /// other's.
 fn weir_base() -> Store {
     base(concat!(
-        "scope tpth\n",
+        "scope storybook\n",
         "ratify d-1\n",
         "ratify d-2\n",
-        "person gwern \"Gwern\" decided d-1\n",
+        "person joren \"Joren\" decided d-1\n",
         "event dawn decided d-1\n",
         "event noon decided d-1\n",
         "before dawn -> noon decided d-1\n",
@@ -97,7 +97,7 @@ fn declare_pred_inertial(
     )
 }
 
-/// Stage `gwern.status = <value> since <point>`, citing `decision` (ratified).
+/// Stage `joren.status = <value> since <point>`, citing `decision` (ratified).
 fn add_status(
     store: &mut Store,
     dli: &str,
@@ -113,7 +113,7 @@ fn add_status(
             Op::AuthorAddState,
             json!({
                 "workspace": ws,
-                "id": "gwern.status",
+                "id": "joren.status",
                 "value": value,
                 "time": { "kind": "since", "point": point },
                 "provenance": { "kind": "cited", "decisions": [decision], "state": "ratified" }
@@ -148,7 +148,7 @@ fn as_of(
 fn as_of_is_answered_at_contract_1_9_0() {
     let mut sessions = Sessions::new();
     let mut store = weir_base();
-    let ws = open_scope(&mut store, "2.0.0", "tpth");
+    let ws = open_scope(&mut store, "2.0.0", "storybook");
     declare_pred_inertial(&mut store, "2.0.0", &ws, "status");
     add_status(&mut store, "2.0.0", &ws, "commons", "dawn", "d-1");
     let response = dli_serve::serve::dispatch(
@@ -156,7 +156,7 @@ fn as_of_is_answered_at_contract_1_9_0() {
             "2.0.0",
             "a",
             Op::AuthorAsOf,
-            json!({ "workspace": ws, "pred": "status", "subject": "gwern", "at": "dawn" }),
+            json!({ "workspace": ws, "pred": "status", "subject": "joren", "at": "dawn" }),
         ),
         &mut sessions,
         &mut store,
@@ -174,12 +174,12 @@ fn as_of_is_answered_at_contract_1_9_0() {
 #[test]
 fn wire_as_of_reports_the_capped_value_the_successor_and_the_unbounded_tail() {
     let mut store = weir_base();
-    let ws = open_scope(&mut store, "1.9.0", "tpth");
+    let ws = open_scope(&mut store, "1.9.0", "storybook");
     declare_pred_inertial(&mut store, "1.9.0", &ws, "status");
     add_status(&mut store, "1.9.0", &ws, "commons", "dawn", "d-1");
     add_status(&mut store, "1.9.0", &ws, "enclosed", "noon", "d-1");
 
-    let at_dawn = as_of(&mut store, "1.9.0", &ws, "status", "gwern", "dawn");
+    let at_dawn = as_of(&mut store, "1.9.0", &ws, "status", "joren", "dawn");
     let r = result(&at_dawn);
     assert_eq!(r["inertial"], true, "{r:?}");
     assert_eq!(r["capping"], true, "{r:?}");
@@ -197,7 +197,7 @@ fn wire_as_of_reports_the_capped_value_the_successor_and_the_unbounded_tail() {
     assert_eq!(holdings[0]["defeater"]["value"], "enclosed");
     assert_eq!(holdings[0]["defeater"]["since"], "noon");
 
-    let at_noon = as_of(&mut store, "1.9.0", &ws, "status", "gwern", "noon");
+    let at_noon = as_of(&mut store, "1.9.0", &ws, "status", "joren", "noon");
     let r = result(&at_noon);
     let holdings = r["holdings"].as_array().unwrap();
     assert_eq!(holdings.len(), 1, "{holdings:?}");
@@ -218,11 +218,11 @@ fn wire_as_of_reports_the_capped_value_the_successor_and_the_unbounded_tail() {
 #[test]
 fn wire_as_of_reports_contested_and_order_indeterminate() {
     let mut store = weir_base();
-    let ws = open_scope(&mut store, "1.9.0", "tpth");
+    let ws = open_scope(&mut store, "1.9.0", "storybook");
     declare_pred_inertial(&mut store, "1.9.0", &ws, "status");
     add_status(&mut store, "1.9.0", &ws, "commons", "dawn", "d-1");
     add_status(&mut store, "1.9.0", &ws, "enclosed", "dawn", "d-1");
-    let response = as_of(&mut store, "1.9.0", &ws, "status", "gwern", "dawn");
+    let response = as_of(&mut store, "1.9.0", &ws, "status", "joren", "dawn");
     let r = result(&response);
     assert_eq!(r["contested"], true, "{r:?}");
     let holdings = r["holdings"].as_array().unwrap();
@@ -235,17 +235,17 @@ fn wire_as_of_reports_contested_and_order_indeterminate() {
     );
 
     let mut store2 = base(concat!(
-        "scope tpth\n",
+        "scope storybook\n",
         "ratify d-1\n",
-        "person gwern \"Gwern\" decided d-1\n",
+        "person joren \"Joren\" decided d-1\n",
         "event e1 decided d-1\n",
         "event e2 decided d-1\n",
     ));
-    let ws2 = open_scope(&mut store2, "1.9.0", "tpth");
+    let ws2 = open_scope(&mut store2, "1.9.0", "storybook");
     declare_pred_inertial(&mut store2, "1.9.0", &ws2, "status");
     add_status(&mut store2, "1.9.0", &ws2, "commons", "e1", "d-1");
     add_status(&mut store2, "1.9.0", &ws2, "enclosed", "e2", "d-1");
-    let response = as_of(&mut store2, "1.9.0", &ws2, "status", "gwern", "e1");
+    let response = as_of(&mut store2, "1.9.0", &ws2, "status", "joren", "e1");
     let r = result(&response);
     assert_eq!(
         r["contested"], false,
@@ -268,10 +268,10 @@ fn wire_as_of_reports_contested_and_order_indeterminate() {
 #[test]
 fn wire_as_of_matches_plain_projection_when_not_inertial() {
     let mut store = weir_base();
-    let ws = open_scope(&mut store, "1.9.0", "tpth");
+    let ws = open_scope(&mut store, "1.9.0", "storybook");
     add_status(&mut store, "1.9.0", &ws, "commons", "dawn", "d-1");
     add_status(&mut store, "1.9.0", &ws, "enclosed", "noon", "d-1");
-    let response = as_of(&mut store, "1.9.0", &ws, "status", "gwern", "noon");
+    let response = as_of(&mut store, "1.9.0", &ws, "status", "joren", "noon");
     let r = result(&response);
     assert_eq!(r["inertial"], false, "{r:?}");
     assert_eq!(r["capping"], false, "{r:?}");
@@ -302,12 +302,12 @@ fn wire_as_of_flips_back_after_defeating_the_defeater() {
     store
         .attach_lorestore(root.path().join("lorestore"))
         .expect("attach a fresh lorestore");
-    let ws = open_scope(&mut store, "1.9.0", "tpth");
+    let ws = open_scope(&mut store, "1.9.0", "storybook");
     declare_pred_inertial(&mut store, "1.9.0", &ws, "status");
     add_status(&mut store, "1.9.0", &ws, "commons", "dawn", "d-1");
     add_status(&mut store, "1.9.0", &ws, "enclosed", "noon", "d-2");
 
-    let before = as_of(&mut store, "1.9.0", &ws, "status", "gwern", "noon");
+    let before = as_of(&mut store, "1.9.0", &ws, "status", "joren", "noon");
     assert_eq!(result(&before)["holdings"][0]["value"], "enclosed");
 
     let materialized = dispatch(
@@ -324,7 +324,7 @@ fn wire_as_of_flips_back_after_defeating_the_defeater() {
     let enclosed_claim_id = facts
         .iter()
         .find(|fact| {
-            fact["atom"]["pred"] == "status" && fact["atom"]["args"] == json!(["gwern", "enclosed"])
+            fact["atom"]["pred"] == "status" && fact["atom"]["args"] == json!(["joren", "enclosed"])
         })
         .and_then(|fact| fact["claim_id"].as_str())
         .expect("the durably stored enclosed-status claim id")
@@ -348,7 +348,7 @@ fn wire_as_of_flips_back_after_defeating_the_defeater() {
 
     // The SAME wire read, no recompile of anything by this test — `staged_world`
     // applies the durable `Ref.valuation` overlay `author.defeat` just wrote.
-    let after = as_of(&mut store, "1.9.0", &ws, "status", "gwern", "noon");
+    let after = as_of(&mut store, "1.9.0", &ws, "status", "joren", "noon");
     let r = result(&after);
     let holdings = r["holdings"].as_array().unwrap();
     assert_eq!(holdings.len(), 1, "{holdings:?}");
@@ -372,13 +372,13 @@ fn wire_as_of_flips_back_after_defeating_the_defeater() {
 #[test]
 fn wire_as_of_does_not_leak_into_author_query() {
     let mut store = weir_base();
-    let ws = open_scope(&mut store, "1.9.0", "tpth");
+    let ws = open_scope(&mut store, "1.9.0", "storybook");
     declare_pred_inertial(&mut store, "1.9.0", &ws, "status");
     add_status(&mut store, "1.9.0", &ws, "commons", "dawn", "d-1");
     add_status(&mut store, "1.9.0", &ws, "enclosed", "noon", "d-1");
 
     // The inertia-aware read sees ONE certain value at `noon`.
-    let projected = as_of(&mut store, "1.9.0", &ws, "status", "gwern", "noon");
+    let projected = as_of(&mut store, "1.9.0", &ws, "status", "joren", "noon");
     let holdings = result(&projected)["holdings"].as_array().unwrap();
     assert_eq!(holdings.len(), 1, "{holdings:?}");
     assert_eq!(holdings[0]["value"], "enclosed");
@@ -394,7 +394,7 @@ fn wire_as_of_does_not_leak_into_author_query() {
             Op::AuthorQuery,
             json!({
                 "workspace": ws,
-                "goal_atom": { "pred": "status", "args": [{ "Sym": "gwern" }, { "Var": "value" }] }
+                "goal_atom": { "pred": "status", "args": [{ "Sym": "joren" }, { "Var": "value" }] }
             }),
         ),
         &mut store,

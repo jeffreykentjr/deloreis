@@ -3024,12 +3024,12 @@ mod tests {
     #[test]
     fn canon_characters_projects_display_name_facts() {
         let object = serde_json::json!({
-            "atom": {"pred": "display-name", "args": ["mara", "Mara"]},
+            "atom": {"pred": "display-name", "args": ["nara", "Nara"]},
             "provenance": {"marker": "Ratified"},
             "support": {"monomials": [["+0"]]}
         });
         let person = serde_json::json!({
-            "atom": {"pred": "person", "args": ["mara"]},
+            "atom": {"pred": "person", "args": ["nara"]},
             "provenance": {"marker": "Ratified"},
             "support": {"monomials": [["+0"]]}
         });
@@ -3038,7 +3038,7 @@ mod tests {
         by_pred.insert("person".to_owned(), vec![person]);
 
         let projected = canon_characters(&by_pred, &["D-1".to_owned()]).expect("canon");
-        assert_eq!(projected["person"][0]["name"], "Mara");
-        assert_eq!(projected["display-name"][0]["subject"], "mara");
+        assert_eq!(projected["person"][0]["name"], "Nara");
+        assert_eq!(projected["display-name"][0]["subject"], "nara");
     }
 }

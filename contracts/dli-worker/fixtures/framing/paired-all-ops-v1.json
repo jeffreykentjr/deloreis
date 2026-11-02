@@ -149,7 +149,7 @@
           "id": "pre",
           "op": "dli.fork.new",
           "params": {
-            "document": "saltmarket"
+            "document": "storybook"
           }
         }
       ],
@@ -194,7 +194,7 @@
           "id": "pre",
           "op": "dli.fork.new",
           "params": {
-            "document": "saltmarket"
+            "document": "storybook"
           }
         }
       ],
@@ -235,7 +235,7 @@
           "id": "pre",
           "op": "dli.fork.new",
           "params": {
-            "document": "saltmarket"
+            "document": "storybook"
           }
         }
       ],
@@ -275,7 +275,7 @@
         "id": "probe",
         "op": "dli.fork.list",
         "params": {
-          "document": "saltmarket"
+          "document": "storybook"
         }
       },
       "probe_compare_paths": [
@@ -379,7 +379,7 @@
         "id": "1",
         "op": "dli.timeline.show",
         "params": {
-          "document": "saltmarket",
+          "document": "storybook",
           "at": "control"
         }
       },
@@ -388,7 +388,7 @@
         "id": "1",
         "op": "dli.timeline.show",
         "params": {
-          "document": "saltmarket",
+          "document": "storybook",
           "at": "__DLI_FRAME_ATTACK__"
         }
       },
@@ -652,7 +652,7 @@
           "id": "open",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -677,7 +677,7 @@
           "id": "open",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -733,7 +733,7 @@
           "id": "open",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -758,7 +758,7 @@
           "id": "open",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -844,7 +844,7 @@
           "id": "open",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -869,7 +869,7 @@
           "id": "open",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -925,7 +925,7 @@
           "id": "pre",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         }
       ],
@@ -994,7 +994,7 @@
           "id": "pre",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         }
       ],
@@ -1065,7 +1065,7 @@
           "id": "pre",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         }
       ],
@@ -1136,7 +1136,7 @@
           "id": "pre",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         }
       ],
@@ -1205,7 +1205,7 @@
           "id": "pre",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         }
       ],
@@ -1215,7 +1215,7 @@
         "op": "author.add_before",
         "params": {
           "workspace": "ws-1",
-          "earlier": "missing-control",
+          "earlier": "baseline",
           "later": "first-tides",
           "provenance": {
             "kind": "proposed",
@@ -1242,8 +1242,7 @@
       ],
       "compare_paths": [
         "/ok",
-        "/result/findings/0/code",
-        "/result/findings/0/severity"
+        "/result/findings"
       ],
       "allow_taint_paths": [
         "/result/rendered",
@@ -1263,7 +1262,7 @@
       },
       "probe_compare_paths": [
         "/ok",
-        "/result/findings/0/code"
+        "/result/findings"
       ]
     },
     {
@@ -1274,7 +1273,7 @@
           "id": "pre",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         }
       ],
@@ -1333,7 +1332,7 @@
           "id": "pre-1",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -1404,7 +1403,7 @@
           "id": "pre",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         }
       ],
@@ -1464,7 +1463,7 @@
           "id": "pre",
           "op": "author.open",
           "params": {
-            "fork": "exploration"
+            "fork": "what-does-wisdom-cost"
           }
         }
       ],
@@ -1574,7 +1573,7 @@
           "id": "open",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -1599,7 +1598,7 @@
           "id": "open",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -1609,7 +1608,7 @@
           "params": {
             "workspace": "ws-1",
             "relation": "knows",
-            "from": "__DLI_FRAME_ATTACK__",
+            "from": "__DLI_FRAME_ATTACK__-unknown",
             "to": "other",
             "provenance": {
               "kind": "proposed",
@@ -1685,7 +1684,7 @@
           "id": "open",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -1710,7 +1709,7 @@
           "id": "open",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -1720,7 +1719,7 @@
           "params": {
             "workspace": "ws-1",
             "relation": "knows",
-            "from": "__DLI_FRAME_ATTACK__",
+            "from": "__DLI_FRAME_ATTACK__-unknown",
             "to": "other",
             "provenance": {
               "kind": "proposed",
@@ -1786,7 +1785,7 @@
           "id": "open",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -1811,7 +1810,7 @@
           "id": "open",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -1869,7 +1868,7 @@
           "id": "open",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -1894,7 +1893,7 @@
           "id": "open",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -1952,7 +1951,7 @@
           "id": "open",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -1977,7 +1976,7 @@
           "id": "open",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         },
         {
@@ -2030,7 +2029,7 @@
           "id": "pre",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         }
       ],
@@ -2074,7 +2073,7 @@
           "id": "pre",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         }
       ],

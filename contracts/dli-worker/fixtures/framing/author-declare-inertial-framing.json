@@ -12,7 +12,7 @@
           "id": "pre",
           "op": "author.open",
           "params": {
-            "scope": "saltmarket"
+            "scope": "storybook"
           }
         }
       ],

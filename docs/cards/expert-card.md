@@ -253,7 +253,7 @@ banned cannon   d-0010  "the Matter of Britain keeps to sword and spear — no g
 
 hypothesis h-old-loan "the old speech took a hero-name from the tongue over the water"
 
-dialect over-the-water  proposed agent:factory/naming-run-0714  assumes h-old-loan {
+dialect over-the-water  proposed agent:author/naming-run-0714  assumes h-old-loan {
   inventory placeholder
   }
 

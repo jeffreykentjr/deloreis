@@ -7,7 +7,7 @@
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     }
   ],
@@ -18,9 +18,9 @@
     "op": "author.add_fact",
     "params": {
       "workspace": "ws-1",
-      "entity": "mara",
+      "entity": "nara",
       "key": "home",
-      "value": "the-shallows",
+      "value": "riverside",
       "provenance": {
         "kind": "proposed",
         "origin": "session-fx01"

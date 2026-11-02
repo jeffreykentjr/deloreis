@@ -246,8 +246,8 @@ fn why_names_the_identity_assertion() {
     let world = World::lower(&document(vec![
         ratify_decl("D-2"),
         ratify_decl("D-9"),
-        fact("rank", &["mara", "gold"], Some(ratified("D-2"))),
-        same_as("mara", "moira", Some(ratified("D-9"))),
+        fact("rank", &["nara", "gold"], Some(ratified("D-2"))),
+        same_as("nara", "moira", Some(ratified("D-9"))),
     ]))
     .expect("lowers")
     .fixpoint()
@@ -282,15 +282,15 @@ fn defeat_kills_merged_copy_leaves_surface_fact() {
     let world = World::lower(&document(vec![
         ratify_decl("D-2"),
         ratify_decl("D-9"),
-        fact("rank", &["mara", "gold"], Some(ratified("D-2"))),
-        same_as("mara", "moira", Some(ratified("D-9"))),
+        fact("rank", &["nara", "gold"], Some(ratified("D-2"))),
+        same_as("nara", "moira", Some(ratified("D-9"))),
     ]))
     .expect("lowers")
     .fixpoint()
     .expect("saturates");
 
     assert_eq!(
-        status_of(&world, "rank", &["mara", "gold"]),
+        status_of(&world, "rank", &["nara", "gold"]),
         Status::Certain
     );
     assert_eq!(
@@ -307,7 +307,7 @@ fn defeat_kills_merged_copy_leaves_surface_fact() {
     defeated.valuation.set(d9, false);
 
     assert_eq!(
-        status_of(&defeated, "rank", &["mara", "gold"]),
+        status_of(&defeated, "rank", &["nara", "gold"]),
         Status::Certain,
         "the surface fact never depended on the identity ruling"
     );
@@ -327,15 +327,15 @@ fn defeat_kills_merged_copy_leaves_surface_fact() {
 fn proposed_identity_never_certain_suppose_flips_it() {
     let world = World::lower(&document(vec![
         ratify_decl("D-2"),
-        fact("rank", &["mara", "gold"], Some(ratified("D-2"))),
-        same_as("mara", "moira", Some(proposed())),
+        fact("rank", &["nara", "gold"], Some(ratified("D-2"))),
+        same_as("nara", "moira", Some(proposed())),
     ]))
     .expect("lowers")
     .fixpoint()
     .expect("saturates");
 
     assert_eq!(
-        status_of(&world, "rank", &["mara", "gold"]),
+        status_of(&world, "rank", &["nara", "gold"]),
         Status::Certain
     );
     assert_eq!(
@@ -370,9 +370,9 @@ fn proposed_identity_never_certain_suppose_flips_it() {
 fn rule_join_across_aliases() {
     let mut world = World::lower(&document(vec![
         ratify_decl("D-1"),
-        fact("sworn", &["mara"], Some(ratified("D-1"))),
+        fact("sworn", &["nara"], Some(ratified("D-1"))),
         fact("armed", &["moira"], Some(ratified("D-1"))),
-        same_as("mara", "moira", Some(ratified("D-1"))),
+        same_as("nara", "moira", Some(ratified("D-1"))),
     ]))
     .expect("lowers");
     world
@@ -400,7 +400,7 @@ fn rule_join_across_aliases() {
     // merge makes both hold under both names, so the conjunction fires for
     // both — this is the join-across-aliases case, not mere rewriting of one
     // predicate.
-    assert_eq!(status_of(&world, "ready", &["mara"]), Status::Certain);
+    assert_eq!(status_of(&world, "ready", &["nara"]), Status::Certain);
     assert_eq!(status_of(&world, "ready", &["moira"]), Status::Certain);
 }
 
@@ -418,12 +418,12 @@ fn grade_rollup_is_weakest_of_chain() {
     // intake that registers the pair in the declaration channel; a raw fact
     // push would leave `same_as_links` empty and synthesize nothing.
     let mut world = World::new();
-    world.assert_same_as("mara", "moira", dli_core::ann::Ann::unconditional());
+    world.assert_same_as("nara", "moira", dli_core::ann::Ann::unconditional());
     // A Checked-grade fact — the strongest grade on the lattice.
     world.assert_fact_graded(
         dli_eval::world::GroundAtom {
             pred: "rank".to_owned(),
-            args: vec!["mara".to_owned(), "gold".to_owned()],
+            args: vec!["nara".to_owned(), "gold".to_owned()],
         },
         dli_core::ann::Ann::unconditional(),
         Grade::Checked,
@@ -434,7 +434,7 @@ fn grade_rollup_is_weakest_of_chain() {
     let base = world
         .derived
         .iter()
-        .find(|d| d.atom.pred == "rank" && d.atom.args[0] == "mara")
+        .find(|d| d.atom.pred == "rank" && d.atom.args[0] == "nara")
         .expect("base row");
     assert_eq!(
         base.grade,
@@ -463,7 +463,7 @@ fn grade_rollup_is_weakest_of_chain() {
 fn zero_links_synthesizes_nothing_frozen_guard() {
     let world = World::lower(&document(vec![
         ratify_decl("D-1"),
-        fact("rank", &["mara", "gold"], Some(ratified("D-1"))),
+        fact("rank", &["nara", "gold"], Some(ratified("D-1"))),
     ]))
     .expect("lowers");
     assert!(
@@ -496,10 +496,10 @@ fn conditioned_fact_threads_through_the_merge() {
         ratify_decl("D-9"),
         fact(
             "rank",
-            &["mara", "gold"],
-            Some(proposed_assumes("h-mara-ranked")),
+            &["nara", "gold"],
+            Some(proposed_assumes("h-nara-ranked")),
         ),
-        same_as("mara", "moira", Some(ratified("D-9"))),
+        same_as("nara", "moira", Some(ratified("D-9"))),
     ]))
     .expect("lowers")
     .fixpoint()
@@ -512,7 +512,7 @@ fn conditioned_fact_threads_through_the_merge() {
     );
 
     let mut ruled = world.clone();
-    let h = ruled.interner.intern("h-mara-ranked");
+    let h = ruled.interner.intern("h-nara-ranked");
     ruled.valuation.set(h, true);
     assert_eq!(
         status_of(&ruled, "rank", &["moira", "gold"]),
@@ -531,8 +531,8 @@ fn conditioned_fact_threads_through_the_merge() {
 fn negation_honesty_under_a_merge() {
     let mut world = World::lower(&document(vec![
         ratify_decl("D-1"),
-        fact("sworn", &["mara"], Some(ratified("D-1"))),
-        same_as("mara", "moira", Some(ratified("D-1"))),
+        fact("sworn", &["nara"], Some(ratified("D-1"))),
+        same_as("nara", "moira", Some(ratified("D-1"))),
     ]))
     .expect("lowers");
     world
@@ -558,7 +558,7 @@ fn negation_honesty_under_a_merge() {
 
     // `danger` is never asserted for either name: an absent negated predicate
     // has support FALSE — nothing to poison (spec 02 §4) — for both aliases.
-    assert_eq!(status_of(&world, "safe", &["mara"]), Status::Certain);
+    assert_eq!(status_of(&world, "safe", &["nara"]), Status::Certain);
     assert_eq!(status_of(&world, "safe", &["moira"]), Status::Certain);
 
     let row = world

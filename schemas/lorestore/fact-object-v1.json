@@ -116,7 +116,7 @@
           }
         },
         "head": {
-          "description": "Header tokens after the name (e.g. `severity error`, `speaker protagonist\nin spoken-proof`, `over order`). Empty for declarations with no header.",
+          "description": "Header tokens after the name (e.g. `severity error`, `speaker protagonist\nin spoken-oath`, `over order`). Empty for declarations with no header.",
           "type": "array",
           "items": {
             "type": "string"

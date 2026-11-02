@@ -15,43 +15,43 @@ fn errors(diags: &[Diagnostic]) -> Vec<&Diagnostic> {
     diags.iter().filter(|d| d.class.is_error()).collect()
 }
 
-const SALTMARKET_CARD: &str = "\
-scope saltmarket
+const STORYBOOK_CARD: &str = "\
+scope storybook
 
 era founding   \"The Landing\"      decided d-0001
-era now        \"The Ninth Tide\"   after founding
+era now        \"The Ninth Year\"   after founding
 
-place saltmarket   \"Saltmarket\"     decided d-0001
-place the-shallows \"The Shallows\"   decided d-0003
-place breakwater   \"The Breakwater\" proposed
+place storybook   \"Storybook\"     decided d-0001
+place riverside \"Riverside\"   decided d-0003
+place jetty   \"The Jetty\" proposed
 
-adjacent(saltmarket, the-shallows)  decided d-0003
+adjacent(storybook, riverside)  decided d-0003
 ";
 
 const ENTITY_SLOTS: &str = "\
-person mara \"Mara of the Weirs\"     decided d-0002
-  mara.trade = eel-fisher           decided d-0002
-  mara.home  = the-shallows         proposed
+person nara \"Nara of the Weirs\"     decided d-0002
+  nara.trade = eel-fisher           decided d-0002
+  nara.home  = riverside         proposed
 
-thing tide-bell \"The Tide-Bell\"     decided d-0004
-  tide-bell.kept-at = saltmarket    decided d-0004
+thing bellsong \"The Bellsong\"     decided d-0004
+  bellsong.kept-at = storybook    decided d-0004
 ";
 
 const QUESTION_CARD: &str = "\
-question q-0001 \"Who raised the Tide-Bell?\"
-  option guild      implies raised-by(tide-bell, guild)
-  option marsh-folk implies raised-by(tide-bell, marsh-folk)
+question q-0001 \"Who raised the Bellsong?\"
+  option guild      implies raised-by(bellsong, guild)
+  option marsh-folk implies raised-by(bellsong, marsh-folk)
 ";
 
 #[test]
-fn parses_the_saltmarket_card() {
-    let (doc, diags) = parse_document(SALTMARKET_CARD);
+fn parses_the_storybook_card() {
+    let (doc, diags) = parse_document(STORYBOOK_CARD);
     assert!(
         errors(&diags).is_empty(),
         "unexpected errors: {:?}",
         errors(&diags)
     );
-    assert_eq!(doc.scope.as_ref().unwrap().name.text, "saltmarket");
+    assert_eq!(doc.scope.as_ref().unwrap().name.text, "storybook");
     // Two eras, three places, one relation fact.
     assert_eq!(doc.decls.len(), 6);
     assert!(matches!(doc.decls[0], Decl::Entity(_)));
@@ -72,13 +72,13 @@ fn entity_slots_lower_into_the_entity() {
         "unexpected errors: {:?}",
         errors(&diags)
     );
-    let Decl::Entity(mara) = &doc.decls[0] else {
+    let Decl::Entity(nara) = &doc.decls[0] else {
         panic!("expected an entity");
     };
-    assert_eq!(mara.name.text, "mara");
-    assert_eq!(mara.slots.len(), 2);
-    assert_eq!(mara.slots[0].subject.text, "mara");
-    assert_eq!(mara.slots[0].attr.text, "trade");
+    assert_eq!(nara.name.text, "nara");
+    assert_eq!(nara.slots.len(), 2);
+    assert_eq!(nara.slots[0].subject.text, "nara");
+    assert_eq!(nara.slots[0].attr.text, "trade");
 }
 
 #[test]
@@ -131,7 +131,7 @@ keeps(the-lake, excalibur) proposed assumes the-lake and h-return
 #[test]
 fn column_free_options_fold_into_the_question() {
     // The committed examples write options at column zero, not indented.
-    let source = "question who-keeps-the-ledger\noption old-fen\noption mara\n";
+    let source = "question who-keeps-the-ledger\noption old-fen\noption nara\n";
     let (doc, diags) = parse_document(source);
     assert!(
         errors(&diags).is_empty(),
@@ -146,9 +146,9 @@ fn column_free_options_fold_into_the_question() {
 
 #[test]
 fn canonical_rendering_of_the_card() {
-    let (doc, diags) = parse_document(SALTMARKET_CARD);
+    let (doc, diags) = parse_document(STORYBOOK_CARD);
     assert!(errors(&diags).is_empty());
-    insta::assert_snapshot!("saltmarket_card_canonical", format_document(&doc));
+    insta::assert_snapshot!("storybook_card_canonical", format_document(&doc));
 }
 
 #[test]
@@ -161,7 +161,7 @@ fn canonical_rendering_of_entity_slots() {
 
 #[test]
 fn unknown_keyword_diagnoses_and_recovers() {
-    let source = "place saltmarket\nzorble the-thing\nplace weir\n";
+    let source = "place storybook\nzorble the-thing\nplace weir\n";
     let (doc, diags) = parse_document(source);
     // The two good declarations still parse — recovery is per record.
     assert_eq!(doc.decls.len(), 2);
@@ -199,24 +199,24 @@ fn clause(text: &str) -> Clause {
 
 #[test]
 fn clause_atom_reads_a_relation() {
-    let atom = parse_clause_atom(&clause("adjacent(the-shallows, saltmarket)")).unwrap();
+    let atom = parse_clause_atom(&clause("adjacent(riverside, storybook)")).unwrap();
     assert_eq!(atom.pred.text, "adjacent");
     assert_eq!(atom.args.len(), 2);
-    assert!(matches!(&atom.args[0], Term::Sym(s) if s.text == "the-shallows"));
+    assert!(matches!(&atom.args[0], Term::Sym(s) if s.text == "riverside"));
 }
 
 #[test]
 fn clause_atom_reads_a_slot_fact() {
     // `subject.slot = value` lowers to `slot(subject, value)`, matching the loader.
-    let atom = parse_clause_atom(&clause("mara.trade = eel-fisher")).unwrap();
+    let atom = parse_clause_atom(&clause("nara.trade = eel-fisher")).unwrap();
     assert_eq!(atom.pred.text, "trade");
-    assert!(matches!(&atom.args[0], Term::Sym(s) if s.text == "mara"));
+    assert!(matches!(&atom.args[0], Term::Sym(s) if s.text == "nara"));
     assert!(matches!(&atom.args[1], Term::Sym(s) if s.text == "eel-fisher"));
 }
 
 #[test]
 fn clause_atom_reads_a_triple() {
-    let atom = parse_clause_atom(&clause("fact mara lives-in saltmarket")).unwrap();
+    let atom = parse_clause_atom(&clause("fact nara lives-in storybook")).unwrap();
     assert_eq!(atom.pred.text, "lives-in");
     assert_eq!(atom.args.len(), 2);
 }
@@ -407,9 +407,9 @@ fn unknown_keyword_renders_in_the_domain() {
 
 #[test]
 fn a_scope_header_names_the_scope() {
-    let (doc, diags) = parse_document("scope saltmarket\nplace weir \"W\" proposed\n");
+    let (doc, diags) = parse_document("scope storybook\nplace weir \"W\" proposed\n");
     assert!(errors(&diags).is_empty(), "{:?}", errors(&diags));
-    assert_eq!(doc.scope.as_ref().unwrap().name.text, "saltmarket");
+    assert_eq!(doc.scope.as_ref().unwrap().name.text, "storybook");
     assert_eq!(doc.decls.len(), 1);
 }
 

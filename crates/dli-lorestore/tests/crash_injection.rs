@@ -256,9 +256,9 @@ fn store_not_torn_when_crash_during_object_write() {
 
     // Attempt to write a fact object — this should panic immediately.
     let fo = common::test_fact(
-        "test/place/gwern",
+        "test/place/joren",
         "place",
-        &["gwern"],
+        &["joren"],
         PosBool::truth(),
         Grade::Asserted,
     );

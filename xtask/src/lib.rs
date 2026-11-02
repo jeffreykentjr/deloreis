@@ -11,7 +11,6 @@ pub mod book;
 pub mod boundary;
 pub mod docgen;
 pub mod docs_oracle;
-pub mod docs_tokens;
 pub mod finding_families;
 pub mod fixtures;
 pub mod gate;

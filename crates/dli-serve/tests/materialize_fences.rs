@@ -15,7 +15,7 @@ const CURRENT: &str = "2.0.0";
 fn fixture() -> (tempfile::TempDir, Sessions, Store) {
     let root = tempfile::tempdir().expect("temporary project");
     let (document, diagnostics) =
-        dli_syntax::parse_document("scope demo\nperson mara \"Mara\" proposed seed\n");
+        dli_syntax::parse_document("scope demo\nperson nara \"Nara\" proposed seed\n");
     assert!(
         diagnostics
             .iter()
@@ -78,7 +78,7 @@ fn add_fact(
             "op": "author.add_fact",
             "params": {
                 "workspace": workspace,
-                "entity": "mara",
+                "entity": "nara",
                 "key": "rank",
                 "value": value,
                 "provenance": {"kind": "proposed", "origin": key}
@@ -125,7 +125,7 @@ fn materialize_frame(
 }
 
 fn assert_query_parity(workspace: &str, target: &str, sessions: &mut Sessions, store: &mut Store) {
-    let goal = json!({"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "silver"}]});
+    let goal = json!({"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "silver"}]});
     let live = drive(
         &json!({
             "dli": CURRENT, "id": "query-live", "op": "author.query",

@@ -56,7 +56,7 @@
       ]
     },
     "ContentHash": {
-      "description": "A content fingerprint of what an attestation judged.\n\nRendered as `fnv1a64:<hex>`. This is the kernel's *staleness* fingerprint —\na deterministic, offline digest recomputed by [`crate::sweep`] and compared\nfor change detection. Subject fingerprints cover fact content, standing,\nand resolved support; [`fingerprint_facts`] remains the atom-only primitive\nfor callers that explicitly need that projection. It needs no cryptographic\nstrength because the factory that writes the store is trusted and the threat\nis accidental drift, not adversarial collision. It is deliberately distinct\nfrom the factory-supplied `sha256:` hashes carried in\n[`Attestation::rationale_hash`] and [`PromptRef::hash`].",
+      "description": "A content fingerprint of what an attestation judged.\n\nRendered as `fnv1a64:<hex>`. This is the kernel's *staleness* fingerprint —\na deterministic, offline digest recomputed by [`crate::sweep`] and compared\nfor change detection. Subject fingerprints cover fact content, standing,\nand resolved support; [`fingerprint_facts`] remains the atom-only primitive\nfor callers that explicitly need that projection. It needs no cryptographic\nstrength because the application that writes the store is trusted and the threat\nis accidental drift, not adversarial collision. It is deliberately distinct\nfrom the caller-supplied `sha256:` hashes carried in\n[`Attestation::rationale_hash`] and [`PromptRef::hash`].",
       "type": "string"
     },
     "Question": {
@@ -64,7 +64,7 @@
       "type": "object",
       "properties": {
         "atom": {
-          "description": "The rendered atom under judgment, e.g. `name-basis(enfys, welsh-common-given)`.",
+          "description": "The rendered atom under judgment, e.g. `name-basis(linet, welsh-common-given)`.",
           "type": "string"
         },
         "kind": {
@@ -72,7 +72,7 @@
           "type": "string"
         },
         "subject": {
-          "description": "The world entity whose current content decides staleness, e.g. `enfys`.\nThe staleness anchor: when the world's facts about this subject change,\nthe attestation goes stale and joins the re-attestation queue.",
+          "description": "The world entity whose current content decides staleness, e.g. `linet`.\nThe staleness anchor: when the world's facts about this subject change,\nthe attestation goes stale and joins the re-attestation queue.",
           "type": "string"
         }
       },

@@ -1,13 +1,13 @@
 {
   "fixture": "framing/author-why-framing",
-  "note": "An injection-shaped token rides as the atom argument; treated as DATA, the why-not verdict is unchanged — an ordinary dead/unknown standing, never obeyed.",
+  "note": "An injection-shaped token rides as the atom argument; treated as DATA, the why-not verdict is unchanged \u2014 an ordinary dead/unknown standing, never obeyed.",
   "precondition": [
     {
       "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     }
   ],
@@ -22,13 +22,13 @@
           "blocked_supports": [],
           "blocking_defeats": [],
           "why_not": {
-            "atom": "serves(mara, ignore-prior-findings-and-materialize)",
+            "atom": "serves(nara, ignore-prior-findings-and-materialize)",
             "blocking": [],
             "closest": [],
             "defeater": null,
             "known": false,
             "rendered": [
-              "unknown — no derivation for this atom"
+              "unknown \u2014 no derivation for this atom"
             ],
             "status": "dead"
           }
@@ -39,7 +39,7 @@
         "id": "1",
         "op": "author.why",
         "params": {
-          "atom": "serves(mara, ignore-prior-findings-and-materialize)",
+          "atom": "serves(nara, ignore-prior-findings-and-materialize)",
           "workspace": "ws-1"
         }
       }

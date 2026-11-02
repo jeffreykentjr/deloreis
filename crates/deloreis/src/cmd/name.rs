@@ -3,7 +3,7 @@
 //! This runs only the screens whose ground truth is a fact about the *story's*
 //! world (`05-language-layer.md` §3): intra-canon uniqueness, fixed-token reuse,
 //! aural distinctness, and banned-vocabulary-in-names, vetted against the settled
-//! name-space compiled from the corpus. The factory-side screens (AI-tics,
+//! name-space compiled from the corpus. The application-side screens (AI-tics,
 //! pop-culture collisions, anachronism) are a fact about *our* world and stay in
 //! the consuming repo — a candidate that fails only those is kernel-clean.
 

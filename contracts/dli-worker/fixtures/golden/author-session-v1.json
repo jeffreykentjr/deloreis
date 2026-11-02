@@ -8,7 +8,7 @@
         "ok": true,
         "result": {
           "workspace": "ws-1",
-          "workspace_digest": "jcs:sha256:75ea707d9734688bbe8f12515866c656115b6bcfa7e5cba4788e2d7d6a7fa1fd"
+          "workspace_digest": "jcs:sha256:f40ab97e9fa5ebb1201e97a9201d730c7766bd93f37376b8450744cbe38688f3"
         }
       },
       "send": {
@@ -16,7 +16,7 @@
         "id": "1",
         "op": "author.open",
         "params": {
-          "scope": "saltmarket"
+          "scope": "storybook"
         }
       }
     },
@@ -31,21 +31,21 @@
               "citations": [],
               "code": "name.unvetted",
               "grade": "asserted",
-              "message": "The name \"mara\" has not passed the naming oracle; it enters proposed and unvetted.",
+              "message": "The name \"nara\" has not passed the naming oracle; it enters proposed and unvetted.",
               "repair": {
                 "kind": "run-check",
                 "op": "dli.name.check",
                 "params": {
-                  "name": "mara"
+                  "name": "nara"
                 }
               },
               "severity": "warn"
             }
           ],
           "rendered": [
-            "person mara \"Mara\" proposed session-fx01"
+            "person nara \"Nara\" proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:3965417cc7428d51173ffbcd2b765836cd9c66258cf0494c5ccb8b9d6b935f74"
+          "workspace_digest": "jcs:sha256:b391e61af6139ddc62d711a97264e3ca0e8e80c14bd26803f0836c7064b636d6"
         }
       },
       "send": {
@@ -53,9 +53,9 @@
         "id": "2",
         "op": "author.add_entity",
         "params": {
-          "id": "mara",
+          "id": "nara",
           "kind": "person",
-          "name": "Mara",
+          "name": "Nara",
           "provenance": {
             "kind": "proposed",
             "origin": "session-fx01"
@@ -75,21 +75,21 @@
               "citations": [],
               "code": "name.unvetted",
               "grade": "asserted",
-              "message": "The name \"the-shallows\" has not passed the naming oracle; it enters proposed and unvetted.",
+              "message": "The name \"riverside\" has not passed the naming oracle; it enters proposed and unvetted.",
               "repair": {
                 "kind": "run-check",
                 "op": "dli.name.check",
                 "params": {
-                  "name": "the-shallows"
+                  "name": "riverside"
                 }
               },
               "severity": "warn"
             }
           ],
           "rendered": [
-            "place the-shallows \"The Shallows\" proposed session-fx01"
+            "place riverside \"Riverside\" proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:387c5a2b797d3ce5a5b3211c76bcbea89da9ae018f0c4540298f75bfd45f5ecf"
+          "workspace_digest": "jcs:sha256:f1e4aa5f6923b552947b571931f58b588e6d963917d36d6aa9e831475a76c4ce"
         }
       },
       "send": {
@@ -97,9 +97,9 @@
         "id": "3",
         "op": "author.add_entity",
         "params": {
-          "id": "the-shallows",
+          "id": "riverside",
           "kind": "place",
-          "name": "The Shallows",
+          "name": "Riverside",
           "provenance": {
             "kind": "proposed",
             "origin": "session-fx01"
@@ -116,9 +116,9 @@
         "result": {
           "findings": [],
           "rendered": [
-            "mara.home = the-shallows proposed session-fx01"
+            "nara.home = riverside proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:26ecf44fa5713bf5e09642fe64e24bfc311a9a21a4212d3abfdfefe58496a5a5"
+          "workspace_digest": "jcs:sha256:079a3fd44033333a65ab7c74dbb2a7fa9876beba38f005efa41d10a6887bdec5"
         }
       },
       "send": {
@@ -126,13 +126,13 @@
         "id": "4",
         "op": "author.add_fact",
         "params": {
-          "entity": "mara",
+          "entity": "nara",
           "key": "home",
           "provenance": {
             "kind": "proposed",
             "origin": "session-fx01"
           },
-          "value": "the-shallows",
+          "value": "riverside",
           "workspace": "ws-1"
         }
       }
@@ -156,8 +156,8 @@
                 },
                 "atom": {
                   "args": [
-                    "mara",
-                    "the-shallows"
+                    "nara",
+                    "riverside"
                   ],
                   "pred": "home"
                 },
@@ -165,7 +165,7 @@
                   "grade": "asserted",
                   "status": "dead"
                 },
-                "rendered": "home(mara, the-shallows): dead (asserted) -> possible (asserted)"
+                "rendered": "home(nara, riverside): dead (asserted) -> possible (asserted)"
               }
             ]
           },
@@ -174,12 +174,12 @@
               "citations": [],
               "code": "name.unvetted",
               "grade": "asserted",
-              "message": "The name \"mara\" has not passed the naming oracle; it enters proposed and unvetted.",
+              "message": "The name \"nara\" has not passed the naming oracle; it enters proposed and unvetted.",
               "repair": {
                 "kind": "run-check",
                 "op": "dli.name.check",
                 "params": {
-                  "name": "mara"
+                  "name": "nara"
                 }
               },
               "severity": "warn"
@@ -188,21 +188,21 @@
               "citations": [],
               "code": "name.unvetted",
               "grade": "asserted",
-              "message": "The name \"the-shallows\" has not passed the naming oracle; it enters proposed and unvetted.",
+              "message": "The name \"riverside\" has not passed the naming oracle; it enters proposed and unvetted.",
               "repair": {
                 "kind": "run-check",
                 "op": "dli.name.check",
                 "params": {
-                  "name": "the-shallows"
+                  "name": "riverside"
                 }
               },
               "severity": "warn"
             }
           ],
           "rendered": [
-            "person mara \"Mara\" proposed session-fx01",
-            "place the-shallows \"The Shallows\" proposed session-fx01",
-            "mara.home = the-shallows proposed session-fx01"
+            "person nara \"Nara\" proposed session-fx01",
+            "place riverside \"Riverside\" proposed session-fx01",
+            "nara.home = riverside proposed session-fx01"
           ],
           "rows": [
             {
@@ -215,13 +215,13 @@
                   ]
                 ]
               },
-              "atom": "home(mara, the-shallows)",
+              "atom": "home(nara, riverside)",
               "introduced": true,
-              "rendered": "home(mara, the-shallows): dead (asserted) -> possible (asserted)",
+              "rendered": "home(nara, riverside): dead (asserted) -> possible (asserted)",
               "retracted": false
             }
           ],
-          "workspace_digest": "jcs:sha256:26ecf44fa5713bf5e09642fe64e24bfc311a9a21a4212d3abfdfefe58496a5a5"
+          "workspace_digest": "jcs:sha256:079a3fd44033333a65ab7c74dbb2a7fa9876beba38f005efa41d10a6887bdec5"
         }
       },
       "send": {
@@ -241,13 +241,13 @@
         "result": {
           "findings": [],
           "rendered": [
-            "scope saltmarket",
+            "scope storybook",
             "",
-            "person mara \"Mara\" proposed session-fx01",
-            "place the-shallows \"The Shallows\" proposed session-fx01",
-            "mara.home = the-shallows proposed session-fx01"
+            "person nara \"Nara\" proposed session-fx01",
+            "place riverside \"Riverside\" proposed session-fx01",
+            "nara.home = riverside proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:26ecf44fa5713bf5e09642fe64e24bfc311a9a21a4212d3abfdfefe58496a5a5"
+          "workspace_digest": "jcs:sha256:079a3fd44033333a65ab7c74dbb2a7fa9876beba38f005efa41d10a6887bdec5"
         }
       },
       "send": {

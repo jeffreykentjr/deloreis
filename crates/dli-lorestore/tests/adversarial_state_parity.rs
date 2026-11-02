@@ -100,17 +100,17 @@ fn gauntlet() -> Pack {
         "weir",
         vec![
             ratify_decl("D-1"),
-            entity(EntityKind::Place, "gwern", "D-1"),
+            entity(EntityKind::Place, "joren", "D-1"),
             entity(EntityKind::Event, "enclosure", "D-1"),
             // dotted valued, with time
             state(
-                "gwern.water-status",
+                "joren.water-status",
                 Some(Term::Sym(id("commons"))),
                 Some(TimeClause::Since(id("enclosure"))),
                 Some(ratified("D-1")),
             ),
             // dotted valueless -> unary holding p(s)
-            state("gwern.alive", None, None, Some(ratified("D-1"))),
+            state("joren.alive", None, None, Some(ratified("D-1"))),
             // undotted valued -> n(v)
             state(
                 "foo",
@@ -120,14 +120,14 @@ fn gauntlet() -> Pack {
             ),
             // Str value
             state(
-                "gwern.title",
+                "joren.title",
                 Some(Term::Str("The Weir".to_owned())),
                 None,
                 Some(ratified("D-1")),
             ),
             // Int value
             state(
-                "gwern.depth",
+                "joren.depth",
                 Some(Term::Int(7)),
                 None,
                 Some(ratified("D-1")),
@@ -141,7 +141,7 @@ fn gauntlet() -> Pack {
             ),
             // INERT: undotted valueless WITH provenance (the lock-step trap)
             state("waterlogged", None, None, Some(ratified("D-1"))),
-            fact("linked", &["gwern", "enclosure"], Some(ratified("D-1"))),
+            fact("linked", &["joren", "enclosure"], Some(ratified("D-1"))),
         ],
     )
 }

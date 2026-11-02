@@ -6,7 +6,7 @@
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     }
   ],
@@ -44,7 +44,7 @@
           "rendered": [
             "serves(mireth, the-warden) proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:4542807ab1980148eb014f33f8f5a758b03d8245a213448057c4491de3c53d7f"
+          "workspace_digest": "jcs:sha256:1107266a06bcf4f1c871c115fb236395bb954a6efe3c7c039f75324158ab4b58"
         }
       },
       "send": {

@@ -100,7 +100,7 @@ fn ladder_unterminated_block() {
 fn ladder_bad_continuation() {
     // An indented line that is not a slot fact — a Malformed continuation.
     let out = render_class(
-        "person mara \"Mara\" decided d-1\n  mara is a fisher\n",
+        "person nara \"Nara\" decided d-1\n  nara is a fisher\n",
         DiagClass::Malformed,
     );
     insta::assert_snapshot!("ladder_bad_continuation", out);

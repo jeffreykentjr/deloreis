@@ -156,13 +156,13 @@ pub struct WhyNot {
 ///
 /// let mut world = World::new();
 /// // A fact resting on a single open event variable: possible, not certain.
-/// let fact = GroundAtom { pred: "keeps".to_owned(), args: vec!["mara".to_owned()] };
+/// let fact = GroundAtom { pred: "keeps".to_owned(), args: vec!["nara".to_owned()] };
 /// world.assert_fact(fact, Ann::supported(PosBool::pos(Atom(0))));
 /// let world = world.fixpoint().expect("stratifiable");
 ///
 /// let goal = AtomExpr {
 ///     pred: Ident::synthetic("keeps"),
-///     args: vec![Term::Sym(Ident::synthetic("mara"))],
+///     args: vec![Term::Sym(Ident::synthetic("nara"))],
 /// };
 /// let wn = why_not(&world, &goal);
 /// assert_eq!(wn.status, Status::Possible);

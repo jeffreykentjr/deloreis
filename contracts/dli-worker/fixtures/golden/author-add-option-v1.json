@@ -6,7 +6,7 @@
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     },
     {
@@ -31,7 +31,7 @@
           "rendered": [
             "  option opt-a \"the guild\""
           ],
-          "workspace_digest": "jcs:sha256:299f4448567f1fb955a2dad8766bf6e8f7f95fd49ee7347b1abcf86216407391"
+          "workspace_digest": "jcs:sha256:d48c82d52c4d234acb8b714f60fe7de24c4d7d3f250a57a016747f34010a22e7"
         }
       },
       "send": {

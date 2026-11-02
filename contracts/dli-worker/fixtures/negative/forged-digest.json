@@ -7,7 +7,7 @@
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     }
   ],
@@ -19,8 +19,8 @@
     "params": {
       "workspace": "ws-1",
       "kind": "person",
-      "id": "mara",
-      "name": "Mara",
+      "id": "nara",
+      "name": "Nara",
       "provenance": {
         "kind": "proposed",
         "origin": "forged-fence-probe"

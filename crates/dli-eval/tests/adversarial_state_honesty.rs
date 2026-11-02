@@ -68,7 +68,7 @@ fn eval_provenanceless_state_fails_closed() {
     let doc = Document {
         scope: None,
         decls: vec![state(
-            "gwern.water-status",
+            "joren.water-status",
             Some(Term::Sym(id("commons"))),
             None,
             None,
@@ -82,7 +82,7 @@ fn eval_provenanceless_state_fails_closed() {
         .query(&Query {
             goal: AtomExpr {
                 pred: id("water-status"),
-                args: vec![Term::Sym(id("gwern")), Term::Var(id("v"))],
+                args: vec![Term::Sym(id("joren")), Term::Var(id("v"))],
             },
         })
         .expect("query");

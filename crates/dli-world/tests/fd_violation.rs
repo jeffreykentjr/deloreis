@@ -122,8 +122,8 @@ fn declared_functional_predicate_flags_two_certain_values() {
     // for. Two certain ranks for one officer is a functional-dependency break.
     let world = world(vec![
         functional("rank"),
-        certain_fact("rank", "mara", "captain"),
-        certain_fact("rank", "mara", "admiral"),
+        certain_fact("rank", "nara", "captain"),
+        certain_fact("rank", "nara", "admiral"),
     ]);
     let findings = fd_findings(&world);
     assert_eq!(
@@ -133,7 +133,7 @@ fn declared_functional_predicate_flags_two_certain_values() {
     );
     assert!(
         findings[0].contains("rank")
-            && findings[0].contains("mara")
+            && findings[0].contains("nara")
             && findings[0].contains("captain")
             && findings[0].contains("admiral"),
         "names the slot and both values: {}",
@@ -148,8 +148,8 @@ fn a_first_seen_predicate_without_the_declaration_is_not_flagged() {
     // multi-valued relation, so the conservative default is silence. This is
     // exactly the gap the `functional` declaration exists to close.
     let world = world(vec![
-        certain_fact("rank", "mara", "captain"),
-        certain_fact("rank", "mara", "admiral"),
+        certain_fact("rank", "nara", "captain"),
+        certain_fact("rank", "nara", "admiral"),
     ]);
     assert!(
         fd_findings(&world).is_empty(),
@@ -184,22 +184,22 @@ fn an_undeclared_hub_and_chain_topology_is_not_flagged() {
 #[test]
 fn a_declared_predicate_flags_regardless_of_other_subjects() {
     // The declaration is the only thing that arms the class. Once `rank` is
-    // declared functional, mara's two ranks are a break — and the presence of a
+    // declared functional, nara's two ranks are a break — and the presence of a
     // one-ranked officer neither adds nor removes the signal.
     let world = world(vec![
         functional("rank"),
-        certain_fact("rank", "mara", "captain"),
-        certain_fact("rank", "mara", "admiral"),
+        certain_fact("rank", "nara", "captain"),
+        certain_fact("rank", "nara", "admiral"),
         certain_fact("rank", "bryn", "ensign"),
     ]);
     let findings = fd_findings(&world);
     assert_eq!(
         findings.len(),
         1,
-        "one finding, blamed on mara's slot: {findings:?}"
+        "one finding, blamed on nara's slot: {findings:?}"
     );
     assert!(
-        findings[0].contains("mara") && !findings[0].contains("bryn"),
+        findings[0].contains("nara") && !findings[0].contains("bryn"),
         "blames the two-valued subject only: {}",
         findings[0]
     );
@@ -208,10 +208,10 @@ fn a_declared_predicate_flags_regardless_of_other_subjects() {
 #[test]
 fn a_genuine_multivalued_relation_is_never_flagged() {
     // R2/B's shape, at load: an alliance is many-to-many. `ally-of` appears for
-    // mara alone, so nothing witnesses single-valuedness and nothing fires.
+    // nara alone, so nothing witnesses single-valuedness and nothing fires.
     let world = world(vec![
-        certain_fact("ally-of", "mara", "bryn"),
-        certain_fact("ally-of", "mara", "gwen"),
+        certain_fact("ally-of", "nara", "bryn"),
+        certain_fact("ally-of", "nara", "gwen"),
     ]);
     assert!(
         fd_findings(&world).is_empty(),
@@ -225,9 +225,9 @@ fn a_multivalued_relation_stays_clean_with_other_subjects_present() {
     // And the inference itself must not misfire: `ally-of` here is two-valued for
     // *two* subjects, so no subject witnesses it as functional.
     let world = world(vec![
-        certain_fact("ally-of", "mara", "bryn"),
-        certain_fact("ally-of", "mara", "gwen"),
-        certain_fact("ally-of", "bryn", "mara"),
+        certain_fact("ally-of", "nara", "bryn"),
+        certain_fact("ally-of", "nara", "gwen"),
+        certain_fact("ally-of", "bryn", "nara"),
         certain_fact("ally-of", "bryn", "gwen"),
     ]);
     assert!(
@@ -246,8 +246,8 @@ fn cosmetic_drift_is_one_value_not_a_violation() {
     // the strictest setting available, and it still stays silent here.
     let world = world(vec![
         functional("rank"),
-        certain_fact("rank", "mara", "captain"),
-        certain_fact("rank", "mara", "Captain"),
+        certain_fact("rank", "nara", "captain"),
+        certain_fact("rank", "nara", "Captain"),
     ]);
     assert!(
         fd_findings(&world).is_empty(),
@@ -258,15 +258,15 @@ fn cosmetic_drift_is_one_value_not_a_violation() {
 
 #[test]
 fn separator_drift_is_one_value_too() {
-    // The same fold covers hyphen/space drift — `tide-bell` and `tide bell`.
+    // The same fold covers hyphen/space drift — `bell-song` and `bell song`.
     let world = world(vec![
         functional("post"),
-        certain_fact("post", "mara", "tide-bell"),
-        certain_fact("post", "mara", "tide bell"),
+        certain_fact("post", "nara", "bell-song"),
+        certain_fact("post", "nara", "bell song"),
     ]);
     assert!(
         fd_findings(&world).is_empty(),
-        "`tide-bell` and `tide bell` are one value: {:?}",
+        "`bell-song` and `bell song` are one value: {:?}",
         fd_findings(&world)
     );
 }
@@ -325,12 +325,12 @@ fn a_fluent_slot_is_left_to_the_interval_check() {
         }),
         functional("rank"),
         state(
-            "mara.rank",
+            "nara.rank",
             "captain",
             Some(TimeClause::Until(id("promotion"))),
         ),
         state(
-            "mara.rank",
+            "nara.rank",
             "admiral",
             Some(TimeClause::Since(id("promotion"))),
         ),
@@ -339,7 +339,7 @@ fn a_fluent_slot_is_left_to_the_interval_check() {
         world
             .model
             .fluents
-            .contains_key(&("rank".to_owned(), "mara".to_owned())),
+            .contains_key(&("rank".to_owned(), "nara".to_owned())),
         "the slot really is a fluent — otherwise this asserts nothing"
     );
     assert!(
@@ -355,9 +355,9 @@ fn a_shadow_value_is_not_a_second_certain_value() {
     // shadow layer and is not a contradiction of the ratified value.
     let world = world(vec![
         functional("rank"),
-        certain_fact("rank", "mara", "captain"),
+        certain_fact("rank", "nara", "captain"),
         Decl::Fact(FactDecl {
-            atom: atom("rank", &["mara", "admiral"]),
+            atom: atom("rank", &["nara", "admiral"]),
             triple: false,
             provenance: Some(marker(ProvenanceMarker::Proposed, &[])),
         }),
@@ -375,9 +375,9 @@ fn one_finding_per_slot_not_per_pair() {
     // broken slot, and it names every value it found.
     let world = world(vec![
         functional("rank"),
-        certain_fact("rank", "mara", "captain"),
-        certain_fact("rank", "mara", "admiral"),
-        certain_fact("rank", "mara", "ensign"),
+        certain_fact("rank", "nara", "captain"),
+        certain_fact("rank", "nara", "admiral"),
+        certain_fact("rank", "nara", "ensign"),
     ]);
     let findings = fd_findings(&world);
     assert_eq!(findings.len(), 1, "one finding for the slot: {findings:?}");
@@ -394,8 +394,8 @@ fn two_broken_slots_raise_two_findings() {
     // declared predicate are two findings, not one merged report.
     let world = world(vec![
         functional("rank"),
-        certain_fact("rank", "mara", "captain"),
-        certain_fact("rank", "mara", "admiral"),
+        certain_fact("rank", "nara", "captain"),
+        certain_fact("rank", "nara", "admiral"),
         certain_fact("rank", "bryn", "ensign"),
         certain_fact("rank", "bryn", "lieutenant"),
     ]);
@@ -408,7 +408,7 @@ fn a_clean_declared_functional_world_is_silent() {
     // The null case: the declaration alone changes nothing about honest canon.
     let world = world(vec![
         functional("rank"),
-        certain_fact("rank", "mara", "captain"),
+        certain_fact("rank", "nara", "captain"),
         certain_fact("rank", "bryn", "ensign"),
     ]);
     assert!(

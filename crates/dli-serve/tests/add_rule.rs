@@ -90,24 +90,24 @@ fn not_lit(pred: &str, args: &[&str]) -> Value {
     json!({ "atom": atom(pred, args), "negated": true })
 }
 
-/// A base declaring `D-1`, a person `mara` with a certain `rank(mara, gold)`
-/// on a `functional` predicate, plus an unrelated marker fact `special(mara)`
+/// A base declaring `D-1`, a person `nara` with a certain `rank(nara, gold)`
+/// on a `functional` predicate, plus an unrelated marker fact `special(nara)`
 /// — enough for a harmless rule, an FD-breaking one, and a range-restriction
 /// probe.
 fn rule_base() -> Store {
-    let source = "scope tpth\n\
+    let source = "scope storybook\n\
         ratify D-1\n\
-        person mara \"Mara\"  ratified D-1\n\
+        person nara \"Nara\"  ratified D-1\n\
         functional rank  ratified D-1\n\
-        rank(mara, gold)  ratified D-1\n\
-        special(mara)  ratified D-1\n";
+        rank(nara, gold)  ratified D-1\n\
+        special(nara)  ratified D-1\n";
     let (document, diagnostics) = dli_syntax::parse_document(source);
     assert!(
         diagnostics.is_empty(),
         "base source parses: {diagnostics:?}"
     );
     Store::with_pack(Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     })
     .expect("base compiles")
@@ -186,7 +186,7 @@ fn query_status(store: &mut Store, dli: &str, ws: &str, goal: &str) -> Option<St
 #[test]
 fn add_rule_stages_cleanly_and_derives_through_the_staged_query() {
     let mut store = rule_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     let response = add_rule(
         &mut store,
         "1.7.0",
@@ -217,7 +217,7 @@ fn add_rule_stages_cleanly_and_derives_through_the_staged_query() {
         "{rendered:?}"
     );
     assert_eq!(
-        query_status(&mut store, "1.7.0", &ws, "endorsed(mara)").as_deref(),
+        query_status(&mut store, "1.7.0", &ws, "endorsed(nara)").as_deref(),
         Some("certain"),
         "the rule's own derivation is visible over the staged world immediately"
     );
@@ -226,7 +226,7 @@ fn add_rule_stages_cleanly_and_derives_through_the_staged_query() {
 #[test]
 fn the_declaration_stages_a_rule_decl() {
     let mut store = rule_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     add_rule(
         &mut store,
         "1.7.0",
@@ -249,7 +249,7 @@ fn the_declaration_stages_a_rule_decl() {
 #[test]
 fn negation_lowers_and_derives() {
     let mut store = rule_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     let response = add_rule(
         &mut store,
         "1.7.0",
@@ -265,9 +265,9 @@ fn negation_lowers_and_derives() {
         result(&response)
     );
     assert_eq!(
-        query_status(&mut store, "1.7.0", &ws, "unbadged(mara)").as_deref(),
+        query_status(&mut store, "1.7.0", &ws, "unbadged(nara)").as_deref(),
         Some("certain"),
-        "no badged(mara) fact exists, so the negated literal never poisons"
+        "no badged(nara) fact exists, so the negated literal never poisons"
     );
 }
 
@@ -276,7 +276,7 @@ fn negation_lowers_and_derives() {
 #[test]
 fn an_unbound_head_variable_is_refused_without_staging() {
     let mut store = rule_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     let response = add_rule(
         &mut store,
         "1.7.0",
@@ -313,13 +313,13 @@ fn an_unbound_head_variable_is_refused_without_staging() {
 #[test]
 fn an_empty_body_is_refused_without_staging() {
     let mut store = rule_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     let response = add_rule(
         &mut store,
         "1.7.0",
         &ws,
         "vacuous-rule",
-        &atom("always", &["mara"]),
+        &atom("always", &["nara"]),
         &json!([]),
         &proposed("s"),
     );
@@ -348,7 +348,7 @@ fn an_empty_body_is_refused_without_staging() {
 #[test]
 fn a_non_empty_rules_render_round_trips_through_the_text_parser() {
     let mut store = rule_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     let head = atom("endorsed", &["$x"]);
     let body = json!([lit("rank", &["$x", "gold"])]);
     let response = add_rule(
@@ -421,7 +421,7 @@ fn strip_spans(mut value: Value) -> Value {
 #[test]
 fn a_duplicate_rule_name_is_refused_without_staging() {
     let mut store = rule_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     let first = add_rule(
         &mut store,
         "1.7.0",
@@ -459,7 +459,7 @@ fn a_duplicate_rule_name_is_refused_without_staging() {
 #[test]
 fn an_unstratifiable_rule_is_refused_without_staging_and_reads_stay_healthy() {
     let mut store = rule_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     add_rule(
         &mut store,
         "1.7.0",
@@ -504,7 +504,7 @@ fn an_unstratifiable_rule_is_refused_without_staging_and_reads_stay_healthy() {
 #[test]
 fn a_citation_to_an_undeclared_decision_refuses_without_staging() {
     let mut store = rule_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     let response = add_rule(
         &mut store,
         "1.7.0",
@@ -525,7 +525,7 @@ fn a_citation_to_an_undeclared_decision_refuses_without_staging() {
 #[test]
 fn a_rule_derived_fd_violation_surfaces_on_check_and_blocks_materialize() {
     let mut store = rule_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     let response = add_rule(
         &mut store,
         "1.7.0",
@@ -571,7 +571,7 @@ fn a_rule_derived_fd_violation_surfaces_on_check_and_blocks_materialize() {
 #[test]
 fn author_diff_rows_show_the_staged_rule_declaration() {
     let mut store = rule_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     add_rule(
         &mut store,
         "1.7.0",
@@ -605,7 +605,7 @@ fn author_diff_rows_show_the_staged_rule_declaration() {
 #[test]
 fn a_stale_digest_fence_refuses() {
     let mut store = rule_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     let mut stale = req(
         "1.7.0",
         "add-rule",
@@ -627,7 +627,7 @@ fn a_stale_digest_fence_refuses() {
 #[test]
 fn an_idempotent_retry_replays_and_stages_nothing() {
     let mut store = rule_base();
-    let ws = open_scope(&mut store, "1.7.0", "tpth");
+    let ws = open_scope(&mut store, "1.7.0", "storybook");
     let mut call = req(
         "1.7.0",
         "add-rule",
@@ -663,7 +663,7 @@ fn an_idempotent_retry_replays_and_stages_nothing() {
 fn a_wire_authored_rule_matches_a_corpus_imported_one_on_the_same_query() {
     // Path A: author.add_rule on a fresh workspace over the shared base.
     let mut wire_store = rule_base();
-    let wire_ws = open_scope(&mut wire_store, "2.0.0", "tpth");
+    let wire_ws = open_scope(&mut wire_store, "2.0.0", "storybook");
     let staged = add_rule(
         &mut wire_store,
         "2.0.0",
@@ -674,7 +674,7 @@ fn a_wire_authored_rule_matches_a_corpus_imported_one_on_the_same_query() {
         &cited("D-1"),
     );
     assert!(codes(result(&staged)).is_empty(), "{:?}", result(&staged));
-    let wire_status = query_status(&mut wire_store, "2.0.0", &wire_ws, "endorsed(mara)");
+    let wire_status = query_status(&mut wire_store, "2.0.0", &wire_ws, "endorsed(nara)");
 
     // Path B: the identical logical corpus, rule included as `.dli` text,
     // imported through `dli.corpus.import`'s syntax-build text path. Corpus
@@ -683,10 +683,10 @@ fn a_wire_authored_rule_matches_a_corpus_imported_one_on_the_same_query() {
     // store directory pre-created ("seed from nothing" means from an EMPTY
     // store, never from no store at all).
     let root = tempfile::tempdir().expect("temporary project root");
-    std::fs::create_dir_all(root.path().join("lorestore/tpth")).expect("pre-create store dir");
+    std::fs::create_dir_all(root.path().join("lorestore/storybook")).expect("pre-create store dir");
     std::fs::write(
         root.path().join("deloreis.toml"),
-        "version = 1\nname = \"migration-parity\"\n\n[documents.tpth]\nstore = \"lorestore/tpth\"\n",
+        "version = 1\nname = \"migration-parity\"\n\n[documents.storybook]\nstore = \"lorestore/storybook\"\n",
     )
     .expect("write project manifest");
     let project =
@@ -699,16 +699,16 @@ fn a_wire_authored_rule_matches_a_corpus_imported_one_on_the_same_query() {
             "import",
             Op::CorpusImport,
             json!({
-                "document": "tpth",
+                "document": "storybook",
                 "mode": "init",
                 "dli_documents": [{
-                    "id": "tpth",
-                    "text": "scope tpth\n\
+                    "id": "storybook",
+                    "text": "scope storybook\n\
                         ratify D-1\n\
-                        person mara \"Mara\"  ratified D-1\n\
+                        person nara \"Nara\"  ratified D-1\n\
                         functional rank  ratified D-1\n\
-                        rank(mara, gold)  ratified D-1\n\
-                        special(mara)  ratified D-1\n\
+                        rank(nara, gold)  ratified D-1\n\
+                        special(nara)  ratified D-1\n\
                         rule endorsement  ratified D-1\n\
                         \x20 endorsed($x) :- rank($x, gold)\n"
                 }],
@@ -758,8 +758,8 @@ fn a_wire_authored_rule_matches_a_corpus_imported_one_on_the_same_query() {
         .attach_lorestore(root.path().to_path_buf())
         .expect("attach the imported lorestore");
 
-    let import_ws = open_scope(&mut import_store, "2.0.0", "tpth");
-    let import_status = query_status(&mut import_store, "2.0.0", &import_ws, "endorsed(mara)");
+    let import_ws = open_scope(&mut import_store, "2.0.0", "storybook");
+    let import_status = query_status(&mut import_store, "2.0.0", &import_ws, "endorsed(nara)");
 
     assert_eq!(
         wire_status, import_status,
@@ -838,10 +838,10 @@ fn durable_defeat_of_a_rule_claim_kills_every_derivation_through_it() {
 
     ledger_result(dispatch(
         &ledger_request(
-            "mara",
+            "nara",
             Op::AuthorAddEntity,
             json!({
-                "workspace": workspace, "kind": "person", "id": "mara", "name": "Mara",
+                "workspace": workspace, "kind": "person", "id": "nara", "name": "Nara",
                 "provenance": {"kind": "cited", "decisions": ["D-1"], "state": "ratified"}
             }),
         ),
@@ -852,14 +852,14 @@ fn durable_defeat_of_a_rule_claim_kills_every_derivation_through_it() {
             "special",
             Op::AuthorAddFact,
             json!({
-                "workspace": workspace, "entity": "mara", "key": "special", "value": "yes",
+                "workspace": workspace, "entity": "nara", "key": "special", "value": "yes",
                 "provenance": {"kind": "cited", "decisions": ["D-1"], "state": "ratified"}
             }),
         ),
         &mut store,
     ));
     // The rule cites D-3 — a DIFFERENT decision than the base fact (D-1) —
-    // so defeating the rule alone leaves mara's own facts untouched.
+    // so defeating the rule alone leaves nara's own facts untouched.
     let rule_added = ledger_result(dispatch(
         &ledger_request(
             "rule",
@@ -905,7 +905,7 @@ fn durable_defeat_of_a_rule_claim_kills_every_derivation_through_it() {
         &ledger_request(
             "q1",
             Op::AuthorQuery,
-            json!({ "workspace": workspace, "goal": "endorsed(mara)", "layer": "all" }),
+            json!({ "workspace": workspace, "goal": "endorsed(nara)", "layer": "all" }),
         ),
         &mut store,
     ));
@@ -934,7 +934,7 @@ fn durable_defeat_of_a_rule_claim_kills_every_derivation_through_it() {
         &ledger_request(
             "q2",
             Op::AuthorQuery,
-            json!({ "workspace": workspace, "goal": "endorsed(mara)", "layer": "all" }),
+            json!({ "workspace": workspace, "goal": "endorsed(nara)", "layer": "all" }),
         ),
         &mut store,
     ));
@@ -944,18 +944,18 @@ fn durable_defeat_of_a_rule_claim_kills_every_derivation_through_it() {
         "the durable defeat kills the rule's derivation through the wire: {after:?}"
     );
 
-    // The surface fact is untouched: mara's own `special` fact is still there.
+    // The surface fact is untouched: nara's own `special` fact is still there.
     let surface = ledger_result(dispatch(
         &ledger_request(
             "q3",
             Op::AuthorQuery,
-            json!({ "workspace": workspace, "goal": "special(mara, yes)", "layer": "all" }),
+            json!({ "workspace": workspace, "goal": "special(nara, yes)", "layer": "all" }),
         ),
         &mut store,
     ));
     let surface_rows = surface["rows"].as_array().expect("rows");
     assert!(
         !surface_rows.is_empty() && surface_rows[0]["status"] == "certain",
-        "mara's own fact never depended on the rule's citation: {surface:?}"
+        "nara's own fact never depended on the rule's citation: {surface:?}"
     );
 }

@@ -64,7 +64,7 @@ fn base(source: &str) -> Store {
         "base source parses: {diagnostics:?}"
     );
     Store::with_pack(dli_world::pack::Pack {
-        name: "tpth".to_owned(),
+        name: "storybook".to_owned(),
         documents: vec![document],
     })
     .expect("base compiles")
@@ -74,12 +74,12 @@ fn base(source: &str) -> Store {
 /// distinct certain values — so nothing conflicts until a same-as merges them.
 fn base_with_latent_conflict() -> Store {
     base(concat!(
-        "scope tpth\n",
+        "scope storybook\n",
         "ratify D-0001\n",
-        "place mara \"Mara\"  ratified D-0001\n",
+        "place nara \"Nara\"  ratified D-0001\n",
         "place mira \"Mira\"  ratified D-0001\n",
         "functional current-role decided D-0001\n",
-        "current-role(mara, keeper) decided D-0001\n",
+        "current-role(nara, keeper) decided D-0001\n",
         "current-role(mira, warden) decided D-0001\n",
     ))
 }
@@ -107,7 +107,7 @@ fn stage_same_as(store: &mut Store, ws: &str) -> dli_serve::Response {
             "sa",
             Op::AuthorAssertSameAs,
             json!({
-                "workspace": ws, "left": "mara", "right": "mira",
+                "workspace": ws, "left": "nara", "right": "mira",
                 "provenance": { "kind": "cited", "decisions": ["D-0001"], "state": "ratified" }
             }),
         ),
@@ -164,7 +164,7 @@ fn staged_count(store: &mut Store, ws: &str) -> usize {
 #[test]
 fn a_same_as_merge_conflict_previews_then_rolls_back_at_three_calls_per_mention() {
     let mut store = base_with_latent_conflict();
-    let ws = open_scope(&mut store, "tpth");
+    let ws = open_scope(&mut store, "storybook");
 
     // Amortized setup: learn the same-as's stable structural key once, then reset.
     let staged = stage_same_as(&mut store, &ws);
@@ -221,14 +221,14 @@ fn a_same_as_merge_conflict_previews_then_rolls_back_at_three_calls_per_mention(
 #[test]
 fn a_non_colliding_same_as_previews_clean() {
     let mut store = base(concat!(
-        "scope tpth\n",
+        "scope storybook\n",
         "ratify D-0001\n",
-        "place mara \"Mara\"  ratified D-0001\n",
+        "place nara \"Nara\"  ratified D-0001\n",
         "place mira \"Mira\"  ratified D-0001\n",
         "functional current-role decided D-0001\n",
-        "current-role(mara, keeper) decided D-0001\n",
+        "current-role(nara, keeper) decided D-0001\n",
     ));
-    let ws = open_scope(&mut store, "tpth");
+    let ws = open_scope(&mut store, "storybook");
     assert!(stage_same_as(&mut store, &ws).ok);
     let checked = check(&mut store, &ws);
     assert!(

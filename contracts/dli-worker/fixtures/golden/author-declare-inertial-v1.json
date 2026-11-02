@@ -7,7 +7,7 @@
       "id": "pre-1",
       "op": "author.open",
       "params": {
-        "scope": "saltmarket"
+        "scope": "storybook"
       }
     }
   ],
@@ -22,7 +22,7 @@
           "rendered": [
             "inertial water-status proposed session-inertia"
           ],
-          "workspace_digest": "jcs:sha256:11d709cb2090feb152ad62c570b13c7fef70d976fbca7db9d39ec175f50cd4a0"
+          "workspace_digest": "jcs:sha256:542b55a5abd7a5139219a6bc76f24c234b032ccc265c077f2788edce575a4202"
         }
       },
       "send": {

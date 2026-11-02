@@ -27,7 +27,7 @@ fn clauses(lines: &[&str]) -> Vec<Clause> {
 #[test]
 fn a_valid_proof_body_lowers_to_typed_ops() {
     let body = structure_proof_body(&clauses(&[
-        "premise p1 holds(enfys, consent(household, door)) cited D-0113",
+        "premise p1 holds(linet, consent(household, door)) cited D-0113",
         "premise p2 phase(tide, slack) from-scene",
         "premise p3 debt(1) drawn-against p1",
         "step s1 instantiate ward-form with ground = door, fibre = withy",
@@ -44,7 +44,7 @@ fn a_valid_proof_body_lowers_to_typed_ops() {
         panic!("p1 is a premise")
     };
     assert_eq!(p1.label, "p1");
-    assert_eq!(p1.atom, "holds(enfys, consent(household, door))");
+    assert_eq!(p1.atom, "holds(linet, consent(household, door))");
     assert_eq!(p1.mods, vec!["cited", "D-0113"]);
 
     // The phase premise pre-parses its atom so the timing classifier reads the

@@ -15,9 +15,9 @@ sibling tool bolted to the side of the fabric — it is packs in the fabric, und
 one semantics, statused and forkable like any other lore.
 
 The consuming repo's naming oracle splits along a **principled seam** rather than
-staying whole in the factory: the half whose ground truth is a fact about the
+staying whole in the application: the half whose ground truth is a fact about the
 *story's* world re-homes into the kernel as language packs and compile checks;
-the half whose ground truth is a fact about *ours* stays factory-side as a second
+the half whose ground truth is a fact about *ours* stays caller-side as a second
 screen. §3 draws that seam check by check.
 
 ## 1. Registers as declarations
@@ -50,7 +50,7 @@ against.
 One thing does **not** migrate. The composition *weights* the consuming repo's
 generator uses — how often to try a dithematic name versus a simple one — are
 proposal policy, not world fact. They describe how a generator should sample the
-space; they say nothing about what the tongue *is*. Weights stay factory-side
+space; they say nothing about what the tongue *is*. Weights stay caller-side
 with the generator that samples them.
 
 ## 2. Names as typed derivations
@@ -98,11 +98,11 @@ patterns — a writer meets a diagnosis in the world's terms, not a stack trace.
 ## 3. The vet split, check by check
 
 The criterion for what re-homes into the kernel is **not**
-deterministic-versus-LLM — several checks that stay factory-side are pure
+deterministic-versus-LLM — several checks that stay caller-side are pure
 lookups. The criterion is whose world the ground truth is about:
 
 > A check re-homes into the kernel **iff its ground truth is a fact about the
-> story's world**. It stays in the factory **iff its ground truth is a fact
+> story's world**. It stays in the application **iff its ground truth is a fact
 > about ours**.
 
 **In-kernel — world-true:**
@@ -118,7 +118,7 @@ lookups. The criterion is whose world the ground truth is about:
 | Sayability-tier caps | ruled world policy (d-0010) over the syllable structure the dialect already defines |
 | Banned vocabulary in names | against the in-runtime ban list (§4) |
 
-**Factory-side — world-safe:**
+**Caller-side — world-safe:**
 
 | Check | Why it is a fact about our world |
 |---|---|
@@ -129,7 +129,7 @@ lookups. The criterion is whose world the ground truth is about:
 | Portent clichés | a taste judgment about our genre expectations |
 | Court-card versus tarot | a fact about our tarot iconography |
 
-Every factory-side screen carries no diegetic status, changes on research's
+Every caller-side screen carries no diegetic status, changes on research's
 schedule rather than by ruling, can never be cited to a D-entry, and **must
 never gate assertability**. It is a second screen the consuming repo runs, not a
 condition on whether a name is canon.
@@ -144,13 +144,11 @@ set distinctness runs it against a declared set (a scene cast, a family, a
 region). Scene-scoped checks can use a caller-supplied set of names.
 
 **Pronounceability splits down its middle.** Cluster and syllable structure
-follow the dialect grammar and are checked in-kernel; the
-can-an-English-narrator-voice-it heuristic is audio-production knowledge about
-our world and stays factory-side.
+follow the dialect grammar and are checked in-kernel; a pronunciation heuristic for a particular production belongs to the caller.
 
 **Two-layer verdict composition.** The oracle's verdict becomes two-layered by
-design: a kernel verdict (world-true) and an external screen (world-safe). The
-consuming repo's `fantasy name vet` composes them — it asks the kernel whether
+design: a kernel verdict (world-true) and an external screen (world-safe). A
+consuming application composes them — it asks the kernel whether
 the name is true to the world and asks its own screens whether the name is safe
 in ours, and reports both. Neither layer can overrule the other's ground truth,
 because they are ground truths about different worlds.
@@ -169,7 +167,7 @@ term round-table "the Round Table"  decided d-0004
 banned cannon d-0010 "the Matter of Britain keeps to sword and spear — no gunpowder anachronism"
 ```
 
-The prose scanner stays a factory-side tool — scanning markdown is not world
+The prose scanner stays a caller-side tool — scanning markdown is not world
 knowledge — but it consumes the *compiled* ban list instead of a private YAML,
 so there is one authoritative statement of what is banned and why, cited to the
 ruling that banned it. A ban is lore with provenance, not a config entry.
@@ -198,13 +196,13 @@ scope camelot
 
 hypothesis h-old-loan "the old speech took a hero-name from the tongue over the water"
 
-name-part tal "brow, high"  role given-proto  proposed agent:factory/naming-run-0714  assumes h-old-loan
+name-part tal "brow, high"  role given-proto  proposed agent:author/naming-run-0714  assumes h-old-loan
   # inventory, patterns, name-parts — every clause inherits the bundle's
   # hypothesis and the agent provenance
 
 name taldin "Taldin"  person.given in old-speech
   = given-proto tal + given-deutero din
-  proposed agent:factory/naming-run-0714  assumes h-old-loan
+  proposed agent:author/naming-run-0714  assumes h-old-loan
   # support: H(h-old-loan) — merely-possible: visible to shadow queries,
   # structurally excluded from every context pack and every assertion
 
