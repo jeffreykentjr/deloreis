@@ -30,10 +30,7 @@ pub use check::{
     factcheck::{ClaimReport, KilledToken, KilledTokens, MatchMode, RejectedClaim},
 };
 pub use draft::{DraftFinding, DraftMeta, DraftPayload};
-pub use incremental::{
-    CompileReuse, IncrementalWorld, compile_incremental, compile_incremental_verified,
-    compile_resumable, compile_reusing_fixpoint,
-};
+pub use incremental::{CompileReuse, compile_reusing_fixpoint};
 pub use language::{
     DialectDef, LangFinding, LanguageModel, LanguageOutcome, NameDef, RatifiedName,
 };
@@ -78,8 +75,7 @@ use crate::model::Provenance;
 /// koan 1).
 ///
 /// This is the **whole-pack** compile: every declaration is lowered afresh. The
-/// incremental seam that reuses a prior compile instead — byte-identically —
-/// is [`compile_incremental`]. Both
+/// optional seam that reuses a prior fixpoint is [`compile_reusing_fixpoint`]. Both
 /// route through one shared tail (`incremental::seal`), so the ledger valuation
 /// and the stratify-then-saturate handoff cannot drift between them.
 ///

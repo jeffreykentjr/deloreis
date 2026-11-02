@@ -40,18 +40,6 @@
 //! a cache that keyed on anything order-dependent — a ref, a sequence number, a
 //! branch name — would fail it.
 //!
-//! # Parent-delta reuse is NOT wired, and one test says exactly why
-//!
-//! Stage B of this PR — computing a child commit from its parent's
-//! `IncrementalWorld` via `dli_world::compile_incremental` — is **not**
-//! implemented, because it cannot currently be byte-identical.
-//! [`parent_delta_reuse_is_blocked_on_pack_provenance`] pins the reason to a
-//! single field, and
-//! [`a_new_decision_breaks_the_parent_prefix`] pins the second blocker. They are
-//! permanent, asserting tests rather than a paragraph in a commit message: when
-//! the blocking primitive lands they go red, and whoever lands it is told
-//! immediately that parent-delta is now available.
-//!
 //! All randomness is a deterministic LCG (the `state_fold_invariant` idiom) — no
 //! clock, no OS entropy, gate-safe.
 
@@ -568,95 +556,6 @@ fn confluence_holds_through_the_cache() {
         signature(&s2.compile_at(&h2).unwrap()),
         "the same facts committed in two cross-branch orders compiled to \
          different worlds"
-    );
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// 5 — WHY PARENT-DELTA REUSE (STAGE B) IS NOT WIRED
-// ════════════════════════════════════════════════════════════════════════════
-
-/// The blocker, pinned to one field.
-///
-/// This is the **most favourable case parent-delta reuse could ever get**: a
-/// single linear parent, no new decisions, the same pack name, and a pure
-/// append of one fact. The parent's declarations genuinely are a prefix of the
-/// child's, and `compile_incremental` genuinely reuses the lowering. It is still
-/// not byte-identical, and the entire difference is `PackProvenance::documents`:
-///
-/// `reconstruct_pack` emits the whole commit as **one** `Document`;
-/// `compile_incremental` appends the delta as a **second** one; and
-/// `IncrementalLoad::extend` counts documents per document. `packs` is part of
-/// `WorldModel`, so it is part of `CompiledWorld`'s equality.
-///
-/// Unblocking Stage B therefore needs a `dli-world` entry point that extends the
-/// **last** document instead of appending a new one — as a construction, not as
-/// a post-hoc correction of the counter, or the incremental path buys its speed
-/// with a different answer, which is exactly what `dli_world::incremental`
-/// exists to refuse. When that lands, this test goes red and says so.
-#[test]
-fn parent_delta_reuse_is_blocked_on_pack_provenance() {
-    let dir = TempDir::new().unwrap();
-    let store = Lorestore::open(dir.path().to_path_buf()).unwrap();
-    store.import_pack(&ward_pack()).unwrap();
-    let parent = store.branch_head("main").unwrap().unwrap();
-    let child = commit_facts(&store, "main", &[scripted_fact(3)]);
-
-    let parent_pack = store.reconstruct_at(&parent).unwrap();
-    let child_pack = store.reconstruct_at(&child).unwrap();
-    assert_eq!(parent_pack.documents.len(), 1);
-    assert_eq!(child_pack.documents.len(), 1);
-
-    let parent_decls = &parent_pack.documents[0].decls;
-    let child_decls = &child_pack.documents[0].decls;
-    assert!(
-        child_decls.len() > parent_decls.len()
-            && parent_decls
-                .iter()
-                .zip(child_decls.iter())
-                .all(|(a, b)| a == b),
-        "precondition: in this shape the parent's declarations ARE a prefix of \
-         the child's, so a delta reconstruction is well defined"
-    );
-
-    let delta = Document {
-        scope: child_pack.documents[0].scope.clone(),
-        decls: child_decls[parent_decls.len()..].to_vec(),
-    };
-
-    let prior = dli_world::compile_resumable(&parent_pack).unwrap();
-    let (incremental, reuse) =
-        dli_world::compile_incremental(&prior, std::slice::from_ref(&delta)).unwrap();
-    let full = dli_world::compile(&child_pack).unwrap();
-
-    assert!(
-        reuse.loader_is_live(),
-        "precondition: the incremental compile must genuinely have reused the \
-         parent's lowering, or this proves nothing about parent-delta reuse"
-    );
-    assert_ne!(
-        incremental.world(),
-        &full,
-        "parent-delta reuse has become byte-identical — Stage B is unblocked. \
-         Wire `compile_incremental` into `Lorestore::compile_at`'s miss path for \
-         single-linear-parent commits (behind `compile_incremental_verified` \
-         under `debug_assertions`), and delete this test."
-    );
-
-    // The whole divergence, and nothing else: the pack-provenance document count.
-    let mut incremental_json = serde_json::to_value(incremental.world()).unwrap();
-    let mut full_json = serde_json::to_value(&full).unwrap();
-    let incremental_packs = incremental_json["model"]["packs"].take();
-    let full_packs = full_json["model"]["packs"].take();
-    assert_eq!(
-        incremental_json, full_json,
-        "everything outside pack provenance already matches; if this fails there \
-         is a SECOND blocker and the doc comment above is now incomplete"
-    );
-    assert_eq!(incremental_packs["canon"]["documents"], 2);
-    assert_eq!(full_packs["canon"]["documents"], 1);
-    assert_eq!(
-        incremental_packs["canon"]["decls"], full_packs["canon"]["decls"],
-        "the declaration count is already right; only the document count is not"
     );
 }
 

@@ -1346,28 +1346,7 @@ impl Lorestore {
         if let Some(world) = self.lock_cache().get_world(head) {
             return Ok(world);
         }
-        // A miss is a FULL compile, deliberately. Reusing the parent's
-        // `IncrementalWorld` through `dli_world::compile_incremental` was Phase
-        // 3's Stage B and is **not wired**, because it cannot currently be
-        // byte-identical: `reconstruct_pack` emits one `Document` per commit and
-        // `compile_incremental` appends the delta as a second, so
-        // `PackProvenance::documents` diverges (2 vs 1) even in the best case —
-        // single linear parent, no new decisions, live loader reuse, the parent's
-        // declarations a genuine prefix. `tests/incremental_compile_at_parity.rs`
-        // pins that case and goes red the day it stops being true.
-        //
-        // Wiring it needs two things this crate cannot supply alone:
-        //   (i) a byte-identical reconstruct-delta primitive here, guarded on
-        //       `child.decisions == parent.decisions` and an unchanged pack name
-        //       (a new decision synthesizes its `ratify` at prelude position 0,
-        //       shifting every parent declaration, so the delta is not a suffix),
-        //       falling back to this full path otherwise; and
-        //  (ii) an append-decls-to-the-**last**-document entry point in
-        //       `dli-world`, so the loader's per-document bookkeeping sees one
-        //       document — as a construction, not a post-hoc correction of the
-        //       counter, or the incremental path buys its speed with a different
-        //       answer.
-        // Until both exist, a full recompute on a miss is the only honest answer.
+        // A cache miss compiles the reconstructed commit in full.
         let pack = self.reconstruct_at_shared(head)?;
         let world = Arc::new(Self::compile_pack(&pack)?);
         self.lock_cache().put_world(head, Arc::clone(&world));

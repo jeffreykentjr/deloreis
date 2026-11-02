@@ -33,7 +33,7 @@
 //!
 //! # The workload
 //!
-//! A synthetic **identity world** in the `SubtleMemory` shape (DL-0087 §1): each
+//! A synthetic **identity world** (DL-0087 §1): each
 //! persona arrives as its own commit carrying a handful of mention/role facts
 //! and one `same-as` identity assertion. Identity is deliberately the *worst*
 //! case for fixpoint reuse — `same-as` synthesizes alias-rewrite rules over
@@ -49,7 +49,7 @@ use std::time::{Duration, Instant};
 
 use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
 use dli_ast::clause::Clause;
-use dli_ast::decl::{Decl, Document, FactDecl, RatifyDecl, RuleDecl, SameAsDecl, ScopeHeader};
+use dli_ast::decl::{Decl, FactDecl, RatifyDecl, RuleDecl, SameAsDecl};
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
@@ -63,12 +63,6 @@ const DECISION: &str = "D-1";
 /// declarations over a few dozen commits — the shape a pilot persona reaches,
 /// not a synthetic million.
 const PERSONA_SWEEP: &[usize] = &[8, 16, 32, 64, 128];
-
-/// The base size the delta curve grows from.
-const DELTA_BASE_PERSONAS: usize = 64;
-
-/// Delta sizes, in personas, appended to that base.
-const DELTA_SWEEP: &[usize] = &[1, 2, 4, 8, 16, 32];
 
 /// Median of this many repetitions per measurement.
 const REPS: usize = 5;
@@ -133,7 +127,7 @@ fn seed_decls() -> Vec<Decl> {
 }
 
 /// One persona's arrival: four facts and the identity assertion that binds its
-/// alias — the unit the `SubtleMemory` pilot ingests per matched mention.
+/// alias — a representative matched mention.
 fn persona_decls(i: usize) -> Vec<Decl> {
     let p = format!("p{i}");
     let alias = format!("a{i}");
@@ -150,16 +144,6 @@ fn persona_decls(i: usize) -> Vec<Decl> {
             provenance: Some(ratified()),
         }),
     ]
-}
-
-fn document(decls: Vec<Decl>) -> Document {
-    Document {
-        scope: Some(ScopeHeader {
-            name: id("canon"),
-            span: Span::synthetic(),
-        }),
-        decls,
-    }
 }
 
 // ── store construction ──────────────────────────────────────────────────────
@@ -315,83 +299,6 @@ fn baseline_phase_split() {
             ms(t_warm),
         );
         assert!(findings.len() < usize::MAX, "keep the findings alive");
-    }
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// THE DELTA CURVE — recompute cost against delta size
-// ════════════════════════════════════════════════════════════════════════════
-
-/// What one added persona costs, as a function of how many are added at once,
-/// over a fixed base.
-///
-/// The comparison is a full `compile` of the union against
-/// `compile_incremental` from the base's `IncrementalWorld` — the PR 2
-/// primitive. `check::run` is measured alongside because it is **not sliced**
-/// (DL-0088 §3): whatever the compile half saves, the battery re-runs whole, so
-/// the check column is the ceiling on what incremental compilation alone can
-/// buy.
-#[test]
-#[ignore = "measurement, not a verdict: reads a clock, so it never runs in a gating lane"]
-fn baseline_delta_curve() {
-    let base_pack = dli_world::Pack {
-        name: "canon".to_owned(),
-        documents: vec![document(
-            seed_decls()
-                .into_iter()
-                .chain((0..DELTA_BASE_PERSONAS).flat_map(persona_decls))
-                .collect(),
-        )],
-    };
-    let (t_base_full, base_world) = timed(|| dli_world::compile(&base_pack).unwrap());
-    let (t_base_check, _) = timed(|| dli_world::check::run(&base_world));
-    let prior = dli_world::compile_resumable(&base_pack).unwrap();
-
-    println!(
-        "\n### Delta curve over a {DELTA_BASE_PERSONAS}-persona base \
-         ({} decls, full compile {:.1} ms, check::run {:.1} ms)\n",
-        base_pack.documents[0].decls.len(),
-        ms(t_base_full),
-        ms(t_base_check),
-    );
-    println!(
-        "| delta personas | delta decls | full compile of union | `compile_incremental` | speedup | loader reuse live | fixpoint reuse live | strata skipped | check::run on union |"
-    );
-    println!("|---:|---:|---:|---:|---:|:--:|:--:|---:|---:|");
-
-    for &delta_personas in DELTA_SWEEP {
-        let delta_decls: Vec<Decl> = (DELTA_BASE_PERSONAS..DELTA_BASE_PERSONAS + delta_personas)
-            .flat_map(persona_decls)
-            .collect();
-        let delta_len = delta_decls.len();
-        let delta_doc = document(delta_decls);
-
-        let mut union = base_pack.clone();
-        union.documents[0]
-            .decls
-            .extend(delta_doc.decls.iter().cloned());
-
-        let (t_full, union_world) = timed(|| dli_world::compile(&union).unwrap());
-        let (t_incremental, result) = timed(|| {
-            dli_world::compile_incremental(&prior, std::slice::from_ref(&delta_doc)).unwrap()
-        });
-        let (t_check, _) = timed(|| dli_world::check::run(&union_world));
-        let reuse = result.1;
-
-        println!(
-            "| {delta_personas} | {delta_len} | {:.1} ms | {:.1} ms | {:.2}× | {} | {} | {} | {:.1} ms |",
-            ms(t_full),
-            ms(t_incremental),
-            t_full.as_secs_f64() / t_incremental.as_secs_f64().max(f64::MIN_POSITIVE),
-            if reuse.loader_is_live() { "yes" } else { "no" },
-            if reuse.fixpoint_is_live() {
-                "yes"
-            } else {
-                "no"
-            },
-            reuse.fixpoint.skipped_strata,
-            ms(t_check),
-        );
     }
 }
 

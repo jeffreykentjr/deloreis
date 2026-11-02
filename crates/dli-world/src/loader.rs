@@ -133,8 +133,8 @@ impl Loader {
 ///
 /// [`Loader::load`] is this type used once — `new`, `extend`, `finish` — so the
 /// two paths cannot drift: there is only one per-declaration lowering and only
-/// one aggregation, and an incremental compile runs the identical operations in
-/// the identical order over a longer document run (DL-0087/DL-0088). What the
+/// one aggregation, and successive extensions run the identical operations in
+/// the identical order over a longer document run. What the
 /// split buys is that the *lowering* half is append-only and therefore reusable:
 /// `extend` may be called again with more documents and only those documents are
 /// lowered, while everything the earlier documents produced — the atoms, sorts,
@@ -229,36 +229,6 @@ impl IncrementalLoad {
         let mut outcome = self.ctx.clone().finish();
         outcome.world.language = self.language.clone().finish().model;
         outcome
-    }
-
-    /// How many declarations have been lowered into this load.
-    #[must_use]
-    pub fn lowered_decls(&self) -> usize {
-        self.ctx.wm.packs.values().map(|pack| pack.decls).sum()
-    }
-
-    /// Falsify one artifact this load carries **forward** from an earlier
-    /// `extend` — the positive control for the incremental-compile oracle.
-    ///
-    /// Renames the pack recorded on the first already-lowered atom. That field is
-    /// copied verbatim into the compiled model and is never recomputed by
-    /// [`finish`](IncrementalLoad::finish), so a compile that genuinely reuses
-    /// this state must carry the falsification into its output and a compile that
-    /// silently re-lowered everything must not. Returns whether there was
-    /// anything to falsify.
-    ///
-    /// Test-only in intent (it deliberately produces a wrong world); it is not
-    /// `cfg(test)` because the oracle is an integration test in another crate
-    /// root.
-    #[doc(hidden)]
-    pub fn falsify_carried_state(&mut self) -> bool {
-        match self.ctx.wm.atoms.first_mut() {
-            Some(atom) => {
-                atom.pack = format!("{}~falsified", atom.pack);
-                true
-            }
-            None => false,
-        }
     }
 }
 
