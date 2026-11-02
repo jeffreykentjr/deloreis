@@ -3,7 +3,7 @@
   "version": 1,
   "note": "params omit every required field, violating the op schema.",
   "send": {
-    "dli": "0.5.1",
+    "dli": "2.0.0",
     "id": "1",
     "op": "dli.check-proof",
     "params": {}

@@ -107,7 +107,7 @@ pub enum Severity {
 /// The [`code`](WorldFinding::code) is `family.item` — `continuity.unknown-entity`,
 /// `factcheck.contradicted` — with the family naming the check battery and the
 /// item porting the legacy violation class where one exists. Codes are stable:
-/// benchmarks and the wire layer match on them.
+/// clients and the wire layer match on them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct WorldFinding {
     /// The stable dotted class code (`family.item`).

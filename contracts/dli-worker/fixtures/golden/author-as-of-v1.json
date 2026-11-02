@@ -1,10 +1,9 @@
 {
   "fixture": "golden/author-as-of-v1",
-  "version": 1,
   "note": "Contract 1.9 author.as_of: the inertia-aware point read. A predicate declared inertial, `status`, holds `commons` since `the-drowning` and `enclosed` since `the-reclaiming` (the-drowning before the-reclaiming); at `the-reclaiming` the value is `enclosed`, unbounded (no later certain defeater).",
   "precondition": [
     {
-      "dli": "1.9.0",
+      "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -12,151 +11,176 @@
       }
     },
     {
-      "dli": "1.9.0",
+      "dli": "2.0.0",
       "id": "pre-2",
       "op": "author.add_entity",
       "params": {
-        "workspace": "ws-1",
-        "kind": "person",
         "id": "mara",
+        "kind": "person",
         "name": "Mara",
         "provenance": {
+          "decisions": [
+            "d-1"
+          ],
           "kind": "cited",
-          "decisions": ["d-1"],
           "state": "ratified"
-        }
+        },
+        "workspace": "ws-1"
       }
     },
     {
-      "dli": "1.9.0",
+      "dli": "2.0.0",
       "id": "pre-3",
       "op": "author.add_event",
       "params": {
-        "workspace": "ws-1",
-        "id": "the-drowning",
         "era": "first-tides",
+        "id": "the-drowning",
         "provenance": {
+          "decisions": [
+            "d-1"
+          ],
           "kind": "cited",
-          "decisions": ["d-1"],
           "state": "ratified"
-        }
+        },
+        "workspace": "ws-1"
       }
     },
     {
-      "dli": "1.9.0",
+      "dli": "2.0.0",
       "id": "pre-4",
       "op": "author.add_event",
       "params": {
-        "workspace": "ws-1",
-        "id": "the-reclaiming",
         "era": "first-tides",
+        "id": "the-reclaiming",
         "provenance": {
+          "decisions": [
+            "d-1"
+          ],
           "kind": "cited",
-          "decisions": ["d-1"],
           "state": "ratified"
-        }
+        },
+        "workspace": "ws-1"
       }
     },
     {
-      "dli": "1.9.0",
+      "dli": "2.0.0",
       "id": "pre-5",
       "op": "author.add_before",
       "params": {
-        "workspace": "ws-1",
         "earlier": "the-drowning",
         "later": "the-reclaiming",
         "provenance": {
+          "decisions": [
+            "d-1"
+          ],
           "kind": "cited",
-          "decisions": ["d-1"],
           "state": "ratified"
-        }
+        },
+        "workspace": "ws-1"
       }
     },
     {
-      "dli": "1.9.0",
+      "dli": "2.0.0",
       "id": "pre-6",
       "op": "author.declare_inertial",
       "params": {
-        "workspace": "ws-1",
         "pred": "status",
         "provenance": {
+          "decisions": [
+            "d-1"
+          ],
           "kind": "cited",
-          "decisions": ["d-1"],
           "state": "ratified"
-        }
+        },
+        "workspace": "ws-1"
       }
     },
     {
-      "dli": "1.9.0",
+      "dli": "2.0.0",
       "id": "pre-7",
       "op": "author.add_state",
       "params": {
-        "workspace": "ws-1",
         "id": "mara.status",
-        "value": "commons",
-        "time": { "kind": "since", "point": "the-drowning" },
         "provenance": {
+          "decisions": [
+            "d-1"
+          ],
           "kind": "cited",
-          "decisions": ["d-1"],
           "state": "ratified"
-        }
+        },
+        "time": {
+          "kind": "since",
+          "point": "the-drowning"
+        },
+        "value": "commons",
+        "workspace": "ws-1"
       }
     },
     {
-      "dli": "1.9.0",
+      "dli": "2.0.0",
       "id": "pre-8",
       "op": "author.add_state",
       "params": {
-        "workspace": "ws-1",
         "id": "mara.status",
-        "value": "enclosed",
-        "time": { "kind": "since", "point": "the-reclaiming" },
         "provenance": {
+          "decisions": [
+            "d-1"
+          ],
           "kind": "cited",
-          "decisions": ["d-1"],
           "state": "ratified"
-        }
+        },
+        "time": {
+          "kind": "since",
+          "point": "the-reclaiming"
+        },
+        "value": "enclosed",
+        "workspace": "ws-1"
       }
     }
   ],
   "steps": [
     {
-      "send": {
-        "dli": "1.9.0",
-        "id": "1",
-        "op": "author.as_of",
-        "params": {
-          "workspace": "ws-1",
-          "pred": "status",
-          "subject": "mara",
-          "at": "the-reclaiming"
-        }
-      },
       "expect": {
-        "dli": "1.9.0",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
-          "pred": "status",
-          "subject": "mara",
           "at": "the-reclaiming",
-          "inertial": true,
           "capping": true,
           "contested": false,
-          "inertial_citations": ["d-1"],
           "holdings": [
             {
-              "value": "enclosed",
+              "citations": [
+                "d-1"
+              ],
               "projection": "holds-certainly",
-              "temporal": "covers",
-              "support": "certain",
               "since": "the-reclaiming",
-              "citations": ["d-1"]
+              "support": "certain",
+              "temporal": "covers",
+              "value": "enclosed"
             }
           ],
-          "root_hash": "jcs:sha256:206606c342a4a0f236f61538928ed6cf8be706ee5434253c59dac2d2e9a6c1e3"
+          "inertial": true,
+          "inertial_citations": [
+            "d-1"
+          ],
+          "pred": "status",
+          "root_hash": "jcs:sha256:206606c342a4a0f236f61538928ed6cf8be706ee5434253c59dac2d2e9a6c1e3",
+          "subject": "mara"
+        }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "author.as_of",
+        "params": {
+          "at": "the-reclaiming",
+          "pred": "status",
+          "subject": "mara",
+          "workspace": "ws-1"
         }
       }
     }
-  ]
+  ],
+  "version": 1
 }

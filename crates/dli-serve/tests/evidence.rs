@@ -11,13 +11,12 @@ use dli_serve::CONTRACT_VERSION;
 use dli_serve::contract::AttestationAnswer;
 use dli_serve::evidence::{
     EvidenceError, append_attestations, canonical_bytes, current_fingerprint, digest_value,
-    load_payloads, missing_attestations, submit_payload,
+    missing_attestations,
 };
 use dli_serve::project::Project;
 use dli_serve::serve::serve_project_io;
 use dli_world::attest::{Attestation, ContentHash, ModelRef, Policy, PromptRef, Sampling};
 use dli_world::compile;
-use dli_world::payload::{Payload, source_hash};
 use tempfile::TempDir;
 
 fn write_project() -> (TempDir, Project) {
@@ -50,15 +49,6 @@ attestation_questions = "questions.json"
     .unwrap();
     let project = Project::load(temp.path()).unwrap();
     (temp, project)
-}
-
-fn payload(source: &str) -> Payload {
-    let mut payload = Payload::default();
-    "draft.md".clone_into(&mut payload.meta.source.file);
-    payload.meta.source.sha256 = source_hash(source);
-    payload.meta.source.words = 1;
-    "payload/v1".clone_into(&mut payload.meta.extractors.schema);
-    payload
 }
 
 fn attestation(project: &Project, supersedes: Option<String>, id: char) -> Attestation {
@@ -137,40 +127,6 @@ fn check_response(project: Project) -> serde_json::Value {
     )
     .unwrap();
     serde_json::from_slice(&output).unwrap()
-}
-
-#[test]
-fn payload_publication_is_canonical_content_addressed_and_idempotent() {
-    let (_temp, project) = write_project();
-    let payload = payload("one word");
-    let first = submit_payload(&project, "world", &payload, "one word").unwrap();
-    let hex = first.trim_start_matches("sha256:");
-    let temp = project
-        .evidence_dir()
-        .join("payloads")
-        .join(format!(".world.{hex}.json.tmp"));
-    fs::write(&temp, b"interrupted retry").unwrap();
-    let second = submit_payload(&project, "world", &payload, "one word").unwrap();
-    assert_eq!(first, second);
-    assert!(
-        !temp.exists(),
-        "an idempotent retry completes stale-temp recovery"
-    );
-
-    let directory = project.evidence_dir().join("payloads/world");
-    let files = json_files(&directory);
-    assert_eq!(files.len(), 1);
-    let bytes = fs::read(&files[0]).unwrap();
-    let records = load_payloads(&project, "world").unwrap();
-    assert_eq!(records.len(), 1);
-    assert_eq!(records[0].digest, first);
-    assert_eq!(records[0].record.payload, payload);
-    assert_eq!(records[0].record.source, "one word");
-    assert_eq!(
-        bytes,
-        serde_json_canonicalizer::to_vec(&records[0].record).unwrap(),
-        "persisted evidence is JCS, not merely deterministic serde JSON"
-    );
 }
 
 #[test]
@@ -636,40 +592,6 @@ fn corrupt_committed_batch_fails_closed() {
     ));
 }
 
-#[test]
-fn corrupt_committed_payload_fails_closed_before_another_publish() {
-    let (_temp, project) = write_project();
-    submit_payload(&project, "world", &payload("one word"), "one word").unwrap();
-    let directory = project.evidence_dir().join("payloads/world");
-    let path = json_files(&directory).remove(0);
-    fs::write(&path, b"{}").unwrap();
-
-    assert!(matches!(
-        submit_payload(&project, "world", &payload("another word"), "another word"),
-        Err(EvidenceError::Corrupt(_))
-    ));
-    assert_eq!(json_files(&directory).len(), 1);
-}
-
-#[test]
-fn stale_publication_temp_outside_payload_store_is_recovered() {
-    let (_temp, project) = write_project();
-    let value = payload("one word");
-    let digest = submit_payload(&project, "world", &value, "one word").unwrap();
-    let hex = digest.trim_start_matches("sha256:");
-    let payloads = project.evidence_dir().join("payloads");
-    fs::remove_file(payloads.join("world").join(format!("{hex}.json"))).unwrap();
-    let temp = payloads.join(format!(".world.{hex}.json.tmp"));
-    fs::write(&temp, b"interrupted").unwrap();
-
-    assert_eq!(
-        submit_payload(&project, "world", &value, "one word").unwrap(),
-        digest
-    );
-    assert!(!temp.exists());
-    assert_eq!(json_files(&payloads.join("world")).len(), 1);
-}
-
 #[cfg(unix)]
 #[test]
 fn post_load_evidence_root_symlink_is_rejected_without_target_writes() {
@@ -681,8 +603,11 @@ fn post_load_evidence_root_symlink_is_rejected_without_target_writes() {
     fs::rename(project.evidence_dir(), &original).unwrap();
     symlink(outside.path(), project.evidence_dir()).unwrap();
 
+    let model = compile(&project.document("world").unwrap().pack)
+        .unwrap()
+        .model;
     assert!(matches!(
-        submit_payload(&project, "world", &payload("one word"), "one word"),
+        missing_attestations(&project, "world", &model),
         Err(EvidenceError::Corrupt(_))
     ));
     assert_eq!(

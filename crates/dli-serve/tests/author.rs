@@ -1323,8 +1323,10 @@ fn expect_of(response: &dli_serve::Response) -> Value {
 
 /// A fixture step: a request, and its expected response fields.
 fn fixture_step(store: &mut Store, request: &Request) -> Value {
-    let response = send(store, request);
-    json!({ "send": request, "expect": expect_of(&response) })
+    let mut current = request.clone();
+    dli_serve::CONTRACT_VERSION.clone_into(&mut current.dli);
+    let response = send(store, &current);
+    json!({ "send": current, "expect": expect_of(&response) })
 }
 
 /// Build a fixture document from a base store and a step sequence.

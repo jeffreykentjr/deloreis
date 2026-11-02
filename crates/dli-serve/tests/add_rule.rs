@@ -23,7 +23,6 @@ use dli_ast::language::RatifyBody;
 use dli_ast::span::Span;
 use dli_serve::author::store::Store;
 use dli_serve::author::{dispatch, workspace::Mode};
-use dli_serve::serve::respond;
 use dli_serve::session::Sessions;
 use dli_serve::{Op, Request};
 use dli_world::pack::Pack;
@@ -601,76 +600,6 @@ fn author_diff_rows_show_the_staged_rule_declaration() {
 
 // -- the version gate ----------------------------------------------------
 
-#[test]
-fn add_rule_is_unknown_before_contract_1_7_0() {
-    for dli in ["0.5.1", "1.0.0", "1.3.0", "1.5.0", "1.6.0"] {
-        let mut sessions = Sessions::new();
-        let mut store = Store::default();
-        let response = dli_serve::serve::dispatch(
-            &req(
-                dli,
-                "add-rule",
-                Op::AuthorAddRule,
-                json!({
-                    "workspace": "ws-1", "name": "r", "head": atom("p", &[]), "body": [],
-                    "provenance": { "kind": "proposed", "origin": "s" }
-                }),
-            ),
-            &mut sessions,
-            &mut store,
-        );
-        assert!(!response.ok, "{dli} must refuse the op: {response:?}");
-        let error = response.error.expect("refusal carries an error");
-        assert_eq!(
-            error.code,
-            dli_serve::ErrorCode::UnknownOp,
-            "{dli} refuses as unknown-op"
-        );
-        assert!(
-            error.message.contains("1.7.0"),
-            "{dli}'s refusal names the version that introduced it: {}",
-            error.message
-        );
-    }
-}
-
-#[test]
-fn the_1_7_0_capability_list_is_1_6_0_plus_both_campaign_ops() {
-    let mut sessions = Sessions::new();
-    let mut store = Store::default();
-    let cap = |dli: &str, sessions: &mut Sessions, store: &mut Store| -> Vec<String> {
-        let response = respond(
-            &serde_json::to_string(
-                &json!({"dli": dli, "id": "v", "op": "dli.version", "params": {}}),
-            )
-            .unwrap(),
-            sessions,
-            store,
-        )
-        .unwrap();
-        response.result.unwrap()["capabilities"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|v| v.as_str().unwrap().to_owned())
-            .collect()
-    };
-    let at_1_6_0 = cap("1.6.0", &mut sessions, &mut store);
-    let at_1_7_0 = cap("1.7.0", &mut sessions, &mut store);
-    assert_eq!(
-        at_1_7_0.len(),
-        at_1_6_0.len() + 2,
-        "{at_1_6_0:?} vs {at_1_7_0:?}"
-    );
-    let mut expected = at_1_6_0.clone();
-    expected.push("author.assert_same_as".to_owned());
-    expected.push("author.add_rule".to_owned());
-    assert_eq!(
-        at_1_7_0, expected,
-        "both new ops land at the END of the 1.6.0 list, in append order"
-    );
-}
-
 // -- idempotency and digest fences --------------------------------------------
 
 #[test]
@@ -734,10 +663,10 @@ fn an_idempotent_retry_replays_and_stages_nothing() {
 fn a_wire_authored_rule_matches_a_corpus_imported_one_on_the_same_query() {
     // Path A: author.add_rule on a fresh workspace over the shared base.
     let mut wire_store = rule_base();
-    let wire_ws = open_scope(&mut wire_store, "1.7.0", "tpth");
+    let wire_ws = open_scope(&mut wire_store, "2.0.0", "tpth");
     let staged = add_rule(
         &mut wire_store,
-        "1.7.0",
+        "2.0.0",
         &wire_ws,
         "endorsement",
         &atom("endorsed", &["$x"]),
@@ -745,7 +674,7 @@ fn a_wire_authored_rule_matches_a_corpus_imported_one_on_the_same_query() {
         &cited("D-1"),
     );
     assert!(codes(result(&staged)).is_empty(), "{:?}", result(&staged));
-    let wire_status = query_status(&mut wire_store, "1.7.0", &wire_ws, "endorsed(mara)");
+    let wire_status = query_status(&mut wire_store, "2.0.0", &wire_ws, "endorsed(mara)");
 
     // Path B: the identical logical corpus, rule included as `.dli` text,
     // imported through `dli.corpus.import`'s syntax-build text path. Corpus
@@ -766,7 +695,7 @@ fn a_wire_authored_rule_matches_a_corpus_imported_one_on_the_same_query() {
     let mut import_store = Store::default();
     let imported = dli_serve::serve::dispatch(
         &req(
-            "1.7.0",
+            "2.0.0",
             "import",
             Op::CorpusImport,
             json!({
@@ -829,8 +758,8 @@ fn a_wire_authored_rule_matches_a_corpus_imported_one_on_the_same_query() {
         .attach_lorestore(root.path().to_path_buf())
         .expect("attach the imported lorestore");
 
-    let import_ws = open_scope(&mut import_store, "1.7.0", "tpth");
-    let import_status = query_status(&mut import_store, "1.7.0", &import_ws, "endorsed(mara)");
+    let import_ws = open_scope(&mut import_store, "2.0.0", "tpth");
+    let import_status = query_status(&mut import_store, "2.0.0", &import_ws, "endorsed(mara)");
 
     assert_eq!(
         wire_status, import_status,

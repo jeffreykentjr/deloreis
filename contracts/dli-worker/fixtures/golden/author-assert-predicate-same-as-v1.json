@@ -1,30 +1,20 @@
 {
   "fixture": "golden/author-assert-predicate-same-as-v1",
-  "version": 1,
   "note": "Contract 1.12.0 predicate identity is typed carriage only: the staged declaration reaches the evaluator but emits no .dli rendering line.",
   "precondition": [
     {
-      "dli": "1.12.0",
+      "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
-      "params": {"scope": "saltmarket"}
+      "params": {
+        "scope": "saltmarket"
+      }
     }
   ],
   "steps": [
     {
-      "send": {
-        "dli": "1.12.0",
-        "id": "1",
-        "op": "author.assert_predicate_same_as",
-        "params": {
-          "workspace": "ws-1",
-          "left": "current-work",
-          "right": "current-job",
-          "provenance": {"kind": "proposed", "origin": "session-predicate-identity"}
-        }
-      },
       "expect": {
-        "dli": "1.12.0",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -32,7 +22,22 @@
           "rendered": [],
           "workspace_digest": "jcs:sha256:74346ec8ba6ef89354a3c9cac40f593493c3f1f685b98577832f2b50e451f7fd"
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "author.assert_predicate_same_as",
+        "params": {
+          "left": "current-work",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "session-predicate-identity"
+          },
+          "right": "current-job",
+          "workspace": "ws-1"
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

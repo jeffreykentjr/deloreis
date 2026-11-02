@@ -3,7 +3,7 @@
   "version": 1,
   "note": "author.as_of params omit the required `at`.",
   "send": {
-    "dli": "1.9.0",
+    "dli": "2.0.0",
     "id": "1",
     "op": "author.as_of",
     "params": {

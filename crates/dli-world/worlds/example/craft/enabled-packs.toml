@@ -1,4 +1,0 @@
-# The engine's own synthetic test world (design §1.4). Generic packs only —
-# NEVER TPtH. Enough packs to exercise load/apply/validate/round-trip and the
-# KB mechanism tests (judge attestation, tension rendering, coverage, audit).
-packs = ["promise-and-plot", "try-fail-cycles", "prose-craft"]

@@ -19,8 +19,6 @@ use dli_ast::language::RatifyBody;
 use dli_ast::span::Span;
 use dli_serve::author::store::Store;
 use dli_serve::author::{dispatch, workspace::Mode};
-use dli_serve::serve::respond;
-use dli_serve::session::Sessions;
 use dli_serve::{Op, Request};
 use dli_world::pack::Pack;
 
@@ -403,68 +401,11 @@ fn author_diff_rows_show_the_staged_same_as_declaration() {
 
 // -- the version gate -----------------------------------------------------
 
-#[test]
-fn assert_same_as_is_unknown_before_contract_1_7_0() {
-    for dli in ["0.5.1", "1.0.0", "1.3.0", "1.5.0", "1.6.0"] {
-        let mut sessions = Sessions::new();
-        let mut store = Store::default();
-        let response = dli_serve::serve::dispatch(
-            &req(
-                dli,
-                "same-as",
-                Op::AuthorAssertSameAs,
-                json!({ "workspace": "ws-1", "left": "a", "right": "b",
-                        "provenance": { "kind": "proposed", "origin": "s" } }),
-            ),
-            &mut sessions,
-            &mut store,
-        );
-        assert!(!response.ok, "{dli} must refuse the op: {response:?}");
-        let error = response.error.expect("refusal carries an error");
-        assert_eq!(
-            error.code,
-            dli_serve::ErrorCode::UnknownOp,
-            "{dli} refuses as unknown-op"
-        );
-        assert!(
-            error.message.contains("1.7.0"),
-            "{dli}'s refusal names the version that introduced it: {}",
-            error.message
-        );
-    }
-}
-
 /// `author.assert_same_as` specifically: present at `1.7.0`, absent below it.
 /// The exhaustive "1.6.0 plus exactly the campaign's ops, in append order"
 /// property — now two ops, `assert_same_as` then `add_rule` (WS-2) — lives in
 /// `add_rule.rs`'s `the_1_7_0_capability_list_is_1_6_0_plus_both_campaign_ops`,
 /// so it has one place to stay current as the campaign's op count moves.
-#[test]
-fn the_1_7_0_capability_list_carries_assert_same_as_not_1_6_0() {
-    let mut sessions = Sessions::new();
-    let mut store = Store::default();
-    let cap = |dli: &str, sessions: &mut Sessions, store: &mut Store| -> Vec<String> {
-        let response = respond(
-            &serde_json::to_string(
-                &json!({"dli": dli, "id": "v", "op": "dli.version", "params": {}}),
-            )
-            .unwrap(),
-            sessions,
-            store,
-        )
-        .unwrap();
-        response.result.unwrap()["capabilities"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|v| v.as_str().unwrap().to_owned())
-            .collect()
-    };
-    let at_1_6_0 = cap("1.6.0", &mut sessions, &mut store);
-    let at_1_7_0 = cap("1.7.0", &mut sessions, &mut store);
-    assert!(at_1_7_0.contains(&"author.assert_same_as".to_owned()));
-    assert!(!at_1_6_0.contains(&"author.assert_same_as".to_owned()));
-}
 
 // -- idempotency and digest fences --------------------------------------------
 

@@ -3,7 +3,7 @@
   "version": 1,
   "note": "author.record_decision params omit the required `decision`.",
   "send": {
-    "dli": "1.9.0",
+    "dli": "2.0.0",
     "id": "1",
     "op": "author.record_decision",
     "params": {

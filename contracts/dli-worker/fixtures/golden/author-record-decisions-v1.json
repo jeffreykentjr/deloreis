@@ -1,28 +1,50 @@
 {
   "fixture": "golden/author-record-decisions-v1",
-  "version": 1,
   "note": "Contract 1.13 author.record_decisions records multiple baseline supporting decisions atomically in request order, with one branch commit and deterministic counts.",
-  "project": true,
-  "precondition": [{
-    "dli": "1.13.0", "id": "pre-1", "op": "author.open",
-    "params": { "scope": "saltmarket" }
-  }],
-  "steps": [{
-    "send": {
-      "dli": "1.13.0", "id": "1", "op": "author.record_decisions",
+  "precondition": [
+    {
+      "dli": "2.0.0",
+      "id": "pre-1",
+      "op": "author.open",
       "params": {
-        "workspace": "ws-1",
-        "records": [{ "decision": "d-bulk-1" }, { "decision": "d-bulk-2" }]
-      }
-    },
-    "expect": {
-      "dli": "1.13.0", "id": "1", "ok": true,
-      "result": {
-        "findings": [], "rendered": [],
-        "workspace_digest": "jcs:sha256:75ea707d9734688bbe8f12515866c656115b6bcfa7e5cba4788e2d7d6a7fa1fd",
-        "root_hash": "sha256:15c6ed459f4bbfb03b8929116a05494ff340475939beca60ce1dbbf9361ef52e",
-        "requested": 2, "already_known": 0, "recorded": 2
+        "scope": "saltmarket"
       }
     }
-  }]
+  ],
+  "project": true,
+  "steps": [
+    {
+      "expect": {
+        "dli": "2.0.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "already_known": 0,
+          "findings": [],
+          "recorded": 2,
+          "rendered": [],
+          "requested": 2,
+          "root_hash": "sha256:15c6ed459f4bbfb03b8929116a05494ff340475939beca60ce1dbbf9361ef52e",
+          "workspace_digest": "jcs:sha256:75ea707d9734688bbe8f12515866c656115b6bcfa7e5cba4788e2d7d6a7fa1fd"
+        }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "author.record_decisions",
+        "params": {
+          "records": [
+            {
+              "decision": "d-bulk-1"
+            },
+            {
+              "decision": "d-bulk-2"
+            }
+          ],
+          "workspace": "ws-1"
+        }
+      }
+    }
+  ],
+  "version": 1
 }

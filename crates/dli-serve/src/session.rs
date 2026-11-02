@@ -13,13 +13,12 @@
 //! explicit demo constructor used by fixtures and examples. Neither source can
 //! fall back to the other.
 
-use std::collections::{BTreeMap, BTreeSet};
-use std::sync::{Arc, Mutex};
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use dli_eval::fork::{ForkId, ForkStore};
 use dli_export::profile::Registry;
 use dli_export::source_fingerprint;
-use dli_game::model::Ruleset;
 use dli_time::cycle::CyclePos;
 use dli_world::episode::{Episode, EpisodeAnchor, FactDelta, KnowledgeDelta, QuestionRef, Scene};
 use dli_world::language::LanguageModel;
@@ -28,19 +27,6 @@ use dli_world::{CompiledWorld, Pack, compile};
 use crate::demo;
 use crate::envelope::ErrorCode;
 use crate::project::Project;
-
-/// Maximum simulation workers one serve process runs concurrently.
-const MAX_SIMULATION_WORKERS: usize = 4;
-
-/// The built-in `french-deck` game ruleset — the shipped standard 52-card
-/// exemplar (`examples/games/french-deck/`). It gives the card / Ludii export
-/// profiles a hermetic, resolvable game to render (a lore world carries no card
-/// ruleset). Embedded as source (never a file read at runtime) so the worker
-/// stays offline and self-contained.
-const FRENCH_DECK_RULES: &str = include_str!("../../../examples/games/french-deck/rules.json");
-/// The `french-deck` export profile catalog (a `cards` and a `ludii-gdl` profile).
-const FRENCH_DECK_PROFILES: &str =
-    include_str!("../../../examples/games/french-deck/profiles.json");
 
 /// A loaded corpus scope: the compiled world every read op queries, and the fork
 /// store every fork op layers over its saturated base.
@@ -55,9 +41,7 @@ pub struct Scope {
 
 /// The session store shared across one serve process: the doc-id→scope cache and
 /// the global fork-handle registry. One `Sessions` lives for the life of the
-/// `serve` loop. Session scopes and forks are process-local; simulation jobs are
-/// durable project evidence, with this store retaining only post-response worker
-/// scheduling state.
+/// `serve` loop. Session scopes and forks are process-local.
 #[derive(Debug)]
 pub struct Sessions {
     source: CorpusSource,
@@ -67,11 +51,6 @@ pub struct Sessions {
     /// Monotonic handle counter, so handles (`fork-1`, `fork-2`, …) are stable
     /// and never reused within a process.
     next_handle: u64,
-    /// Jobs to start only after the response that exposed their durable state has
-    /// been flushed.
-    queued_jobs: BTreeSet<String>,
-    /// Jobs currently owned by a background worker in this process.
-    active_jobs: Arc<Mutex<BTreeSet<String>>>,
 }
 
 #[derive(Debug)]
@@ -98,8 +77,6 @@ impl Sessions {
             scopes: BTreeMap::new(),
             fork_handles: BTreeMap::new(),
             next_handle: 0,
-            queued_jobs: BTreeSet::new(),
-            active_jobs: Arc::new(Mutex::new(BTreeSet::new())),
         }
     }
 
@@ -111,8 +88,6 @@ impl Sessions {
             scopes: BTreeMap::new(),
             fork_handles: BTreeMap::new(),
             next_handle: 0,
-            queued_jobs: BTreeSet::new(),
-            active_jobs: Arc::new(Mutex::new(BTreeSet::new())),
         }
     }
 
@@ -194,83 +169,6 @@ impl Sessions {
             .collect()
     }
 
-    /// Queue a durable job for background advancement after the current response
-    /// is visible to the caller.
-    pub fn queue_simulation_worker(&mut self, job_id: String) {
-        if matches!(&self.source, CorpusSource::Project(_)) {
-            self.queued_jobs.insert(job_id);
-        }
-    }
-
-    /// Start every queued simulation worker.
-    ///
-    /// The serve and MCP loops call this only after flushing their response. A
-    /// direct dispatch test therefore observes deterministic `pending` state,
-    /// while a real transport never performs the long-running work before
-    /// acknowledging `simulate.start`.
-    pub fn release_simulation_workers(&mut self) {
-        let CorpusSource::Project(project) = &self.source else {
-            self.queued_jobs.clear();
-            return;
-        };
-        let queued = std::mem::take(&mut self.queued_jobs);
-        for job_id in queued {
-            let mut active = self
-                .active_jobs
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            if active.len() >= MAX_SIMULATION_WORKERS {
-                drop(active);
-                self.queued_jobs.insert(job_id);
-                continue;
-            }
-            if !active.insert(job_id.clone()) {
-                continue;
-            }
-            drop(active);
-
-            let project = Arc::clone(project);
-            let active_jobs = Arc::clone(&self.active_jobs);
-            let worker_id = job_id.clone();
-            let spawn = std::thread::Builder::new()
-                .name(format!("dli-sim-{}", &job_id[7..15]))
-                .spawn(move || {
-                    let _ = crate::simulation::run_to_terminal(&project, &worker_id);
-                    active_jobs
-                        .lock()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner)
-                        .remove(&worker_id);
-                });
-            if spawn.is_err() {
-                self.active_jobs
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .remove(&job_id);
-                self.queued_jobs.insert(job_id);
-            }
-        }
-    }
-
-    /// Run every queued simulation worker to completion synchronously, inline on
-    /// the caller's thread, returning only once each queued job is terminal.
-    ///
-    /// This is the deterministic, clock-free drain (DL-0013): a durable job's
-    /// terminal state is a pure function of its committed inputs, so a test or
-    /// an offline tool can assert on completion with nothing to poll. Production
-    /// transports use the threaded [`Sessions::release_simulation_workers`];
-    /// this is the offline path.
-    pub fn drain_simulation_workers(&mut self) {
-        let CorpusSource::Project(project) = &self.source else {
-            self.queued_jobs.clear();
-            return;
-        };
-        let project = Arc::clone(project);
-        let queued = std::mem::take(&mut self.queued_jobs);
-        for job_id in queued {
-            let _ = crate::simulation::run_to_terminal(&project, &job_id);
-        }
-    }
-
     /// Resolve and clone a logical document's source pack.
     #[must_use]
     pub fn pack(&self, document: &str) -> Option<Pack> {
@@ -293,17 +191,6 @@ impl Sessions {
         }
     }
 
-    /// Resolve and clone a game plus its profile catalog.
-    #[must_use]
-    pub fn ruleset(&self, document: &str) -> Option<(Ruleset, Registry)> {
-        match &self.source {
-            CorpusSource::Demo => builtin_ruleset(document),
-            CorpusSource::Project(project) => project
-                .game(document)
-                .map(|game| (game.ruleset.clone(), game.profiles.clone())),
-        }
-    }
-
     /// Resolve a lore document's export profile catalog.
     #[must_use]
     pub fn export_registry(&self, document: &str) -> Option<Registry> {
@@ -322,12 +209,7 @@ impl Sessions {
             CorpusSource::Demo => demo_source_fingerprint(document),
             CorpusSource::Project(project) => project
                 .document(document)
-                .map(|loaded| loaded.source_digest.clone())
-                .or_else(|| {
-                    project
-                        .game(document)
-                        .map(|game| game.source_digest.clone())
-                }),
+                .map(|loaded| loaded.source_digest.clone()),
         }
     }
 
@@ -369,10 +251,7 @@ fn demo_source_fingerprint(document: &str) -> Option<String> {
     if let Some(source) = demo::source_bytes(document) {
         return Some(source_fingerprint([source.as_ref()]));
     }
-    match document {
-        "french-deck" => Some(source_fingerprint([FRENCH_DECK_RULES.as_bytes()])),
-        _ => None,
-    }
+    None
 }
 
 /// The built-in corpus pack for a doc-id, or `None` if the id is unknown.
@@ -462,22 +341,4 @@ fn round_table_season() -> Vec<Episode> {
             }],
         },
     ]
-}
-
-/// The built-in card ruleset for a game-document id, paired with its export
-/// profile registry (the built-in catalog merged with the game's own profiles) —
-/// the source the `Cards` / `LudiiGdl` export profiles render. `None` for a doc-id
-/// that names no built-in game (a lore corpus carries no ruleset). The v0 resolver
-/// knows only `french-deck`; pointing it at a games directory generalizes exactly
-/// this one function, mirroring [`builtin_pack`] for lore.
-#[must_use]
-pub fn builtin_ruleset(document: &str) -> Option<(Ruleset, Registry)> {
-    match document {
-        "french-deck" => {
-            let ruleset = Ruleset::from_rules(FRENCH_DECK_RULES).ok()?;
-            let world: Registry = serde_json::from_str(FRENCH_DECK_PROFILES).ok()?;
-            Some((ruleset, Registry::builtin().merge(world)))
-        }
-        _ => None,
-    }
 }

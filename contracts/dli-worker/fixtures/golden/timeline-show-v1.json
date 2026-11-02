@@ -1,19 +1,10 @@
 {
   "fixture": "golden/timeline-show-v1",
-  "version": 1,
   "note": "dli.timeline.show renders the resolved world's chronology as topological layers (least-constrained first), then — when `at` names a point — the points ordered relative to that cursor. Read over the neutral round-table teaching world.",
   "steps": [
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.timeline.show",
-        "params": {
-          "document": "round-table"
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -77,20 +68,19 @@
             }
           ]
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "dli.timeline.show",
+        "params": {
+          "document": "round-table"
+        }
       }
     },
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "2",
-        "op": "dli.timeline.show",
-        "params": {
-          "document": "round-table",
-          "at": "arthurs-reign"
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "2",
         "ok": true,
         "result": {
@@ -171,7 +161,17 @@
             }
           ]
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "2",
+        "op": "dli.timeline.show",
+        "params": {
+          "at": "arthurs-reign",
+          "document": "round-table"
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

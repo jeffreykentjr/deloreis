@@ -1,11 +1,9 @@
 {
   "fixture": "golden/author-query-typed-goal-v1",
-  "version": 1,
   "note": "author.query's 0.6.3 typed successor goal_atom (LS-7) over the staged world. Steps 1/2 send the same goal as text and as a typed AtomExpr and receive identical rows; step 3 proves precedence — the goal string is unparseable and is never parsed because goal_atom is present.",
-  "project": true,
   "precondition": [
     {
-      "dli": "0.6.3",
+      "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -13,19 +11,11 @@
       }
     }
   ],
+  "project": true,
   "steps": [
     {
-      "send": {
-        "dli": "0.6.3",
-        "id": "1",
-        "op": "author.query",
-        "params": {
-          "goal": "marker(baseline)",
-          "workspace": "ws-1"
-        }
-      },
       "expect": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -54,42 +44,27 @@
             }
           ]
         }
-      }
-    },
-    {
+      },
       "send": {
-        "dli": "0.6.3",
-        "id": "2",
+        "dli": "2.0.0",
+        "id": "1",
         "op": "author.query",
         "params": {
-          "goal": "marker(baseline)",
           "goal_atom": {
             "args": [
               {
-                "Sym": {
-                  "span": {
-                    "end": 0,
-                    "file": 0,
-                    "start": 0
-                  },
-                  "text": "baseline"
-                }
+                "Sym": "baseline"
               }
             ],
-            "pred": {
-              "span": {
-                "end": 0,
-                "file": 0,
-                "start": 0
-              },
-              "text": "marker"
-            }
+            "pred": "marker"
           },
           "workspace": "ws-1"
         }
-      },
+      }
+    },
+    {
       "expect": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "2",
         "ok": true,
         "result": {
@@ -118,15 +93,12 @@
             }
           ]
         }
-      }
-    },
-    {
+      },
       "send": {
-        "dli": "0.6.3",
-        "id": "3",
+        "dli": "2.0.0",
+        "id": "2",
         "op": "author.query",
         "params": {
-          "goal": "not an atom",
           "goal_atom": {
             "args": [
               {
@@ -151,9 +123,11 @@
           },
           "workspace": "ws-1"
         }
-      },
+      }
+    },
+    {
       "expect": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "3",
         "ok": true,
         "result": {
@@ -181,8 +155,39 @@
               "value": true
             }
           ]
+        }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "3",
+        "op": "author.query",
+        "params": {
+          "goal_atom": {
+            "args": [
+              {
+                "Sym": {
+                  "span": {
+                    "end": 0,
+                    "file": 0,
+                    "start": 0
+                  },
+                  "text": "baseline"
+                }
+              }
+            ],
+            "pred": {
+              "span": {
+                "end": 0,
+                "file": 0,
+                "start": 0
+              },
+              "text": "marker"
+            }
+          },
+          "workspace": "ws-1"
         }
       }
     }
-  ]
+  ],
+  "version": 1
 }

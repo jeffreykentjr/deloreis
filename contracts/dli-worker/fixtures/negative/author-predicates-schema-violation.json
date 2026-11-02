@@ -3,7 +3,7 @@
   "version": 1,
   "note": "author.predicates params omit the required workspace.",
   "send": {
-    "dli": "1.10.0",
+    "dli": "2.0.0",
     "id": "1",
     "op": "author.predicates",
     "params": {}

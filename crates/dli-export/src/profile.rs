@@ -50,10 +50,6 @@ use crate::static_wiki::{self, StaticWikiExport};
 pub enum ExportTarget {
     /// The audio-script context pack — export backend number one, in production.
     ContextPack,
-    /// Card and board game content sets.
-    Cards,
-    /// Ludii L-GDL for the game simulator (the DL-0007 proof point).
-    LudiiGdl,
     /// Articy-shaped video-game JSON (typed entities, relations, quest structure).
     Articy,
     /// Producer-facing flat CSV.
@@ -68,8 +64,6 @@ impl ExportTarget {
     pub fn from_wire(profile: ExportProfile) -> Self {
         match profile {
             ExportProfile::ContextPack => Self::ContextPack,
-            ExportProfile::Cards => Self::Cards,
-            ExportProfile::LudiiGdl => Self::LudiiGdl,
             ExportProfile::Articy => Self::Articy,
             ExportProfile::Csv => Self::Csv,
             ExportProfile::StaticWiki => Self::StaticWiki,
@@ -81,8 +75,6 @@ impl std::fmt::Display for ExportTarget {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = match self {
             Self::ContextPack => "context-pack",
-            Self::Cards => "cards",
-            Self::LudiiGdl => "ludii-gdl",
             Self::Articy => "articy",
             Self::Csv => "csv",
             Self::StaticWiki => "static-wiki",
@@ -414,7 +406,7 @@ fn validate_render_rule(
                 matches!(field, "predicate" | "claim") || positional_field(field)
             })?;
         }
-        ExportTarget::Cards | ExportTarget::LudiiGdl | ExportTarget::ContextPack => {}
+        ExportTarget::ContextPack => {}
     }
     Ok(())
 }
@@ -584,15 +576,6 @@ pub enum ExportError {
         /// Refused option name.
         option: &'static str,
     },
-    /// The requested target has no engine-side renderer: its renderer lives in a
-    /// world crate (the Turning's card/Ludii render moved out of the engine),
-    /// reached through that crate's own export entry point, never through this
-    /// generic export.
-    #[error(
-        "target {0:?} has no engine-side renderer; it is rendered by a world crate, \
-         through that crate's own export entry point"
-    )]
-    NoEngineRendererForTarget(ExportTarget),
     /// A write-back was requested. There is no import path — exports are one-way,
     /// absolutely (charter koan 1/3/10/11).
     #[error(
@@ -755,12 +738,6 @@ pub fn export_with(
         ExportTarget::Csv => ExportArtifact::Csv(csv::compile(spec, &layer, &selected)?),
         ExportTarget::StaticWiki => {
             ExportArtifact::StaticWiki(static_wiki::compile(spec, &layer, &selected)?)
-        }
-        // The card/Ludii render is world content, not engine code: it lives in a
-        // world crate that builds its ruleset directly and needs no compiled
-        // world. Fail closed here.
-        ExportTarget::Cards | ExportTarget::LudiiGdl => {
-            return Err(ExportError::NoEngineRendererForTarget(target));
         }
     };
 

@@ -4,7 +4,7 @@
   "note": "author.query's string `goal` is refused at contract 1.0 exactly as dli.query's is. The check sits above the routing fork in dispatch, so Door T inherits it rather than reimplementing it \u2014 an author.* op is refused before it reaches the workspace seam, which is why no workspace precondition is needed here.",
   "project": true,
   "send": {
-    "dli": "1.0.0",
+    "dli": "2.0.0",
     "id": "1",
     "op": "author.query",
     "params": {

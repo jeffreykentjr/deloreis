@@ -3,7 +3,7 @@
   "version": 1,
   "note": "author.set_standing params omit the required claim_id.",
   "send": {
-    "dli": "1.5.0",
+    "dli": "2.0.0",
     "id": "1",
     "op": "author.set_standing",
     "params": {

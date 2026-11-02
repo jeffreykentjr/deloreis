@@ -58,7 +58,6 @@ fn run_mcp_with(project: Option<Arc<Project>>) -> std::io::Result<()> {
         if let Some(reply) = handle_rpc(&line, &mut sessions, &mut author) {
             writeln!(out, "{reply}")?;
             out.flush()?;
-            sessions.release_simulation_workers();
         }
     }
     Ok(())

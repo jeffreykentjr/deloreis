@@ -1,12 +1,21 @@
 {
   "fixture": "golden/corpus-import-v1",
-  "version": 1,
   "note": "dli.corpus.import in append mode extends a populated store. The supplied interner extends the one the store already resolves against, so every earlier fact keeps its meaning; the reply reports the new head and the folded fact count.",
   "project": true,
   "steps": [
     {
+      "expect": {
+        "dli": "2.0.0",
+        "id": "1",
+        "ok": true,
+        "result": {
+          "findings": [],
+          "imported_count": 5,
+          "root_hash": "sha256:f7df3da87a6c823902c108a1d135f06c107519428114bcf9216d7a677ae6ea8d"
+        }
+      },
       "send": {
-        "dli": "1.2.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.corpus.import",
         "params": {
@@ -27,13 +36,13 @@
                 "pred": "person"
               },
               "authority": null,
-              "claim_id": "sha256:e64d705bc4ddb6c196bc1beef383cb66c07df4edf1078e9e464b5b41664c53d4",
+              "claim_id": "sha256:259914e7d7b2a64f364cd0a86141f4fd19d763bb1507414ea1e01eac82e3bd14",
               "defeaters": {
                 "monomials": []
               },
               "grade": "asserted",
               "provenance": {
-                "marker": "Decided"
+                "marker": "Provisional"
               },
               "schema_version": 3,
               "support": {
@@ -46,17 +55,8 @@
             }
           ]
         }
-      },
-      "expect": {
-        "dli": "1.2.0",
-        "id": "1",
-        "ok": true,
-        "result": {
-          "findings": [],
-          "imported_count": 5,
-          "root_hash": "sha256:a85c8d247224f0de93f55334de8993f28fb52c15d9d9b6db5b8178e1fbca66ac"
-        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

@@ -141,9 +141,7 @@ a name to a phonetic key and measures distance between keys, so "these two names
 sound too alike" becomes a query over the name-space rather than an ear's
 impression. Aural distinctness runs a candidate against the whole name-space;
 set distinctness runs it against a declared set (a scene cast, a family, a
-region). The scene-scoped version is what the craft layer's `scene-name-clash`
-rule joins against ([06-craft-and-payloads](06-craft-and-payloads.md) §3) — a
-join possible only where naming data and cast lists share a kernel.
+region). Scene-scoped checks can use a caller-supplied set of names.
 
 **Pronounceability splits down its middle.** Cluster and syllable structure
 follow the dialect grammar and are checked in-kernel; the

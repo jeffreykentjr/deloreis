@@ -1,10 +1,9 @@
 {
   "fixture": "golden/author-check-v1",
-  "version": 1,
   "note": "author.check runs the full check battery over the staged world — one graded finding list; a freshly-opened workspace is clean.",
   "precondition": [
     {
-      "dli": "0.5.1",
+      "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -14,23 +13,24 @@
   ],
   "steps": [
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "author.check",
-        "params": {
-          "workspace": "ws-1"
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
           "findings": [],
           "ok": true
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "author.check",
+        "params": {
+          "workspace": "ws-1"
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

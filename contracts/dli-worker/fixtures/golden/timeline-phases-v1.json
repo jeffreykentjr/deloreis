@@ -1,20 +1,10 @@
 {
   "fixture": "golden/timeline-phases-v1",
-  "version": 1,
   "note": "dli.timeline.phases walks the cyclic-phase bindings an episode pins — its episode anchor's phases and any per-scene flashback anchor's phases. Episode e01 of the neutral round-table season pins the `season` cycle at its opening index.",
   "steps": [
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.timeline.phases",
-        "params": {
-          "document": "round-table",
-          "episode": "e01"
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -33,7 +23,17 @@
           "episode": "e01",
           "findings": []
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "dli.timeline.phases",
+        "params": {
+          "document": "round-table",
+          "episode": "e01"
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

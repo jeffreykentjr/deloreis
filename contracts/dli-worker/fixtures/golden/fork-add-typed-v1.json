@@ -1,47 +1,28 @@
 {
   "fixture": "golden/fork-add-typed-v1",
-  "version": 1,
   "note": "dli.fork.add's 0.6.3 typed successor additions (LS-7): typed ground atoms instead of rendered .dli declaration lines. The delta is byte-identical to golden/fork-add-v1's — the text path lowers to exactly these atoms, each asserted by fiat within the fork — and the empty declarations list is ignored because additions is present. The fork.list probe shows the one local atom actually landed.",
   "steps": [
     {
-      "send": {
-        "dli": "0.6.3",
-        "id": "1",
-        "op": "dli.fork.new",
-        "params": {
-          "document": "round-table"
-        }
-      },
       "expect": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
           "fork": "fork-1"
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "dli.fork.new",
+        "params": {
+          "document": "round-table"
+        }
       }
     },
     {
-      "send": {
-        "dli": "0.6.3",
-        "id": "2",
-        "op": "dli.fork.add",
-        "params": {
-          "additions": [
-            {
-              "args": [
-                "camelot",
-                "avalon"
-              ],
-              "pred": "adjacent"
-            }
-          ],
-          "declarations": [],
-          "fork": "fork-1"
-        }
-      },
       "expect": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "2",
         "ok": true,
         "result": {
@@ -73,19 +54,28 @@
           },
           "ok": true
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "2",
+        "op": "dli.fork.add",
+        "params": {
+          "additions": [
+            {
+              "args": [
+                "camelot",
+                "avalon"
+              ],
+              "pred": "adjacent"
+            }
+          ],
+          "fork": "fork-1"
+        }
       }
     },
     {
-      "send": {
-        "dli": "0.6.3",
-        "id": "3",
-        "op": "dli.fork.list",
-        "params": {
-          "document": "round-table"
-        }
-      },
       "expect": {
-        "dli": "0.6.3",
+        "dli": "2.0.0",
         "id": "3",
         "ok": true,
         "result": {
@@ -98,7 +88,16 @@
             }
           ]
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "3",
+        "op": "dli.fork.list",
+        "params": {
+          "document": "round-table"
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

@@ -14,12 +14,7 @@ use dli_ast::decl::{Decl, Document};
 use dli_core::valuation::{NamedAtomSet, NamedValuation, Valuation};
 use dli_export::profile::Registry;
 use dli_export::source_fingerprint;
-use dli_game::model::Ruleset;
 use dli_world::attest::Question;
-use dli_world::craft::{
-    AppliedCraft, CONFIG_FILES, CraftLedger, EpisodePolicy, SeasonOutline, Thresholds, apply,
-    build_episode_policy, doctrines, load_config, validate,
-};
 use dli_world::episode::Episode;
 use dli_world::language::LanguageModel;
 use dli_world::{KilledToken, KilledTokens, MatchMode, Pack, compile};
@@ -35,7 +30,6 @@ pub struct Project {
     name: String,
     root: PathBuf,
     documents: BTreeMap<String, ProjectDocument>,
-    games: BTreeMap<String, ProjectGame>,
     language: LanguageModel,
     evidence_dir: PathBuf,
     cache_dir: PathBuf,
@@ -48,17 +42,6 @@ pub struct ProjectDocument {
     pub pack: Pack,
     /// Optional production/story-time episode data.
     pub episodes: Option<Vec<Episode>>,
-    /// Optional reviewed outline set used by payload conformance.
-    pub outlines: Option<SeasonOutline>,
-    /// Optional committed season craft state merged into payload checks.
-    pub craft_ledger: Option<CraftLedger>,
-    /// Caller-owned craft principles composed from the project's selected
-    /// doctrine packs and overlays.
-    pub craft_principles: Option<AppliedCraft>,
-    /// Caller-owned season thresholds from the same craft configuration.
-    pub craft_thresholds: Option<Thresholds>,
-    /// Caller-owned outline and per-finding policy.
-    pub craft_policy: Option<EpisodePolicy<'static>>,
     /// Optional rejected-lore token registry.
     pub killed: KilledTokens,
     /// Bounded model-judgment questions demanded by this document's checks.
@@ -114,17 +97,6 @@ enum FileIdentity {
     Windows { volume_serial: u32, file_index: u64 },
     #[cfg(not(unix))]
     Path(PathBuf),
-}
-
-/// One project game and its export profile registry.
-#[derive(Debug, Clone)]
-pub struct ProjectGame {
-    /// Rules-as-data for the game.
-    pub ruleset: Ruleset,
-    /// Built-in neutral profiles plus project-owned profiles.
-    pub profiles: Registry,
-    /// Content fingerprint of the caller-owned rules file.
-    pub source_digest: String,
 }
 
 /// A project manifest or one of its referenced assets is invalid.
@@ -208,8 +180,6 @@ struct Manifest {
     name: String,
     documents: BTreeMap<String, DocumentEntry>,
     #[serde(default)]
-    games: BTreeMap<String, GameEntry>,
-    #[serde(default)]
     paths: StoragePaths,
 }
 
@@ -231,18 +201,8 @@ struct DocumentEntry {
     /// which is what an authoring server wants. Only meaningful with `store`.
     head: Option<String>,
     episodes: Option<PathBuf>,
-    outlines: Option<PathBuf>,
-    craft_ledger: Option<PathBuf>,
-    craft_config: Option<PathBuf>,
     killed_tokens: Option<PathBuf>,
     attestation_questions: Option<PathBuf>,
-    profiles: Option<PathBuf>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct GameEntry {
-    rules: PathBuf,
     profiles: Option<PathBuf>,
 }
 
@@ -343,8 +303,7 @@ impl Project {
             ));
         }
 
-        let input_paths =
-            collect_input_paths(&root, &manifest.documents, &manifest.games, &manifest_path)?;
+        let input_paths = collect_input_paths(&root, &manifest.documents, &manifest_path)?;
         let evidence_dir =
             validate_storage_path(&root, "paths.evidence", &manifest.paths.evidence)?;
         let cache_dir = validate_storage_path(&root, "paths.cache", &manifest.paths.cache)?;
@@ -380,7 +339,6 @@ impl Project {
         validate_storage_tree("paths.cache", &cache_dir, &input_identities)?;
 
         let documents = load_documents(&root, manifest.documents)?;
-        let games = load_games(&root, manifest.games, &documents)?;
         let language_docs = documents
             .values()
             .flat_map(|document| document.pack.documents.iter().cloned())
@@ -392,7 +350,6 @@ impl Project {
             name: manifest.name,
             root,
             documents,
-            games,
             language,
             evidence_dir,
             cache_dir,
@@ -415,12 +372,6 @@ impl Project {
     #[must_use]
     pub fn document(&self, id: &str) -> Option<&ProjectDocument> {
         self.documents.get(id)
-    }
-
-    /// Resolve a game id.
-    #[must_use]
-    pub fn game(&self, id: &str) -> Option<&ProjectGame> {
-        self.games.get(id)
     }
 
     /// Project-wide language model used by the current name-check wire shape.
@@ -452,7 +403,6 @@ impl Project {
 fn collect_input_paths(
     root: &Path,
     documents: &BTreeMap<String, DocumentEntry>,
-    games: &BTreeMap<String, GameEntry>,
     manifest_path: &Path,
 ) -> Result<Vec<PathBuf>, ProjectError> {
     let mut paths = vec![manifest_path.to_path_buf()];
@@ -466,8 +416,6 @@ fn collect_input_paths(
         }
         for (field, path) in [
             ("episodes", entry.episodes.as_deref()),
-            ("outlines", entry.outlines.as_deref()),
-            ("craft_ledger", entry.craft_ledger.as_deref()),
             ("killed_tokens", entry.killed_tokens.as_deref()),
             (
                 "attestation_questions",
@@ -482,27 +430,6 @@ fn collect_input_paths(
                     path,
                 )?);
             }
-        }
-        if let Some(path) = &entry.craft_config {
-            paths.extend(craft_config_paths(
-                root,
-                &format!("documents.{id}.craft_config"),
-                path,
-            )?);
-        }
-    }
-    for (id, entry) in games {
-        paths.push(resolve_existing(
-            root,
-            &format!("games.{id}.rules"),
-            &entry.rules,
-        )?);
-        if let Some(profiles) = &entry.profiles {
-            paths.push(resolve_existing(
-                root,
-                &format!("games.{id}.profiles"),
-                profiles,
-            )?);
         }
     }
     paths.sort();
@@ -643,24 +570,6 @@ fn load_document(
         .as_deref()
         .map(|path| load_yaml(root, &format!("documents.{id}.episodes"), path))
         .transpose()?;
-    let outlines = entry
-        .outlines
-        .as_deref()
-        .map(|path| load_yaml(root, &format!("documents.{id}.outlines"), path))
-        .transpose()?;
-    let craft_ledger = entry
-        .craft_ledger
-        .as_deref()
-        .map(|path| load_yaml(root, &format!("documents.{id}.craft_ledger"), path))
-        .transpose()?;
-    let (craft_principles, craft_thresholds, craft_policy) = entry
-        .craft_config
-        .as_deref()
-        .map(|path| load_craft_config(root, &format!("documents.{id}.craft_config"), path))
-        .transpose()?
-        .map_or((None, None, None), |(principles, thresholds, policy)| {
-            (Some(principles), thresholds, Some(policy))
-        });
     let killed = entry
         .killed_tokens
         .as_deref()
@@ -686,11 +595,6 @@ fn load_document(
     Ok(ProjectDocument {
         pack,
         episodes,
-        outlines,
-        craft_ledger,
-        craft_principles,
-        craft_thresholds,
-        craft_policy,
         killed,
         attestation_questions,
         profiles,
@@ -703,65 +607,6 @@ fn load_document(
         store_ref_digest,
         store_pinned: store_origin.is_some() && entry.head.is_some(),
     })
-}
-
-fn craft_config_paths(root: &Path, field: &str, path: &Path) -> Result<Vec<PathBuf>, ProjectError> {
-    let directory = resolve_existing(root, field, path)?;
-    if !directory.is_dir() {
-        return Err(ProjectError::AssetPath {
-            field: field.to_owned(),
-            path: path.display().to_string(),
-            message: "craft_config must name a directory".into(),
-        });
-    }
-    let mut files = vec![directory];
-    for name in CONFIG_FILES {
-        let relative = path.join(name);
-        if root
-            .join(&relative)
-            .try_exists()
-            .map_err(|error| ProjectError::AssetPath {
-                field: field.to_owned(),
-                path: relative.display().to_string(),
-                message: error.to_string(),
-            })?
-        {
-            files.push(resolve_existing(root, field, &relative)?);
-        }
-    }
-    Ok(files)
-}
-
-fn load_craft_config(
-    root: &Path,
-    field: &str,
-    path: &Path,
-) -> Result<(AppliedCraft, Option<Thresholds>, EpisodePolicy<'static>), ProjectError> {
-    let files = craft_config_paths(root, field, path)?;
-    let directory = resolve_existing(root, field, path)?;
-    let packs = doctrines();
-    let config = load_config(&directory).map_err(|error| ProjectError::ParseAsset {
-        path: directory.display().to_string(),
-        message: error.to_string(),
-    })?;
-    let faults = validate(&config, &packs);
-    if !faults.is_empty() {
-        return Err(ProjectError::Invalid(format!(
-            "{field} is invalid: {}",
-            faults
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>()
-                .join("; ")
-        )));
-    }
-    debug_assert!(
-        files.iter().all(|file| file.starts_with(&directory)),
-        "validated craft files stay under their config directory"
-    );
-    let thresholds = config.season_thresholds;
-    let policy = build_episode_policy(&config);
-    Ok((apply(&config, &packs), thresholds, policy))
 }
 
 /// Load a document from whichever source form its manifest entry declares.
@@ -1076,77 +921,6 @@ fn reject_duplicate_decls(
         }
     }
     Ok(())
-}
-
-fn load_games(
-    root: &Path,
-    entries: BTreeMap<String, GameEntry>,
-    documents: &BTreeMap<String, ProjectDocument>,
-) -> Result<BTreeMap<String, ProjectGame>, ProjectError> {
-    let mut games = BTreeMap::new();
-    for (id, entry) in entries {
-        validate_id("game", &id)?;
-        if documents.contains_key(&id) {
-            return Err(ProjectError::Invalid(format!(
-                "`{id}` is both a document and a game; wire asset ids must be unambiguous"
-            )));
-        }
-        let rules_path = resolve_existing(root, &format!("games.{id}.rules"), &entry.rules)?;
-        let rules_text =
-            fs::read_to_string(&rules_path).map_err(|error| ProjectError::AssetPath {
-                field: format!("games.{id}.rules"),
-                path: rules_path.display().to_string(),
-                message: error.to_string(),
-            })?;
-        let ruleset =
-            Ruleset::from_rules(&rules_text).map_err(|error| ProjectError::ParseAsset {
-                path: rules_path.display().to_string(),
-                message: error.to_string(),
-            })?;
-        let source_digest = source_fingerprint([rules_text.as_bytes()]);
-        let loaded_profiles = entry
-            .profiles
-            .as_deref()
-            .map(|path| {
-                let field = format!("games.{id}.profiles");
-                let resolved = resolve_existing(root, &field, path)?;
-                let registry =
-                    Registry::from_path(&resolved).map_err(|error| ProjectError::ParseAsset {
-                        path: resolved.display().to_string(),
-                        message: error.to_string(),
-                    })?;
-                Ok::<_, ProjectError>((registry, resolved))
-            })
-            .transpose()?;
-        let profile_path = loaded_profiles
-            .as_ref()
-            .map_or_else(|| rules_path.clone(), |(_, path)| path.clone());
-        let profiles = loaded_profiles.map_or_else(Registry::builtin, |(loaded, _)| {
-            Registry::builtin().merge(loaded)
-        });
-        for profile in &profiles.profiles {
-            if matches!(
-                profile.target,
-                dli_export::ExportTarget::Cards | dli_export::ExportTarget::LudiiGdl
-            ) {
-                dli_game::export::validate_game_profile(&ruleset, profile).map_err(|error| {
-                    ProjectError::ParseAsset {
-                        path: profile_path.display().to_string(),
-                        message: error.to_string(),
-                    }
-                })?;
-            }
-        }
-        games.insert(
-            id,
-            ProjectGame {
-                ruleset,
-                profiles,
-                source_digest,
-            },
-        );
-    }
-    Ok(games)
 }
 
 fn validate_id(kind: &str, id: &str) -> Result<(), ProjectError> {

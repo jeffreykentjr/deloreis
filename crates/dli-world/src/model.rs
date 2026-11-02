@@ -24,8 +24,6 @@ use dli_ast::term::{AtomExpr, Term};
 use dli_core::ann::Ann;
 use dli_core::atom::{Atom, Interner, Rail};
 use dli_eval::world::World;
-use dli_ledger::{LedgerEntry, PracticeDef};
-use dli_time::cycle::Cycle;
 use dli_time::fluent::FluentTimeline;
 
 /// Stable code for the non-blocking union-policy promotion finding.  Keeping
@@ -33,26 +31,6 @@ use dli_time::fluent::FluentTimeline;
 /// census assign this predicate-identity code to its own family while the
 /// continuity check remains the emitter.
 pub const PREDICATE_IDENTITY_POLICY_PROMOTED: &str = "predicate-identity.policy-promoted";
-
-/// A craft rule binding a principle to a register.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct CraftRule {
-    /// The craft principle.
-    pub principle: String,
-    /// The register it governs.
-    pub register: String,
-}
-
-/// The season ledger: a seasonal cycle plus the practices tracked against it.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct SeasonLedger {
-    /// The seasonal cycle, if one is defined.
-    pub season_cycle: Option<Cycle>,
-    /// Practice definitions checked this season.
-    pub practices: Vec<PracticeDef>,
-    /// Recorded ledger entries.
-    pub entries: Vec<LedgerEntry>,
-}
 
 /// How a claim entered the world — the origin recorded on its annotation.
 ///
@@ -293,7 +271,7 @@ pub enum LoadFinding {
 
 impl LoadFinding {
     /// A stable, machine-readable class for this finding (charter koan 9,
-    /// two-channel error model). Benchmarks and tools match on this; it never
+    /// two-channel error model). Clients and tools match on this; it never
     /// changes for a given variant.
     #[must_use]
     pub fn code(&self) -> &'static str {
@@ -400,10 +378,6 @@ pub struct WorldModel {
     pub world: World,
     /// The compiled language layer: dialects, name-parts, names, terms, bans.
     pub language: crate::language::LanguageModel,
-    /// Craft rules.
-    pub craft_rules: Vec<CraftRule>,
-    /// The season ledger.
-    pub season: SeasonLedger,
     /// The annotated source atoms, in load order.
     pub atoms: Vec<LoadedAtom>,
     /// The declared entity sorts.

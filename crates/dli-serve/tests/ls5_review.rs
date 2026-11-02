@@ -91,7 +91,7 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
 
     // --- open a 0.6.0 workspace over the saltmarket scope ---
     let open = send(
-        &json!({"dli":"0.6.0","id":"open","op":"author.open","params":{"scope":"saltmarket"}}),
+        &json!({"dli":"2.0.0","id":"open","op":"author.open","params":{"scope":"saltmarket"}}),
         &mut sessions,
         &mut store,
     );
@@ -116,7 +116,7 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
         ),
     ] {
         let response = send(
-            &json!({"dli":"0.6.0","id":id,"op":op,"params":params}),
+            &json!({"dli":"2.0.0","id":id,"op":op,"params":params}),
             &mut sessions,
             &mut store,
         );
@@ -125,7 +125,7 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
 
     // --- status (0.6.0): pinned base commit + gated standing (audit B3) ---
     let status = send(
-        &json!({"dli":"0.6.0","id":"st","op":"author.status","params":{"workspace": ws}}),
+        &json!({"dli":"2.0.0","id":"st","op":"author.status","params":{"workspace": ws}}),
         &mut sessions,
         &mut store,
     );
@@ -154,7 +154,7 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
 
     // --- materialize (0.6.0, JSON-first): the accept decision ---
     let materialize = send(
-        &json!({"dli":"0.6.0","id":"mz","op":"author.materialize","params":{"workspace": ws}}),
+        &json!({"dli":"2.0.0","id":"mz","op":"author.materialize","params":{"workspace": ws}}),
         &mut sessions,
         &mut store,
     );
@@ -185,7 +185,7 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
 
     // --- the fence survives materialize (audit A4) ---
     let fenced = send(
-        &json!({"dli":"0.6.0","id":"f2","op":"author.add_fact",
+        &json!({"dli":"2.0.0","id":"f2","op":"author.add_fact",
                 "expected_digest": workspace_digest,
                 "params":{"workspace": ws, "entity":"mara","key":"trade","value":"salt",
                           "provenance": {"kind":"proposed","origin":"ls5-review"}}}),
@@ -196,7 +196,7 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
 
     // --- repeat materialize with the new delta, then an idempotent no-op ---
     let second = send(
-        &json!({"dli":"0.6.0","id":"mz2","op":"author.materialize","params":{"workspace": ws}}),
+        &json!({"dli":"2.0.0","id":"mz2","op":"author.materialize","params":{"workspace": ws}}),
         &mut sessions,
         &mut store,
     );
@@ -206,7 +206,7 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
         .to_owned();
     assert_ne!(second_hash, commit_hash, "a new delta advances the branch");
     let noop = send(
-        &json!({"dli":"0.6.0","id":"mz3","op":"author.materialize","params":{"workspace": ws}}),
+        &json!({"dli":"2.0.0","id":"mz3","op":"author.materialize","params":{"workspace": ws}}),
         &mut sessions,
         &mut store,
     );
@@ -220,8 +220,8 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
 
     // --- query (0.6.0): the replay triple ---
     let query = send(
-        &json!({"dli":"0.6.0","id":"q1","op":"author.query",
-                "params":{"workspace": ws, "goal":"home(mara, ?where)"}}),
+        &json!({"dli":"2.0.0","id":"q1","op":"author.query",
+                "params":{"workspace": ws, "goal_atom":{"pred":"home","args":[{"Sym":"mara"},{"Var":"where"}]}}}),
         &mut sessions,
         &mut store,
     );
@@ -302,7 +302,7 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
     // --- REJECT: a second workspace discards a staged claim per-decl; the
     //     rejected claim never reaches the store ---
     let open2 = send(
-        &json!({"dli":"0.6.0","id":"open2","op":"author.open","params":{"scope":"saltmarket"}}),
+        &json!({"dli":"2.0.0","id":"open2","op":"author.open","params":{"scope":"saltmarket"}}),
         &mut sessions,
         &mut store,
     );
@@ -311,27 +311,31 @@ fn ls5_review_contract_replays_byte_identical_and_drives_accept_reject() {
         .expect("ws2")
         .to_owned();
     let rejected = send(
-        &json!({"dli":"0.6.0","id":"r1","op":"author.add_fact",
+        &json!({"dli":"2.0.0","id":"r1","op":"author.add_fact",
                 "params":{"workspace": ws2, "entity":"mara","key":"rank","value":"reckless",
                           "provenance": {"kind":"proposed","origin":"ls5-review"}}}),
         &mut sessions,
         &mut store,
     );
-    let rendered_line = ok_result(&rejected)["rendered"]
-        .as_array()
-        .and_then(|lines| lines.last())
-        .and_then(Value::as_str)
-        .expect("the staged line")
+    ok_result(&rejected);
+    let status = send(
+        &json!({"dli":"2.0.0","id":"r-status","op":"author.status","params":{"workspace":ws2}}),
+        &mut sessions,
+        &mut store,
+    );
+    let staged_key = ok_result(&status)["staged"][0]["key"]
+        .as_str()
+        .unwrap()
         .to_owned();
     let discard = send(
-        &json!({"dli":"0.6.0","id":"r2","op":"author.discard",
-                "params":{"workspace": ws2, "decl": rendered_line}}),
+        &json!({"dli":"2.0.0","id":"r2","op":"author.discard",
+                "params":{"workspace": ws2, "decl": staged_key}}),
         &mut sessions,
         &mut store,
     );
     assert_eq!(ok_result(&discard)["discarded"], Value::Bool(true));
     let after_reject = send(
-        &json!({"dli":"0.6.0","id":"r3","op":"author.materialize","params":{"workspace": ws2}}),
+        &json!({"dli":"2.0.0","id":"r3","op":"author.materialize","params":{"workspace": ws2}}),
         &mut sessions,
         &mut store,
     );

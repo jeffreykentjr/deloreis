@@ -1,16 +1,11 @@
 //! Deloreis Lore Interchange world model.
 //!
-//! A [`Pack`] of documents [`compile`]s into a [`CompiledWorld`]: the loader's
-//! status-gated [`WorldModel`] with its ledger valuation set and its symbolic
-//! fixpoint computed, plus the compiled language layer, craft rules, and the
-//! season ledger. Drafts arrive as fat [`Payload`] shadows and are checked with
-//! [`payload::check_payload`]; [`Attestation`]s are recomputed for staleness with
-//! [`sweep`]. The older [`DraftPayload`] projection remains available only for
-//! legacy library callers.
+//! A [`Pack`] of documents compiles into a [`CompiledWorld`] with provenance,
+//! chronology, language and a symbolic fixpoint. Attestations can be checked
+//! for staleness against the compiled world.
 
 pub mod attest;
 pub mod check;
-pub mod craft;
 pub mod draft;
 pub mod episode;
 pub mod episode_order;
@@ -19,9 +14,7 @@ pub mod language;
 pub mod loader;
 pub mod model;
 pub mod pack;
-pub mod payload;
 pub mod predicate_identity;
-pub mod repository;
 pub mod scene_projection;
 
 pub use attest::{Attestation, AttestationStore};
@@ -34,13 +27,11 @@ pub use incremental::{CompileReuse, compile_reusing_fixpoint};
 pub use language::{
     DialectDef, LangFinding, LanguageModel, LanguageOutcome, NameDef, RatifiedName,
 };
-pub use model::{CraftRule, SeasonLedger, WorldModel};
+pub use model::WorldModel;
 pub use pack::Pack;
-pub use payload::{Payload, PayloadFinding};
 pub use predicate_identity::{
     PredicateArityMismatch, PredicateIdentityLink, PredicateIdentityState,
 };
-pub use repository::{RepositoryFinding, validate_repository};
 
 use std::collections::BTreeSet;
 

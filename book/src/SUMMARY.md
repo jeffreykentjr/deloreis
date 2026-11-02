@@ -16,7 +16,6 @@
 - [03 · Time](spec-03.md)
 - [04 · Practices](spec-04.md)
 - [05 · Language layer](spec-05.md)
-- [06 · Craft and payloads](spec-06.md)
 - [07 · Verdicts and the LLM boundary](spec-07.md)
 - [08 · Reasoning](spec-08.md)
 - [09 · Exports](spec-09.md)

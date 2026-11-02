@@ -3,7 +3,7 @@
   "version": 1,
   "note": "author.declare_inertial params omit the required pred.",
   "send": {
-    "dli": "1.8.0",
+    "dli": "2.0.0",
     "id": "1",
     "op": "author.declare_inertial",
     "params": {

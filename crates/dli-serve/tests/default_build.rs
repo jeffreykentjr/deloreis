@@ -58,7 +58,7 @@ fn ident(text: &str) -> Value {
 
 fn request(id: &str, op: &str, params: &Value) -> Value {
     json!({
-        "dli": "0.6.4",
+        "dli": "2.0.0",
         "id": id,
         "op": op,
         "params": params,
@@ -143,7 +143,6 @@ fn a_typed_goal_is_answered() {
             "dli.query",
             &json!({
                 "document": "camelot",
-                "goal": "",
                 "goal_atom": {
                     "pred": ident("adjacent"),
                     "args": [{ "Sym": ident("camelot") }, { "Var": ident("to") }],
@@ -160,204 +159,6 @@ fn a_typed_goal_is_answered() {
     assert!(
         !rows.is_empty(),
         "`adjacent(camelot, ?to)` over the camelot demo matches: {response}"
-    );
-}
-
-#[test]
-fn a_string_goal_needs_the_front_end() {
-    let (mut sessions, mut store) = demo();
-    let response = drive(
-        &request(
-            "q-string",
-            "dli.query",
-            &json!({ "document": "camelot", "goal": "adjacent(camelot, ?to)" }),
-        ),
-        &mut sessions,
-        &mut store,
-    );
-    if SYNTAX {
-        assert!(
-            result(&response).get("rows").is_some(),
-            "a syntax build still answers the string form: {response}"
-        );
-        return;
-    }
-    let message = error(&response)["message"].as_str().unwrap().to_owned();
-    assert!(
-        message.contains("goal_atom"),
-        "the refusal must name the typed successor, got: {message}"
-    );
-    assert_eq!(error(&response)["code"], json!("schema-violation"));
-}
-
-// -- check-draft: the typed runtime-continuity row vs. the three strings ------
-
-/// The `payload/v1` envelope every `dli.check-draft` below shares: an empty
-/// payload over a one-word draft, so the only findings are the ones the
-/// `continuity` context produces.
-fn empty_payload() -> Value {
-    json!({
-        "meta": {
-            "episode": "episode-1",
-            "source": {
-                "file": "draft.md",
-                "sha256": "8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24",
-                "words": 1,
-            },
-            "extracted": "2026-07-25",
-            "extractors": { "schema": "payload/v1" },
-        },
-        "claims": [],
-        "deltas": [],
-        "scenes": [],
-        "beats": [],
-        "promises": { "opened": [], "closed": [] },
-        "proof_ledgers": [],
-        "names": { "introduced": [] },
-        "lexicon": { "banned_hits": [], "register_tokens": 0 },
-    })
-}
-
-/// The finding codes a `dli.check-draft` response carries, in response order.
-fn codes(response: &Value) -> Vec<String> {
-    result(response)["findings"]
-        .as_array()
-        .unwrap_or_else(|| panic!("check-draft answers with findings: {response}"))
-        .iter()
-        .map(|finding| finding["code"].as_str().unwrap().to_owned())
-        .collect()
-}
-
-fn check_draft(id: &str, continuity: &Value, sessions: &mut Sessions, store: &mut Store) -> Value {
-    drive(
-        &request(
-            id,
-            "dli.check-draft",
-            &json!({
-                "document": "camelot",
-                "source": "baseline",
-                "payload": empty_payload(),
-                "continuity": continuity,
-            }),
-        ),
-        sessions,
-        store,
-    )
-}
-
-/// `adjacent(camelot, excalibur)` as a typed atom. Canon ratifies
-/// `adjacent(camelot, the-lake)`, so this atom is *contradicted* — which is what
-/// makes it a proof rather than a smoke test: a build that ignored the typed
-/// field would report the row unreadable, not wrong.
-fn contradicting_atom() -> Value {
-    json!({
-        "pred": ident("adjacent"),
-        "args": [{ "Sym": ident("camelot") }, { "Sym": ident("excalibur") }],
-    })
-}
-
-#[test]
-fn a_typed_runtime_continuity_fact_is_checked() {
-    let (mut sessions, mut store) = demo();
-    let response = check_draft(
-        "cd-typed",
-        &json!({
-            "established": [{
-                "predicate": "adjacent",
-                "subject": "camelot",
-                "value": "excalibur",
-                "atom_expr": contradicting_atom(),
-            }],
-        }),
-        &mut sessions,
-        &mut store,
-    );
-    let codes = codes(&response);
-    assert!(
-        !codes
-            .iter()
-            .any(|code| code == "payload.runtime-continuity-invalid"),
-        "the typed row needs no front end, so no build can call it unreadable: {response}"
-    );
-    assert!(
-        codes
-            .iter()
-            .any(|code| code == "continuity.world-contradiction"),
-        "the typed atom reached the fact-checker and lost to canon: {response}"
-    );
-}
-
-#[test]
-fn a_typed_runtime_continuity_change_is_checked() {
-    let (mut sessions, mut store) = demo();
-    let response = check_draft(
-        "cd-typed-change",
-        &json!({
-            "changes": [{
-                "predicate": "adjacent",
-                "subject": "camelot",
-                "from_value": "the-lake",
-                "to_value": "excalibur",
-                "to_atom_expr": contradicting_atom(),
-            }],
-        }),
-        &mut sessions,
-        &mut store,
-    );
-    let codes = codes(&response);
-    assert!(
-        !codes
-            .iter()
-            .any(|code| code == "payload.runtime-continuity-invalid"),
-        "a change carries its target atom typed too: {response}"
-    );
-    assert!(
-        codes
-            .iter()
-            .any(|code| code == "continuity.world-contradiction"),
-        "the typed target atom reached the fact-checker: {response}"
-    );
-}
-
-#[test]
-fn a_string_runtime_continuity_fact_needs_the_front_end() {
-    let (mut sessions, mut store) = demo();
-    let response = check_draft(
-        "cd-string",
-        &json!({
-            "established": [{
-                "predicate": "adjacent",
-                "subject": "camelot",
-                "value": "excalibur",
-            }],
-        }),
-        &mut sessions,
-        &mut store,
-    );
-    let codes = codes(&response);
-    if SYNTAX {
-        assert!(
-            codes
-                .iter()
-                .any(|code| code == "continuity.world-contradiction"),
-            "a syntax build still assembles and parses the three strings: {response}"
-        );
-        return;
-    }
-    // The whole point of the typed successor: without it, the row is text this
-    // build has no parser for, and it says so instead of checking nothing.
-    assert_eq!(
-        codes,
-        vec!["payload.runtime-continuity-invalid"],
-        "the untyped row is unreadable on a parser-free build: {response}"
-    );
-    let message = result(&response)["findings"][0]["message"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    assert!(
-        message.contains("atom_expr"),
-        "the finding must name the typed successor, got: {message}"
     );
 }
 
@@ -386,7 +187,6 @@ fn typed_additions_apply() {
             "dli.fork.add",
             &json!({
                 "fork": fork,
-                "declarations": [],
                 // A `GroundAtom` — the typed successor's shape: a predicate and
                 // its already-ground argument renderings, no parse required.
                 "additions": [{ "pred": "adjacent", "args": ["camelot", "lyonesse"] }],
@@ -415,20 +215,13 @@ fn text_declarations_need_the_front_end() {
         &mut sessions,
         &mut store,
     );
-    if SYNTAX {
-        assert_eq!(
-            result(&response)["ok"],
-            json!(true),
-            "a syntax build still lowers the text form: {response}"
-        );
-        return;
-    }
-    let message = error(&response)["message"].as_str().unwrap().to_owned();
+    assert_eq!(error(&response)["code"], json!("killed-form"));
     assert!(
-        message.contains("additions"),
-        "the refusal must name the typed successor, got: {message}"
+        error(&response)["message"]
+            .as_str()
+            .unwrap()
+            .contains("additions")
     );
-    assert_eq!(error(&response)["code"], json!("schema-violation"));
 }
 
 // -- authoring: JSON-first, with `.dli` rendering as the opt-in ---------------
@@ -500,17 +293,10 @@ fn authoring_stages_and_diffs_without_a_renderer() {
     );
 }
 
-/// Below contract 1.3.0 a staged declaration is named only by its rendered
-/// `.dli` line, so a build with no formatter cannot name one at all and says so
-/// (LS-7). Those bytes are frozen — this is what every wire through 1.2.0
-/// answers, and `request` here speaks 0.6.4. DM-4 gives the declaration a
-/// build-independent name at 1.3.0 and up; the test below covers that half.
+/// A rendered line is not a structural key, so rejecting it must leave the
+/// staged declaration in place on either build.
 #[test]
-fn per_declaration_discard_is_refused_without_a_renderer() {
-    if SYNTAX {
-        // The rendered-line key exists on this build; `author.rs` covers it.
-        return;
-    }
+fn per_declaration_discard_rejects_a_rendered_line() {
     let (mut sessions, mut store) = demo();
     let opened = drive(
         &request("ws-open", "author.open", &json!({ "scope": "camelot" })),
@@ -544,8 +330,8 @@ fn per_declaration_discard_is_refused_without_a_renderer() {
     );
     let message = error(&discarded)["message"].as_str().unwrap().to_owned();
     assert!(
-        message.contains("rendered") && message.contains("syntax"),
-        "the refusal must say the line cannot be named on this build, got: {message}"
+        message.contains("no staged declaration matching"),
+        "the refusal must name the missing structural key, got: {message}"
     );
     // The workspace is untouched — a refusal is never a partial discard.
     let status = drive(
@@ -622,104 +408,6 @@ fn materialize_without_a_lorestore_is_refused_without_a_renderer() {
     assert_eq!(error(&response)["code"], json!("schema-violation"));
 }
 
-// -- contract 1.0: the field retirement, in both lanes ------------------------
-
-/// LS-8 turns the LS-7 field registry live at contract `1.0.0`, and the switch
-/// is a property of the *negotiated version*, not of the build: a string `goal`
-/// is `killed-form` at 1.0 whether or not this build links a parser. Refusing
-/// it for want of a front end (the LS-7 refusal above) and refusing it because
-/// the contract retired it are different verdicts, and the second one outranks
-/// the first — a caller who upgrades a parser-linked build must still be told
-/// the form is gone.
-#[test]
-fn a_string_goal_is_a_killed_form_at_contract_1_0() {
-    let (mut sessions, mut store) = demo();
-    let response = drive(
-        &json!({
-            "dli": "1.0.0",
-            "id": "q-1-0",
-            "op": "dli.query",
-            "params": { "document": "camelot", "goal": "adjacent(camelot, ?to)" },
-        }),
-        &mut sessions,
-        &mut store,
-    );
-    assert_eq!(
-        error(&response)["code"],
-        json!("killed-form"),
-        "1.0 retires the string form in both lanes: {response}"
-    );
-    let message = error(&response)["message"].as_str().unwrap();
-    assert!(
-        message.contains("goal_atom") && message.contains("1.0.0"),
-        "the refusal names the successor and the wire, got: {message}"
-    );
-}
-
-/// The same request one version down is not a killed form. What it *is* differs
-/// by lane — answered with the parser, refused for want of one without it — and
-/// neither is the retirement, which is the point: LS-8 added a verdict at 1.0
-/// and moved nothing below it.
-#[test]
-fn the_same_request_is_not_a_killed_form_at_0_6_4() {
-    let (mut sessions, mut store) = demo();
-    let response = drive(
-        &json!({
-            "dli": "0.6.4",
-            "id": "q-0-6-4",
-            "op": "dli.query",
-            "params": { "document": "camelot", "goal": "adjacent(camelot, ?to)" },
-        }),
-        &mut sessions,
-        &mut store,
-    );
-    if SYNTAX {
-        assert!(
-            result(&response).get("rows").is_some(),
-            "0.6.4 still answers the string form: {response}"
-        );
-        return;
-    }
-    assert_eq!(error(&response)["code"], json!("schema-violation"));
-    assert!(
-        error(&response)["message"]
-            .as_str()
-            .unwrap()
-            .contains("goal_atom"),
-        "the parser-free refusal is LS-7's, not the retirement: {response}"
-    );
-}
-
-/// At 1.0 the typed successor is sent ALONE — the retired field is no longer
-/// required, which is what makes the retirement usable rather than a dead end.
-/// This build has no parser, so answering it also proves the typed path never
-/// touches one.
-#[test]
-fn a_typed_goal_is_answered_at_contract_1_0() {
-    let (mut sessions, mut store) = demo();
-    let response = drive(
-        &json!({
-            "dli": "1.0.0",
-            "id": "q-typed-1-0",
-            "op": "dli.query",
-            "params": {
-                "document": "camelot",
-                "goal_atom": {
-                    "pred": ident("adjacent"),
-                    "args": [{ "Sym": ident("camelot") }, { "Var": ident("to") }],
-                },
-            },
-        }),
-        &mut sessions,
-        &mut store,
-    );
-    let rows = result(&response)
-        .get("rows")
-        .and_then(Value::as_array)
-        .unwrap_or_else(|| panic!("a 1.0 typed query answers with rows: {response}"));
-    assert!(!rows.is_empty(), "{response}");
-}
-
 // -- projects -----------------------------------------------------------------
 
 #[test]
@@ -761,7 +449,7 @@ fn a_dli_project_load_names_its_two_ways_forward() {
 #[test]
 fn per_declaration_discard_names_the_structural_key_from_1_3_0() {
     let (mut sessions, mut store) = demo();
-    let at_1_3_0 = |id: &str, op: &str, params: &Value| json!({ "dli": "1.3.0", "id": id, "op": op, "params": params });
+    let at_1_3_0 = |id: &str, op: &str, params: &Value| json!({ "dli": "2.0.0", "id": id, "op": op, "params": params });
     let opened = drive(
         &at_1_3_0("ws-open", "author.open", &json!({ "scope": "camelot" })),
         &mut sessions,
@@ -975,7 +663,7 @@ fn the_structural_key_is_a_recomputable_digest_of_the_declaration() {
     // 4. And the wire really hands out this value, rather than something merely
     //    shaped like it.
     let (mut sessions, mut store) = demo();
-    let at_1_3_0 = |id: &str, op: &str, params: &Value| json!({ "dli": "1.3.0", "id": id, "op": op, "params": params });
+    let at_1_3_0 = |id: &str, op: &str, params: &Value| json!({ "dli": "2.0.0", "id": id, "op": op, "params": params });
     let opened = drive(
         &at_1_3_0("k-open", "author.open", &json!({ "scope": "camelot" })),
         &mut sessions,
@@ -1052,7 +740,7 @@ fn author_why_typed_goal_atom_names_the_supporting_decision_syntax_free() {
         .attach_lorestore(root.path().join("lorestore"))
         .expect("attach a lorestore to the camelot demo");
 
-    let at = |id: &str, op: &str, params: &Value| json!({ "dli": "1.10.0", "id": id, "op": op, "params": params });
+    let at = |id: &str, op: &str, params: &Value| json!({ "dli": "2.0.0", "id": id, "op": op, "params": params });
 
     let opened = drive(
         &at("open", "author.open", &json!({ "scope": "camelot" })),

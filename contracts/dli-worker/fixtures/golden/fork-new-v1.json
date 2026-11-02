@@ -1,24 +1,24 @@
 {
   "fixture": "golden/fork-new-v1",
-  "version": 1,
   "steps": [
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.fork.new",
-        "params": {
-          "document": "camelot"
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
           "fork": "fork-1"
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "dli.fork.new",
+        "params": {
+          "document": "camelot"
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

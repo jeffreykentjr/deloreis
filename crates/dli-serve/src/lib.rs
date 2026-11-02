@@ -20,155 +20,16 @@ mod query_goal;
 pub mod schema;
 pub mod serve;
 pub mod session;
-mod simulation;
 
-/// The current worker contract and envelope protocol version. `1.0.0` is the
-/// LS-8 major: the JSON-first surface, and the version at which the retired
-/// string forms registered in `serve::KILLED_FIELDS` stop being accepted. The
-/// registry that LS-7 left dormant is live from here — a `1.0` request carrying
-/// `goal`, `declarations`, or a payload claim's `atom` is refused with
-/// `killed-form` naming its typed successor, and the typed successor is sent
-/// alone (the string form is no longer a required field). The retirement is
-/// two-sided and version-gated in one place, so nothing about it reaches a
-/// `0.x` wire: before `1.0` the string form is still **required**, exactly as
-/// its params struct required it, and still answered.
-///
-/// LS-8 is otherwise **local prep**. Every `0.5.1`–`0.6.4` response is
-/// byte-identical, every dual-mode path is intact, and the consumer cutover is
-/// external-blocked on EXT-F4.
-///
-/// `0.6.4` was the LS-7 runtime-continuity typed-successor bump: the fourth and
-/// last place the wire carried `.dli` text — `dli.check-draft`'s `continuity`
-/// rows, whose `predicate`/`subject`/`value` strings were assembled into
-/// `predicate(subject, value)` and parsed — gains the typed successors
-/// `atom_expr` (on an established or prior fact) and `to_atom_expr` (on a
-/// change, whose target atom is what canon is checked against). Both are
-/// `skip_serializing_if = "Option::is_none"`, so a `0.6.3` request serializes
-/// byte-identically and the string path is untouched.
-///
-/// `0.6.3` was the LS-7 typed-successor bump for the other three text-on-wire
-/// remnants: `goal_atom` beside `dli.query`/`author.query`'s `goal`,
-/// `additions` beside `dli.fork.add`'s `declarations`, and `atom_expr` beside a
-/// payload claim's `atom`. The retirement of the string forms is registered in
-/// `serve::KILLED_FIELDS` and gated on contract 1.0 — dormant on that wire.
-/// `0.6.2` was the LS-9 typed-interior structuring bump: typing the `ratify`
-/// carriage (`RatifyDecl`) shifted the ratify serialization, which re-derives
-/// the embedded commit/merge hashes in the affected golden fixtures — a
-/// fixture-byte change the C4 guard couples to a `contract_version` change. The
-/// wire shape is unchanged and additive: a request pinned to `0.6.1`/`0.6.0`
-/// (or legacy `0.5.1`) still receives byte-identical responses via dual-mode.
-/// `0.6.1` added the branch/merge ops (`author.branch`, `author.merge`) — the
-/// LS-6 merge engine on the tool surface (roadmap LS-6). `0.6.0` through
-/// `0.6.4` share the JSON-first wire shape; `0.5.1` is the legacy dual-mode
-/// shape.
-/// `1.3.0` is DM-4: the expert authoring surface (wave 1 — `author.add_dialect`,
-/// `add_name_part`, `add_name`, `add_term`, `add_banned`; tier 2 —
-/// `add_state`, `add_attest`) and the **authority scrub** (DL-0054, DL-0058).
-/// The ops are additive and advertised only from `1.3.0` up. The scrub is the
-/// one behavior change, and it is gated at this version precisely so it is not
-/// one: `0.5.1` through `1.2.0` keep the `provenance.cited-refused` refusal
-/// byte-exact, so every tagged contract before this one is frozen.
-/// `1.4.0` adds the canon-normalized corpus export and its `canon` response
-/// field; it is a new wire version because the response shape is additive.
-/// `1.5.0` unifies standing markers and adds ordinary promotion/defeat tools.
-/// `1.6.0` adds `author.declare_functional`, the single-valuedness declaration —
-/// additive, advertised only from `1.6.0` up, so every earlier negotiation's
-/// capability list stays byte-identical (issue 49, DL-0074).
-/// `1.7.0` opens the wire-surface-completion campaign window (DL-0077) and
-/// appends two ops, in order: `author.assert_same_as` (WS-1, the
-/// identity-closure kernel's wire surface, DL-0078) and `author.add_rule`
-/// (WS-2, rule authoring, DL-0080) — both additive, each advertised only
-/// from `1.7.0` up on its own floor predicate, so `capabilities("1.6.0")`
-/// stays the byte-identical 60-op list it always was. The
-/// additive-capability discipline (DL-0069, DL-0070, DL-0074) governs every
-/// op the campaign appends: each lands on the end of `Op::ALL`, gated on
-/// its own floor, so no released capability list ever moves.
-/// `1.8.0` adds `author.declare_inertial` — the inertial-persistence
-/// declaration: declaring a predicate inertial reshapes its fluent
-/// projection, bounding an open value's forward persistence at the next
-/// distinct certain value (DL-0081) — additive and advertised only from
-/// `1.8.0` up, so `capabilities("1.7.0")` stays the byte-identical 62-op list
-/// it always was.
-/// `1.9.0` adds `author.as_of` — the inertia-aware point read
-/// (DL-0082): projects the fluent value(s) `check::slot_state_at` derives at
-/// a query point, so a silent inertial transition is finally observable
-/// through a read, never through `dli_eval::world::World::query_with` or the
-/// derived layer — additive and advertised only from `1.9.0` up, so
-/// `capabilities("1.8.0")` stays the byte-identical 63-op list it always was.
-/// `1.9.0` also adds `author.record_decision` — the baseline-decision recorder
-/// (DL-0083): it writes a `ratify` carriage for a caller-named decision, so a
-/// fact that cites it reads certain on the next compile and contradiction
-/// checks (fd-violation, fluent, inertia) become reachable wire-only, closing
-/// the bootstrap gap the out-of-band `fixture-authority` hack used to fill.
-/// It appends after `author.as_of`, so `capabilities("1.8.0")` still stays the
-/// byte-identical 63-op list, and both ops advertise only from `1.9.0` up.
-/// `1.10.0` adds the incremental-canonicalization reads
-/// (`author.predicates`, `author.entity_candidates`, DL-0084) — pure reads over
-/// the staged world that let an extractor reuse an existing predicate or entity
-/// name before minting a novel one; additive and advertised only from `1.10.0`
-/// up, so every earlier capability list stays byte-identical.
-/// `1.11.0` corrects `author.entity_candidates` to rank only declared entities
-/// before applying the caller limit (GH #88). The 1.10.0 behavior remains
-/// available to callers negotiating that released version. `1.12.0` adds the
-/// predicate-identity wire socket; its evaluator/lorestore carriage remains a
-/// separate kernel integration. `1.13.0` introduces conditional decision
-/// attacks: `author.defeat` appends an attack edge and grounded standing can
-/// restore a decision when its attacker falls, adds valuation-aware active and
-/// blocked explanation paths, and adds atomic `author.record_decisions`.
-/// Earlier negotiations retain the released one-way Ref-valuation and response
-/// behavior.
-pub const CONTRACT_VERSION: &str = "1.13.0";
+/// The only served worker contract and envelope protocol version.
+pub const CONTRACT_VERSION: &str = "2.0.0";
 
-/// The legacy dual-mode contract version: a `0.5.1` request receives
-/// byte-identical `0.5.1`-shaped responses (no 0.6.0 fields) until the consumer
-/// completes EXT-F4 — nothing removed, nothing reshaped (DL-0010,
-/// DL-0031..DL-0037 discipline).
+/// The old rendered-lines contract, retained internally for decoding legacy data.
+/// Requests naming it are refused at the server boundary.
 pub const COMPAT_CONTRACT_VERSION: &str = "0.5.1";
 
-/// Every contract version this build answers. Multi-version dual-mode
-/// negotiation (DL-0046, extended by LS-6, LS-9, LS-7, and LS-8): `0.5.1`
-/// (legacy), `0.6.0` (JSON-first), `0.6.1` (JSON-first + branch/merge), `0.6.2`
-/// (JSON-first + LS-9 typed interiors), `0.6.3` (JSON-first + LS-7 typed
-/// successors), `0.6.4` (JSON-first + LS-7 typed runtime-continuity rows), and
-/// `1.0.0` (LS-8: the typed successors are the only form), and `1.1.0` (DM-2:
-/// `SCHEMA_VERSION` 3 — the stored fact-object canonical bytes changed, which
-/// is a contract change under schema-first, DL-0003/DL-0041/DL-0055), and
-/// `1.2.0` (DM-3: the corpus-exchange ops `dli.corpus.import` and
-/// `dli.corpus.export`, DL-0056 — additive, and advertised only at `1.2.0` and
-/// above so an older negotiation's capability list is unmoved), and `1.3.0`
-/// (DM-4: the expert authoring ops and the authority scrub, DL-0058 — the ops
-/// additive and advertised only from `1.3.0` up, the scrub gated so that every
-/// version below keeps `provenance.cited-refused` byte-exact), and `1.4.0`
-/// (LS-7: canon-normalized corpus export), and `1.5.0` (standing vocabulary
-/// unification plus ordinary promotion/defeat tools), and `1.6.0` (the
-/// `functional` single-valuedness declaration and its `author.declare_functional`
-/// op, DL-0074 — additive and advertised only from `1.6.0` up), and `1.7.0`
-/// (the wire-surface-completion campaign window, DL-0077, appending
-/// `author.assert_same_as` (DL-0078) and `author.add_rule` (DL-0080) —
-/// both additive and each advertised only from `1.7.0` up on its own floor
-/// predicate, so `1.6.0`'s capability list stays byte-identical; the
-/// campaign's remaining feature PR appends its own floor-gated params the
-/// same way, with no third op), and `1.8.0` (the inertia declaration's wire
-/// surface, `author.declare_inertial`, DL-0081 — additive and advertised
-/// only from `1.8.0` up, so `1.7.0`'s 62-op capability list stays
-/// byte-identical; declaring a predicate inertial reshapes its fluent
-/// projection, bounding forward persistence at the next distinct certain
-/// value), and `1.9.0` (the as-of and decision reads), `1.10.0` (the
-/// incremental-canonicalization reads), `1.11.0` (the GH #88 declared-entity
-/// candidate correction, with the 1.10.0 result semantics retained for that
-/// negotiation), `1.12.0` (predicate identity), and `1.13.0` (conditional
-/// decision attacks, active/blocked explanations, and atomic decision
-/// batches).
-///
-/// The whole `0.x` prefix stays here. LS-8 adds a major, it does not retire a
-/// minor: a consumer pinned to any of them keeps its byte-identical wire until
-/// EXT-F4, and `1.0.0` is opt-in by negotiation like every version before it.
-/// The `serve::KILLED_FIELDS` retirement is keyed on the major, so it is live
-/// on exactly one member of this list and dormant on the older versions.
-pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[
-    "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0", "1.2.0", "1.3.0",
-    "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.13.0",
-];
+/// The contract versions accepted at the server boundary.
+pub const ACCEPTED_CONTRACT_VERSIONS: &[&str] = &[CONTRACT_VERSION];
 
 /// Whether a negotiated version speaks the JSON-first ("v2") wire shape — the
 /// 0.6.0 replay-context fields (`root_hash`, `valuation`) and the JSON-first

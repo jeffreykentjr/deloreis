@@ -1,19 +1,9 @@
 {
   "fixture": "golden/check-proof-turning-v1",
-  "version": 1,
   "steps": [
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.check-proof",
-        "params": {
-          "document": "warding-vows",
-          "proof": "e01-s04"
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
@@ -94,7 +84,17 @@
             "verdict": "holds"
           }
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "dli.check-proof",
+        "params": {
+          "document": "warding-vows",
+          "proof": "e01-s04"
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

@@ -39,6 +39,12 @@ use crate::session::Sessions;
 const KILLED_OPS: &[(&str, &str)] = &[
     ("dli.suppose", "dli.fork.suppose"),
     ("dli.check-ledger", "dli.check-proof"),
+    ("dli.check-draft", "contract 2.0.0"),
+    ("dli.simulate.start", "contract 2.0.0"),
+    ("dli.simulate.status", "contract 2.0.0"),
+    ("dli.simulate.cancel", "contract 2.0.0"),
+    ("dli.attestation-sweep", "contract 2.0.0"),
+    ("dli.payload-submit", "contract 2.0.0"),
 ];
 
 /// Retired stored marker spellings and their typed successor. The AST keeps
@@ -179,40 +185,6 @@ const KILLED_FIELDS: &[KilledField] = &[
         successor: "additions",
         preceded_by: &["fork"],
         followed_by: &["additions"],
-        refused_at_1_0: true,
-    },
-    KilledField {
-        op: "dli.payload-submit",
-        field: "payload.claims.atom",
-        successor: "atom_expr",
-        preceded_by: &[],
-        // `Claim`'s later siblings, then `PayloadSubmitParams`'s own fields:
-        // the claim fails while the outer map is still being visited.
-        followed_by: &[
-            "atom_expr",
-            "quote",
-            "line",
-            "document",
-            "payload",
-            "source",
-        ],
-        refused_at_1_0: true,
-    },
-    KilledField {
-        op: "dli.check-draft",
-        field: "payload.claims.atom",
-        successor: "atom_expr",
-        preceded_by: &[],
-        // As above, over `CheckDraftParams`'s fields.
-        followed_by: &[
-            "atom_expr",
-            "quote",
-            "line",
-            "document",
-            "payload",
-            "source",
-            "continuity",
-        ],
         refused_at_1_0: true,
     },
 ];
@@ -404,6 +376,8 @@ enum Frame {
     Request(Box<Request>),
     /// A structurally broken frame; carries the best-effort id echo.
     Bad(String),
+    /// A retired contract version on a frame whose operation is also unknown.
+    RetiredVersion { id: String, version: String },
     /// A syntactically valid frame naming an op the contract does not define,
     /// with the successor when the op is a registered killed form.
     Unknown {
@@ -490,7 +464,6 @@ fn serve_with_stores<R: BufRead, W: Write>(
             let encoded = serde_json::to_string(&response).unwrap_or_else(|_| internal_line());
             writeln!(writer, "{encoded}")?;
             writer.flush()?;
-            sessions.release_simulation_workers();
         }
     }
     Ok(())
@@ -509,6 +482,7 @@ pub fn respond(
         Frame::Skip => None,
         Frame::Request(request) => Some(dispatch(&request, sessions, author_store)),
         Frame::Bad(id) => Some(bad_frame(&id)),
+        Frame::RetiredVersion { id, version } => Some(refuse_version(&id, &version)),
         Frame::Unknown {
             dli,
             id,
@@ -530,7 +504,6 @@ pub fn respond(
 /// check is a no-op on every `0.x` request and covers `author.*` and `dli.*`
 /// alike by sitting above the routing fork.
 #[must_use]
-#[allow(clippy::too_many_lines)]
 pub fn dispatch(
     request: &Request,
     sessions: &mut Sessions,
@@ -538,116 +511,6 @@ pub fn dispatch(
 ) -> Response {
     if !crate::ACCEPTED_CONTRACT_VERSIONS.contains(&request.dli.as_str()) {
         return version_mismatch(request);
-    }
-    if request.op.added_in_1_5_0() && !crate::has_standing_tools(&request.dli) {
-        return typed_error(
-            &request.dli,
-            &request.id,
-            ErrorCode::UnknownOp,
-            format!(
-                "operation {:?} is not available before contract 1.5.0",
-                request.op
-            ),
-        );
-    }
-    if request.op.added_in_1_6_0() && !crate::has_functional_decls(&request.dli) {
-        return typed_error(
-            &request.dli,
-            &request.id,
-            ErrorCode::UnknownOp,
-            format!(
-                "operation {:?} is not available before contract 1.6.0",
-                request.op
-            ),
-        );
-    }
-    if request.op.added_in_1_7_0() {
-        // Every 1.7.0 op gates on its OWN floor predicate (the campaign's
-        // three-floor design: `has_identity_assertions`, `has_rule_authoring`,
-        // `has_branch_writes`) rather than one blanket flag, even though every
-        // floor is `at_or_above(dli, (1, 7, 0))` today — so a later divergent
-        // floor is a one-line change here, never a silent capability leak.
-        let available = match request.op {
-            Op::AuthorAddRule => crate::has_rule_authoring(&request.dli),
-            _ => crate::has_identity_assertions(&request.dli),
-        };
-        if !available {
-            return typed_error(
-                &request.dli,
-                &request.id,
-                ErrorCode::UnknownOp,
-                format!(
-                    "operation {:?} is not available before contract 1.7.0",
-                    request.op
-                ),
-            );
-        }
-    }
-    if request.op.added_in_1_8_0() && !crate::has_inertia(&request.dli) {
-        return typed_error(
-            &request.dli,
-            &request.id,
-            ErrorCode::UnknownOp,
-            format!(
-                "operation {:?} is not available before contract 1.8.0",
-                request.op
-            ),
-        );
-    }
-    if request.op.added_in_1_9_0() {
-        // Every 1.9.0 op gates on its OWN floor predicate (the same per-op-floor
-        // discipline the 1.7.0 block follows): `has_as_of_read` for the point
-        // read, `has_decisions` for the baseline recorder. Both are
-        // `at_or_above(dli, (1, 9, 0))` today, so a later divergent floor is a
-        // one-line change here, never a silent capability leak.
-        let available = match request.op {
-            Op::AuthorRecordDecision => crate::has_decisions(&request.dli),
-            _ => crate::has_as_of_read(&request.dli),
-        };
-        if !available {
-            return typed_error(
-                &request.dli,
-                &request.id,
-                ErrorCode::UnknownOp,
-                format!(
-                    "operation {:?} is not available before contract 1.9.0",
-                    request.op
-                ),
-            );
-        }
-    }
-    if request.op.added_in_1_10_0() && !crate::has_incremental_canon(&request.dli) {
-        return typed_error(
-            &request.dli,
-            &request.id,
-            ErrorCode::UnknownOp,
-            format!(
-                "operation {:?} is not available before contract 1.10.0",
-                request.op
-            ),
-        );
-    }
-    if request.op.added_in_1_12_0() && !crate::has_predicate_identity(&request.dli) {
-        return typed_error(
-            &request.dli,
-            &request.id,
-            ErrorCode::UnknownOp,
-            format!(
-                "operation {:?} is not available before contract 1.12.0",
-                request.op
-            ),
-        );
-    }
-    if request.op.added_in_1_13_0() && !crate::has_bulk_decisions(&request.dli) {
-        return typed_error(
-            &request.dli,
-            &request.id,
-            ErrorCode::UnknownOp,
-            format!(
-                "operation {:?} is not available before contract 1.13.0",
-                request.op
-            ),
-        );
     }
     if let Some((field, successor)) =
         killed_field_successor(&request.dli, request.op, &request.params)
@@ -739,6 +602,10 @@ fn decode_frame(line: &str) -> Frame {
     // repeated field), missing/mistyped envelope fields, and unknown/killed ops
     // (the `Op` enum admits no unlisted variant).
     match serde_json::from_str::<Request>(trimmed) {
+        Ok(request) if retired_version(&request.dli) => Frame::RetiredVersion {
+            id: request.id,
+            version: request.dli,
+        },
         Ok(request) => match envelope_unknown_field(trimmed, &request) {
             // The Request struct tolerates extra top-level fields, so a stray or
             // typo'd field (e.g. a mistyped `expected_digest` that would defeat the
@@ -769,28 +636,50 @@ fn envelope_unknown_field(line: &str, request: &Request) -> Option<String> {
 /// contract does not define) from `bad-frame` (everything else — broken JSON, a
 /// duplicate key, a missing envelope field).
 fn classify_reject(line: &str) -> Frame {
-    // A lenient value parse still fails on truly broken JSON (a truncated frame),
-    // which is a bad frame. A duplicate key parses here (last value wins) but
-    // failed the strict decode above, so it lands as a bad frame below.
-    let Ok(value) = serde_json::from_str::<Value>(line) else {
-        return Frame::Bad(String::new());
+    // Decode the envelope again with an untyped op, retaining serde's checks
+    // for missing, mistyped, and duplicate envelope fields. A Value-only parse
+    // would silently collapse duplicate keys before the unknown-op check.
+    #[derive(serde::Deserialize)]
+    struct RawEnvelope {
+        dli: String,
+        id: String,
+        op: String,
+        #[serde(default, rename = "params")]
+        _params: Value,
+        #[serde(default, rename = "expected_digest")]
+        _expected_digest: Option<String>,
+        #[serde(default, rename = "idempotency_key")]
+        _idempotency_key: Option<String>,
+    }
+    let Ok(raw) = serde_json::from_str::<RawEnvelope>(line) else {
+        // Recover only an unambiguous string id for the error response. This
+        // lenient projection never decides whether the frame is valid.
+        #[derive(serde::Deserialize)]
+        struct CorrelationOnly {
+            id: Option<String>,
+        }
+        let id = serde_json::from_str::<CorrelationOnly>(line)
+            .ok()
+            .and_then(|frame| frame.id)
+            .unwrap_or_default();
+        return Frame::Bad(id);
     };
-    let id = value
-        .get("id")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_owned();
-    if let Some(op) = value.get("op").and_then(Value::as_str)
-        && !is_known_op(op)
-    {
+    let id = raw.id;
+    if !is_known_op(&raw.op) {
+        if retired_version(&raw.dli) {
+            return Frame::RetiredVersion {
+                id,
+                version: raw.dli,
+            };
+        }
         let successor = KILLED_OPS
             .iter()
-            .find(|(killed, _)| *killed == op)
+            .find(|(killed, _)| *killed == raw.op)
             .map(|(_, successor)| *successor);
         return Frame::Unknown {
-            dli: spoken_version(value.get("dli").and_then(Value::as_str).unwrap_or_default()),
+            dli: spoken_version(&raw.dli),
             id,
-            op: op.to_owned(),
+            op: raw.op,
             successor,
         };
     }
@@ -890,16 +779,42 @@ fn refuse_field(request: &Request, field: &str, successor: &str) -> Response {
     )
 }
 
+/// The previously served version families are retired forms, not unknown versions.
+fn retired_version(version: &str) -> bool {
+    let Some((major, minor, _patch)) = version.split_once('.').and_then(|(major, rest)| {
+        let (minor, patch) = rest.split_once('.')?;
+        Some((
+            major.parse::<u32>().ok()?,
+            minor.parse::<u32>().ok()?,
+            patch.parse::<u32>().ok()?,
+        ))
+    }) else {
+        return false;
+    };
+    version == "0.5.1" || (major == 0 && minor == 6) || major == 1
+}
+
 fn version_mismatch(request: &Request) -> Response {
+    if retired_version(&request.dli) {
+        return refuse_version(&request.id, &request.dli);
+    }
     typed_error(
-        &request.dli,
+        CONTRACT_VERSION,
         &request.id,
         ErrorCode::VersionMismatch,
         format!(
-            "this worker speaks contracts {:?}, not '{}'; pin the vendored contract",
-            crate::ACCEPTED_CONTRACT_VERSIONS,
+            "this worker speaks contract {CONTRACT_VERSION}, not '{}'",
             request.dli
         ),
+    )
+}
+
+fn refuse_version(id: &str, version: &str) -> Response {
+    typed_error(
+        CONTRACT_VERSION,
+        id,
+        ErrorCode::KilledForm,
+        format!("contract '{version}' is a killed form; its successor is contract 2.0.0"),
     )
 }
 
@@ -955,64 +870,6 @@ mod tests {
         assert_eq!(killed_marker_successor("1.5.0", "ratified"), None);
     }
 
-    /// The version gate reads the major and nothing else: live on `1.0.0` — the
-    /// one accepted version that reaches it — and off across the whole `0.x`
-    /// prefix. A minor bump can never wake the registry by accident.
-    #[test]
-    fn field_retirement_is_keyed_on_the_major_alone() {
-        for version in crate::ACCEPTED_CONTRACT_VERSIONS {
-            assert_eq!(
-                field_retirement_active(version),
-                version.starts_with("1."),
-                "field retirement at accepted version {version}"
-            );
-        }
-        assert!(field_retirement_active("1.0.0"));
-        assert!(!field_retirement_active("0.9.9"));
-        assert!(field_retirement_active("2.0.0"));
-    }
-
-    /// Every retired field is still DECLARED by its params struct — that is
-    /// what keeps the `0.x` wire whole — so it decodes cleanly and never
-    /// becomes an "unknown field". The refusal therefore cannot come from the
-    /// decode seam; it comes from [`dispatch`], which consults the registry
-    /// before routing. Here: the registry matches at `1.0.0` and matches
-    /// nowhere below it.
-    #[test]
-    fn the_registry_matches_at_1_0_and_nowhere_below() {
-        let carriers = [
-            (
-                Op::Query,
-                json!({ "document": "d", "goal": "serves(mara, ?who)" }),
-            ),
-            (
-                Op::AuthorQuery,
-                json!({ "workspace": "w", "goal": "serves(mara, ?who)" }),
-            ),
-            (
-                Op::ForkAdd,
-                json!({ "fork": "fork-1", "declarations": ["note(\"x\") proposed"] }),
-            ),
-        ];
-        for (op, params) in &carriers {
-            assert!(
-                killed_field_successor("1.0.0", *op, params).is_some(),
-                "{} carries its registered retired field",
-                handlers::wire_name(*op)
-            );
-            for version in crate::ACCEPTED_CONTRACT_VERSIONS {
-                if version.starts_with("1.") {
-                    continue;
-                }
-                assert!(
-                    killed_field_successor(version, *op, params).is_none(),
-                    "{} at {version} must not reach the killed-field registry",
-                    handlers::wire_name(*op)
-                );
-            }
-        }
-    }
-
     /// The refusal names the successor FIELD, and the wire it was made on.
     #[test]
     fn contract_1_0_names_the_successor_field() {
@@ -1037,35 +894,6 @@ mod tests {
             message.contains("1.0.0"),
             "the refusal names the wire it was made on: {message}"
         );
-    }
-
-    /// The other side of the same table: before 1.0 the retired field is
-    /// REQUIRED, and the requirement is spelled the way serde spelled it — a
-    /// nested registration reports its leaf, because `serde_json::from_value`
-    /// names the missing field alone and carries no path.
-    #[test]
-    fn the_retired_field_is_required_below_1_0_and_refused_at_it() {
-        let missing = json!({ "document": "d", "goal_atom": { "pred": "x", "args": [] } });
-        for version in crate::ACCEPTED_CONTRACT_VERSIONS {
-            let required = required_retired_field(version, Op::Query, &missing, None);
-            if version.starts_with("1.") {
-                assert_eq!(required, None, "1.0 does not require a retired field");
-            } else {
-                assert_eq!(
-                    required,
-                    Some("goal"),
-                    "{version} still requires the string form"
-                );
-            }
-        }
-        // Carried: nothing to require, on either side of the hinge.
-        let carried = json!({ "document": "d", "goal": "serves(mara)" });
-        assert_eq!(
-            required_retired_field("0.6.4", Op::Query, &carried, None),
-            None
-        );
-        assert_eq!(field_leaf("payload.claims.atom"), "atom");
-        assert_eq!(field_leaf("goal"), "goal");
     }
 
     /// Every guard is coupled to serde's exact wording — the message the
@@ -1121,7 +949,7 @@ mod tests {
     /// `goal` was required, and it must still out-rank it.
     ///
     /// The distinction is `followed_by`: `pred` and `args` are not siblings of
-    /// `goal`, so they are never pre-empted, while a `Claim`'s `quote` is and is.
+    /// `goal`, so they are never pre-empted.
     #[test]
     fn a_nested_decode_failure_is_never_pre_empted() {
         let malformed = json!({ "document": "d", "goal_atom": { "args": [] } });
@@ -1133,57 +961,6 @@ mod tests {
             None,
             "the nested `pred` answers, not the retired `goal`"
         );
-
-        // A sibling declared after the retired field IS pre-empted: this is the
-        // `Claim` case, where serde named `quote` only because `atom` stopped
-        // being required.
-        let claim = json!({ "payload": { "claims": [{ "line": 1 }] } });
-        let sibling = serde_json::from_value::<dli_world::payload::Claim>(json!({ "line": 1 }))
-            .expect_err("`quote` is missing");
-        assert_eq!(missing_field_name(&sibling).as_deref(), Some("quote"));
-        assert_eq!(
-            required_retired_field("0.6.4", Op::PayloadSubmit, &claim, Some(&sibling)),
-            Some("payload.claims.atom"),
-            "`quote` is a sibling declared after `atom`, so `atom` answers"
-        );
-    }
-
-    /// A claims array is required element-wise: one claim carrying `atom` does
-    /// not excuse the next. `field_present` (any) and `field_carried` (all) are
-    /// genuinely different questions, and the pre-1.0 wire needs the strict one
-    /// or a mixed array would slip through where the params struct refused it.
-    #[test]
-    fn an_array_requires_the_retired_field_of_every_element() {
-        let mixed = json!({ "payload": { "claims": [
-            { "atom": "warded(arden)", "quote": "q", "line": 1 },
-            { "atom_expr": null, "quote": "q", "line": 2 },
-        ] } });
-        assert_eq!(
-            required_retired_field("0.6.4", Op::PayloadSubmit, &mixed, None),
-            Some("payload.claims.atom"),
-            "every claim must carry the string form before 1.0"
-        );
-        let all = json!({ "payload": { "claims": [
-            { "atom": "warded(arden)", "quote": "q", "line": 1 },
-            { "atom": "warded(brac)", "quote": "q", "line": 2 },
-        ] } });
-        assert_eq!(
-            required_retired_field("0.6.4", Op::PayloadSubmit, &all, None),
-            None
-        );
-        // An empty array requires nothing, and neither does an absent parent:
-        // the params already decoded, so there is no place for the field to be.
-        for vacuous in [
-            json!({ "payload": { "claims": [] } }),
-            json!({ "payload": {} }),
-            json!({}),
-        ] {
-            assert_eq!(
-                required_retired_field("0.6.4", Op::PayloadSubmit, &vacuous, None),
-                None,
-                "nothing to require: {vacuous}"
-            );
-        }
     }
 
     /// A typed successor is never itself a killed form, and an unregistered op
@@ -1204,33 +981,6 @@ mod tests {
                 .is_none(),
             "`goal` is retired for dli.query, not for every op that might carry it"
         );
-    }
-
-    /// Registry paths are dotted exactly as `first_unknown_field` reports them:
-    /// arrays are traversed without appearing in the path, so
-    /// `payload.claims.atom` matches the `atom` of ANY claim.
-    #[test]
-    fn array_paths_match_any_element_without_an_index() {
-        let params = json!({
-            "payload": { "claims": [
-                { "atom_expr": null, "quote": "q", "line": 1 },
-                { "atom": "warded(arden)", "quote": "q", "line": 2 },
-            ] }
-        });
-        assert_eq!(
-            killed_field_successor("1.0.0", Op::PayloadSubmit, &params),
-            Some(("payload.claims.atom", "atom_expr"))
-        );
-        for empty in [
-            json!({ "payload": { "claims": [] } }),
-            json!({ "payload": {} }),
-            json!({}),
-        ] {
-            assert!(
-                killed_field_successor("1.0.0", Op::PayloadSubmit, &empty).is_none(),
-                "no claim carries the retired field: {empty}"
-            );
-        }
     }
 
     /// The path shape the registry uses is the one the decode seam actually

@@ -6,13 +6,13 @@
     {
       "op": "dli.version",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "control",
         "op": "dli.version",
         "params": {}
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "__DLI_FRAME_ATTACK__",
         "op": "dli.version",
         "params": {}
@@ -28,7 +28,7 @@
     {
       "op": "dli.check",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.check",
         "params": {
@@ -36,7 +36,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.check",
         "params": {
@@ -55,42 +55,9 @@
       ]
     },
     {
-      "op": "dli.query",
-      "control": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.query",
-        "params": {
-          "document": "saltmarket",
-          "goal": "marker(\"control\")"
-        }
-      },
-      "attack": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.query",
-        "params": {
-          "document": "saltmarket",
-          "goal": "marker(\"__DLI_FRAME_ATTACK__\")"
-        }
-      },
-      "changed_paths": [
-        "/params/goal"
-      ],
-      "compare_paths": [
-        "/ok",
-        "/result/rows/0/status",
-        "/result/rows/0/grade",
-        "/result/rows/0/citations"
-      ],
-      "allow_taint_paths": [
-        "/result/rows"
-      ]
-    },
-    {
       "op": "dli.fork.new",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.new",
         "params": {
@@ -98,7 +65,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.new",
         "params": {
@@ -119,7 +86,7 @@
     {
       "op": "dli.fork.list",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.list",
         "params": {
@@ -127,7 +94,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.list",
         "params": {
@@ -148,7 +115,7 @@
     {
       "op": "dli.fork.diff",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.diff",
         "params": {
@@ -156,7 +123,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.diff",
         "params": {
@@ -178,7 +145,7 @@
       "op": "dli.fork.suppose",
       "precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "pre",
           "op": "dli.fork.new",
           "params": {
@@ -187,7 +154,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.suppose",
         "params": {
@@ -198,7 +165,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.suppose",
         "params": {
@@ -220,68 +187,10 @@
       ]
     },
     {
-      "op": "dli.fork.add",
-      "precondition": [
-        {
-          "dli": "0.5.1",
-          "id": "pre",
-          "op": "dli.fork.new",
-          "params": {
-            "document": "saltmarket"
-          }
-        }
-      ],
-      "control": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.fork.add",
-        "params": {
-          "fork": "fork-1",
-          "declarations": [
-            "note(\"control\") proposed"
-          ]
-        }
-      },
-      "attack": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.fork.add",
-        "params": {
-          "fork": "fork-1",
-          "declarations": [
-            "note(\"__DLI_FRAME_ATTACK__\") proposed"
-          ]
-        }
-      },
-      "changed_paths": [
-        "/params/declarations/0"
-      ],
-      "compare_paths": [
-        "/ok"
-      ],
-      "allow_taint_paths": [
-        "/result"
-      ],
-      "probe": {
-        "dli": "0.5.1",
-        "id": "probe",
-        "op": "dli.fork.list",
-        "params": {
-          "document": "saltmarket"
-        }
-      },
-      "probe_compare_paths": [
-        "/ok"
-      ],
-      "probe_expect": {
-        "/result/forks/0/local_atoms": 1
-      }
-    },
-    {
       "op": "dli.fork.suppress",
       "precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "pre",
           "op": "dli.fork.new",
           "params": {
@@ -290,7 +199,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.suppress",
         "params": {
@@ -299,7 +208,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.suppress",
         "params": {
@@ -322,7 +231,7 @@
       "op": "dli.fork.restrict",
       "precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "pre",
           "op": "dli.fork.new",
           "params": {
@@ -331,7 +240,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.restrict",
         "params": {
@@ -342,7 +251,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.restrict",
         "params": {
@@ -362,7 +271,7 @@
         "/result"
       ],
       "probe": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "probe",
         "op": "dli.fork.list",
         "params": {
@@ -379,7 +288,7 @@
     {
       "op": "dli.fork.preflight",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.preflight",
         "params": {
@@ -387,7 +296,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.preflight",
         "params": {
@@ -408,7 +317,7 @@
     {
       "op": "dli.fork.promote",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.promote",
         "params": {
@@ -416,7 +325,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.fork.promote",
         "params": {
@@ -437,7 +346,7 @@
     {
       "op": "dli.check-proof",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.check-proof",
         "params": {
@@ -445,7 +354,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.check-proof",
         "params": {
@@ -464,148 +373,9 @@
       ]
     },
     {
-      "op": "dli.check-draft",
-      "control": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.check-draft",
-        "params": {
-          "document": "saltmarket",
-          "source": "baseline",
-          "payload": {
-            "meta": {
-              "source": {
-                "sha256": "control"
-              }
-            }
-          }
-        }
-      },
-      "attack": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.check-draft",
-        "params": {
-          "document": "saltmarket",
-          "source": "baseline",
-          "payload": {
-            "meta": {
-              "source": {
-                "sha256": "__DLI_FRAME_ATTACK__"
-              }
-            }
-          }
-        }
-      },
-      "changed_paths": [
-        "/params/payload/meta/source/sha256"
-      ],
-      "compare_paths": [
-        "/ok",
-        "/result/findings/0/code",
-        "/result/findings/0/severity"
-      ],
-      "allow_taint_paths": [
-        "/result/findings/5/message"
-      ]
-    },
-    {
-      "op": "dli.simulate.start",
-      "control": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.simulate.start",
-        "params": {
-          "document": "missing-control",
-          "seed": 1,
-          "trials": 1,
-          "checkpoint_every": 1
-        }
-      },
-      "attack": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.simulate.start",
-        "params": {
-          "document": "__DLI_FRAME_ATTACK__",
-          "seed": 1,
-          "trials": 1,
-          "checkpoint_every": 1
-        }
-      },
-      "changed_paths": [
-        "/params/document"
-      ],
-      "compare_paths": [
-        "/ok",
-        "/error/code"
-      ],
-      "allow_taint_paths": [
-        "/error/message"
-      ]
-    },
-    {
-      "op": "dli.simulate.status",
-      "control": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.simulate.status",
-        "params": {
-          "job_id": "missing-control"
-        }
-      },
-      "attack": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.simulate.status",
-        "params": {
-          "job_id": "__DLI_FRAME_ATTACK__"
-        }
-      },
-      "changed_paths": [
-        "/params/job_id"
-      ],
-      "compare_paths": [
-        "/ok",
-        "/error/code"
-      ],
-      "allow_taint_paths": [
-        "/error/message"
-      ]
-    },
-    {
-      "op": "dli.simulate.cancel",
-      "control": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.simulate.cancel",
-        "params": {
-          "job_id": "missing-control"
-        }
-      },
-      "attack": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.simulate.cancel",
-        "params": {
-          "job_id": "__DLI_FRAME_ATTACK__"
-        }
-      },
-      "changed_paths": [
-        "/params/job_id"
-      ],
-      "compare_paths": [
-        "/ok",
-        "/error/code"
-      ],
-      "allow_taint_paths": [
-        "/error/message"
-      ]
-    },
-    {
       "op": "dli.timeline.show",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.timeline.show",
         "params": {
@@ -614,7 +384,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.timeline.show",
         "params": {
@@ -636,7 +406,7 @@
     {
       "op": "dli.timeline.order",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.timeline.order",
         "params": {
@@ -644,7 +414,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.timeline.order",
         "params": {
@@ -665,7 +435,7 @@
     {
       "op": "dli.timeline.knows",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.timeline.knows",
         "params": {
@@ -674,7 +444,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.timeline.knows",
         "params": {
@@ -696,7 +466,7 @@
     {
       "op": "dli.timeline.episodes",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.timeline.episodes",
         "params": {
@@ -704,7 +474,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.timeline.episodes",
         "params": {
@@ -725,7 +495,7 @@
     {
       "op": "dli.timeline.phases",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.timeline.phases",
         "params": {
@@ -734,7 +504,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.timeline.phases",
         "params": {
@@ -756,7 +526,7 @@
     {
       "op": "dli.export.run",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.export.run",
         "params": {
@@ -765,7 +535,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.export.run",
         "params": {
@@ -787,7 +557,7 @@
     {
       "op": "dli.name.check",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.name.check",
         "params": {
@@ -796,7 +566,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.name.check",
         "params": {
@@ -819,7 +589,7 @@
     {
       "op": "dli.attest.missing",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.attest.missing",
         "params": {
@@ -827,7 +597,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "dli.attest.missing",
         "params": {
@@ -846,162 +616,9 @@
       ]
     },
     {
-      "op": "dli.attestation-sweep",
-      "control": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.attestation-sweep",
-        "params": {
-          "document": "saltmarket",
-          "records": [
-            {
-              "question": {
-                "kind": "marker-basis",
-                "atom": "marker-basis(baseline)",
-                "subject": "baseline"
-              },
-              "answer": "yes",
-              "rationale_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-              "model": {
-                "provider": "local-test",
-                "id": "control",
-                "as_of": "2026-07-25"
-              },
-              "prompt": {
-                "template": "marker-basis@v1",
-                "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-              },
-              "params": {
-                "temperature": "0.0",
-                "max_tokens": 20,
-                "samples": 1,
-                "agreement": "1/1"
-              },
-              "policy": {
-                "reattest": "on-content-change"
-              },
-              "supersedes": null,
-              "sweep": "sweeps/test.json",
-              "fingerprint": "fnv1a64:0188e5c00ba334ce"
-            }
-          ]
-        }
-      },
-      "attack": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.attestation-sweep",
-        "params": {
-          "document": "saltmarket",
-          "records": [
-            {
-              "question": {
-                "kind": "marker-basis",
-                "atom": "marker-basis(baseline)",
-                "subject": "baseline"
-              },
-              "answer": "yes",
-              "rationale_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-              "model": {
-                "provider": "local-test",
-                "id": "__DLI_FRAME_ATTACK__",
-                "as_of": "2026-07-25"
-              },
-              "prompt": {
-                "template": "marker-basis@v1",
-                "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-              },
-              "params": {
-                "temperature": "0.0",
-                "max_tokens": 20,
-                "samples": 1,
-                "agreement": "1/1"
-              },
-              "policy": {
-                "reattest": "on-content-change"
-              },
-              "supersedes": null,
-              "sweep": "sweeps/test.json",
-              "fingerprint": "fnv1a64:0188e5c00ba334ce"
-            }
-          ]
-        }
-      },
-      "changed_paths": [
-        "/params/records/0/model/id"
-      ],
-      "compare_paths": [
-        "/ok",
-        "/result/accepted"
-      ],
-      "allow_taint_paths": [],
-      "probe": {
-        "dli": "0.5.1",
-        "id": "probe",
-        "op": "dli.attest.missing",
-        "params": {
-          "document": "saltmarket"
-        }
-      },
-      "probe_compare_paths": [
-        "/ok",
-        "/result/questions"
-      ],
-      "probe_expect": {
-        "/result/questions": []
-      }
-    },
-    {
-      "op": "dli.payload-submit",
-      "control": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.payload-submit",
-        "params": {
-          "document": "saltmarket",
-          "source": "baseline",
-          "payload": {
-            "meta": {
-              "source": {
-                "sha256": "control"
-              }
-            }
-          }
-        }
-      },
-      "attack": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.payload-submit",
-        "params": {
-          "document": "saltmarket",
-          "source": "baseline",
-          "payload": {
-            "meta": {
-              "source": {
-                "sha256": "__DLI_FRAME_ATTACK__"
-              }
-            }
-          }
-        }
-      },
-      "changed_paths": [
-        "/params/payload/meta/source/sha256"
-      ],
-      "compare_paths": [
-        "/ok",
-        "/result/accepted",
-        "/result/findings/0/code",
-        "/result/findings/0/severity"
-      ],
-      "allow_taint_paths": [
-        "/result/findings/5/message"
-      ]
-    },
-    {
       "op": "author.open",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.open",
         "params": {
@@ -1009,7 +626,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.open",
         "params": {
@@ -1031,7 +648,7 @@
       "op": "author.status",
       "control_precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "open",
           "op": "author.open",
           "params": {
@@ -1039,7 +656,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "stage",
           "op": "author.add_event",
           "params": {
@@ -1056,7 +673,7 @@
       ],
       "attack_precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "open",
           "op": "author.open",
           "params": {
@@ -1064,7 +681,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "stage",
           "op": "author.add_event",
           "params": {
@@ -1080,7 +697,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.status",
         "params": {
@@ -1088,7 +705,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.status",
         "params": {
@@ -1101,14 +718,18 @@
         "/result/findings"
       ],
       "allow_taint_paths": [
-        "/result/rendered"
+        "/result/rendered",
+        "/result/staged/0/rendered",
+        "/result/diff_rows/0/atom",
+        "/result/diff_rows/0/rendered",
+        "/result/facts/0/expert_body/body/0"
       ]
     },
     {
       "op": "author.diff",
       "control_precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "open",
           "op": "author.open",
           "params": {
@@ -1116,7 +737,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "stage",
           "op": "author.add_event",
           "params": {
@@ -1133,7 +754,7 @@
       ],
       "attack_precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "open",
           "op": "author.open",
           "params": {
@@ -1141,7 +762,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "stage",
           "op": "author.add_event",
           "params": {
@@ -1157,7 +778,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.diff",
         "params": {
@@ -1165,7 +786,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.diff",
         "params": {
@@ -1179,13 +800,17 @@
         "/result/consequences"
       ],
       "allow_taint_paths": [
-        "/result/rendered"
+        "/result/rendered",
+        "/result/diff_rows/0/atom",
+        "/result/diff_rows/0/rendered",
+        "/result/staged/0/rendered",
+        "/result/facts/0/expert_body/body/0"
       ]
     },
     {
       "op": "author.discard",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.discard",
         "params": {
@@ -1193,7 +818,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.discard",
         "params": {
@@ -1215,7 +840,7 @@
       "op": "author.materialize",
       "control_precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "open",
           "op": "author.open",
           "params": {
@@ -1223,7 +848,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "stage",
           "op": "author.add_event",
           "params": {
@@ -1240,7 +865,7 @@
       ],
       "attack_precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "open",
           "op": "author.open",
           "params": {
@@ -1248,7 +873,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "stage",
           "op": "author.add_event",
           "params": {
@@ -1264,7 +889,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.materialize",
         "params": {
@@ -1272,7 +897,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.materialize",
         "params": {
@@ -1285,14 +910,18 @@
         "/result/findings"
       ],
       "allow_taint_paths": [
-        "/result/rendered"
+        "/result/rendered",
+        "/result/facts/0/expert_body/body/0",
+        "/result/diff_rows/0/atom",
+        "/result/diff_rows/0/rendered",
+        "/result/staged/0/rendered"
       ]
     },
     {
       "op": "author.add_entity",
       "precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "pre",
           "op": "author.open",
           "params": {
@@ -1301,7 +930,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.add_entity",
         "params": {
@@ -1316,7 +945,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.add_entity",
         "params": {
@@ -1338,10 +967,14 @@
         "/result/findings"
       ],
       "allow_taint_paths": [
-        "/result/rendered"
+        "/result/rendered",
+        "/result/facts/0/expert_body/body/0",
+        "/result/diff_rows/0/atom",
+        "/result/diff_rows/0/rendered",
+        "/result/staged/0/rendered"
       ],
       "probe": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "probe",
         "op": "author.materialize",
         "params": {
@@ -1357,7 +990,7 @@
       "op": "author.add_fact",
       "precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "pre",
           "op": "author.open",
           "params": {
@@ -1366,7 +999,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.add_fact",
         "params": {
@@ -1381,7 +1014,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.add_fact",
         "params": {
@@ -1405,10 +1038,14 @@
         "/result/findings/0/grade"
       ],
       "allow_taint_paths": [
-        "/result/rendered"
+        "/result/rendered",
+        "/result/diff_rows/0/atom",
+        "/result/staged/0/rendered",
+        "/result/diff_rows/0/rendered",
+        "/result/facts/0/expert_body/body/0"
       ],
       "probe": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "probe",
         "op": "author.status",
         "params": {
@@ -1424,7 +1061,7 @@
       "op": "author.add_relation",
       "precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "pre",
           "op": "author.open",
           "params": {
@@ -1433,7 +1070,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.add_relation",
         "params": {
@@ -1448,7 +1085,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.add_relation",
         "params": {
@@ -1472,10 +1109,14 @@
       ],
       "allow_taint_paths": [
         "/result/rendered",
-        "/result/findings"
+        "/result/findings",
+        "/result/diff_rows/0/atom",
+        "/result/diff_rows/0/rendered",
+        "/result/staged/0/rendered",
+        "/result/facts/0/expert_body/body/0"
       ],
       "probe": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "probe",
         "op": "author.status",
         "params": {
@@ -1491,7 +1132,7 @@
       "op": "author.add_event",
       "precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "pre",
           "op": "author.open",
           "params": {
@@ -1500,7 +1141,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.add_event",
         "params": {
@@ -1515,7 +1156,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.add_event",
         "params": {
@@ -1537,10 +1178,14 @@
         "/result/findings"
       ],
       "allow_taint_paths": [
-        "/result/rendered"
+        "/result/rendered",
+        "/result/diff_rows/0/atom",
+        "/result/diff_rows/0/rendered",
+        "/result/staged/0/rendered",
+        "/result/facts/0/expert_body/body/0"
       ],
       "probe": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "probe",
         "op": "author.materialize",
         "params": {
@@ -1556,7 +1201,7 @@
       "op": "author.add_before",
       "precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "pre",
           "op": "author.open",
           "params": {
@@ -1565,7 +1210,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.add_before",
         "params": {
@@ -1579,7 +1224,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.add_before",
         "params": {
@@ -1602,10 +1247,14 @@
       ],
       "allow_taint_paths": [
         "/result/rendered",
-        "/result/findings"
+        "/result/findings",
+        "/result/diff_rows/0/atom",
+        "/result/diff_rows/0/rendered",
+        "/result/staged/0/rendered",
+        "/result/facts/0/expert_body/body/0"
       ],
       "probe": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "probe",
         "op": "author.status",
         "params": {
@@ -1621,7 +1270,7 @@
       "op": "author.open_question",
       "precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "pre",
           "op": "author.open",
           "params": {
@@ -1630,7 +1279,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.open_question",
         "params": {
@@ -1640,7 +1289,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.open_question",
         "params": {
@@ -1657,10 +1306,14 @@
         "/result/findings"
       ],
       "allow_taint_paths": [
-        "/result/rendered"
+        "/result/rendered",
+        "/result/diff_rows/0/atom",
+        "/result/diff_rows/0/rendered",
+        "/result/staged/0/rendered",
+        "/result/facts/0/expert_body/body/0"
       ],
       "probe": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "probe",
         "op": "author.materialize",
         "params": {
@@ -1676,7 +1329,7 @@
       "op": "author.add_option",
       "precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "pre-1",
           "op": "author.open",
           "params": {
@@ -1684,7 +1337,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "pre-2",
           "op": "author.open_question",
           "params": {
@@ -1695,7 +1348,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.add_option",
         "params": {
@@ -1706,7 +1359,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.add_option",
         "params": {
@@ -1724,10 +1377,14 @@
         "/result/findings"
       ],
       "allow_taint_paths": [
-        "/result/rendered"
+        "/result/rendered",
+        "/result/diff_rows/0/atom",
+        "/result/diff_rows/0/rendered",
+        "/result/staged/0/rendered",
+        "/result/facts/0/expert_body/body/0"
       ],
       "probe": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "probe",
         "op": "author.materialize",
         "params": {
@@ -1743,7 +1400,7 @@
       "op": "author.add_hypothesis",
       "precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "pre",
           "op": "author.open",
           "params": {
@@ -1752,7 +1409,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.add_hypothesis",
         "params": {
@@ -1762,7 +1419,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.add_hypothesis",
         "params": {
@@ -1779,10 +1436,14 @@
         "/result/findings"
       ],
       "allow_taint_paths": [
-        "/result/rendered"
+        "/result/rendered",
+        "/result/diff_rows/0/atom",
+        "/result/diff_rows/0/rendered",
+        "/result/staged/0/rendered",
+        "/result/facts/0/expert_body/body/0"
       ],
       "probe": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "probe",
         "op": "author.materialize",
         "params": {
@@ -1799,7 +1460,7 @@
       "op": "author.suppose",
       "precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "pre",
           "op": "author.open",
           "params": {
@@ -1808,7 +1469,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.suppose",
         "params": {
@@ -1819,7 +1480,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.suppose",
         "params": {
@@ -1839,10 +1500,14 @@
       ],
       "allow_taint_paths": [
         "/result/rendered",
-        "/result/findings"
+        "/result/findings",
+        "/result/diff_rows/0/atom",
+        "/result/diff_rows/0/rendered",
+        "/result/staged/0/rendered",
+        "/result/facts/0/expert_body/body/0"
       ],
       "probe": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "probe",
         "op": "author.status",
         "params": {
@@ -1859,21 +1524,35 @@
     {
       "op": "author.query",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.query",
         "params": {
           "workspace": "missing-control",
-          "goal": "note(x)"
+          "goal_atom": {
+            "pred": "note",
+            "args": [
+              {
+                "Sym": "x"
+              }
+            ]
+          }
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.query",
         "params": {
           "workspace": "__DLI_FRAME_ATTACK__",
-          "goal": "note(x)"
+          "goal_atom": {
+            "pred": "note",
+            "args": [
+              {
+                "Sym": "x"
+              }
+            ]
+          }
         }
       },
       "changed_paths": [
@@ -1891,7 +1570,7 @@
       "op": "author.check",
       "control_precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "open",
           "op": "author.open",
           "params": {
@@ -1899,7 +1578,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "stage",
           "op": "author.add_relation",
           "params": {
@@ -1916,7 +1595,7 @@
       ],
       "attack_precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "open",
           "op": "author.open",
           "params": {
@@ -1924,7 +1603,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "stage",
           "op": "author.add_relation",
           "params": {
@@ -1940,7 +1619,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.check",
         "params": {
@@ -1948,7 +1627,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.check",
         "params": {
@@ -1970,7 +1649,7 @@
     {
       "op": "author.why",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.why",
         "params": {
@@ -1979,7 +1658,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.why",
         "params": {
@@ -2002,7 +1681,7 @@
       "op": "author.findings",
       "control_precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "open",
           "op": "author.open",
           "params": {
@@ -2010,7 +1689,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "stage",
           "op": "author.add_relation",
           "params": {
@@ -2027,7 +1706,7 @@
       ],
       "attack_precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "open",
           "op": "author.open",
           "params": {
@@ -2035,7 +1714,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "stage",
           "op": "author.add_relation",
           "params": {
@@ -2051,7 +1730,7 @@
         }
       ],
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.findings",
         "params": {
@@ -2059,7 +1738,7 @@
         }
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.findings",
         "params": {
@@ -2080,13 +1759,13 @@
     {
       "op": "author.list_workspaces",
       "control": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "control",
         "op": "author.list_workspaces",
         "params": {}
       },
       "attack": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "__DLI_FRAME_ATTACK__",
         "op": "author.list_workspaces",
         "params": {}
@@ -2103,7 +1782,7 @@
       "op": "author.status",
       "control_precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "open",
           "op": "author.open",
           "params": {
@@ -2111,7 +1790,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "stage",
           "op": "author.add_event",
           "params": {
@@ -2128,7 +1807,7 @@
       ],
       "attack_precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "open",
           "op": "author.open",
           "params": {
@@ -2136,7 +1815,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "stage",
           "op": "author.add_event",
           "params": {
@@ -2152,7 +1831,7 @@
         }
       ],
       "control": {
-        "dli": "0.6.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.status",
         "params": {
@@ -2160,7 +1839,7 @@
         }
       },
       "attack": {
-        "dli": "0.6.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.status",
         "params": {
@@ -2175,14 +1854,18 @@
         "/result/diff_rows"
       ],
       "allow_taint_paths": [
-        "/result/rendered"
+        "/result/rendered",
+        "/result/diff_rows/0/atom",
+        "/result/diff_rows/0/rendered",
+        "/result/staged/0/rendered",
+        "/result/facts/0/expert_body/body/0"
       ]
     },
     {
       "op": "author.diff",
       "control_precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "open",
           "op": "author.open",
           "params": {
@@ -2190,7 +1873,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "stage",
           "op": "author.add_event",
           "params": {
@@ -2207,7 +1890,7 @@
       ],
       "attack_precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "open",
           "op": "author.open",
           "params": {
@@ -2215,7 +1898,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "stage",
           "op": "author.add_event",
           "params": {
@@ -2231,7 +1914,7 @@
         }
       ],
       "control": {
-        "dli": "0.6.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.diff",
         "params": {
@@ -2239,7 +1922,7 @@
         }
       },
       "attack": {
-        "dli": "0.6.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.diff",
         "params": {
@@ -2254,14 +1937,18 @@
         "/result/rows"
       ],
       "allow_taint_paths": [
-        "/result/rendered"
+        "/result/rendered",
+        "/result/diff_rows/0/atom",
+        "/result/diff_rows/0/rendered",
+        "/result/staged/0/rendered",
+        "/result/facts/0/expert_body/body/0"
       ]
     },
     {
       "op": "author.materialize",
       "control_precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "open",
           "op": "author.open",
           "params": {
@@ -2269,7 +1956,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "stage",
           "op": "author.add_event",
           "params": {
@@ -2286,7 +1973,7 @@
       ],
       "attack_precondition": [
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "open",
           "op": "author.open",
           "params": {
@@ -2294,7 +1981,7 @@
           }
         },
         {
-          "dli": "0.5.1",
+          "dli": "2.0.0",
           "id": "stage",
           "op": "author.add_event",
           "params": {
@@ -2310,7 +1997,7 @@
         }
       ],
       "control": {
-        "dli": "0.6.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.materialize",
         "params": {
@@ -2318,7 +2005,7 @@
         }
       },
       "attack": {
-        "dli": "0.6.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.materialize",
         "params": {
@@ -2336,42 +2023,10 @@
       ]
     },
     {
-      "op": "dli.query",
-      "control": {
-        "dli": "0.6.0",
-        "id": "1",
-        "op": "dli.query",
-        "params": {
-          "document": "saltmarket",
-          "goal": "marker(\"control\")"
-        }
-      },
-      "attack": {
-        "dli": "0.6.0",
-        "id": "1",
-        "op": "dli.query",
-        "params": {
-          "document": "saltmarket",
-          "goal": "marker(\"__DLI_FRAME_ATTACK__\")"
-        }
-      },
-      "changed_paths": [
-        "/params/goal"
-      ],
-      "compare_paths": [
-        "/ok",
-        "/result/root_hash",
-        "/result/valuation"
-      ],
-      "allow_taint_paths": [
-        "/result/rows"
-      ]
-    },
-    {
       "op": "author.branch",
       "precondition": [
         {
-          "dli": "0.6.1",
+          "dli": "2.0.0",
           "id": "pre",
           "op": "author.open",
           "params": {
@@ -2380,7 +2035,7 @@
         }
       ],
       "control": {
-        "dli": "0.6.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.branch",
         "params": {
@@ -2390,7 +2045,7 @@
         }
       },
       "attack": {
-        "dli": "0.6.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.branch",
         "params": {
@@ -2407,14 +2062,15 @@
       ],
       "allow_taint_paths": [
         "/result/created",
-        "/result/branches"
+        "/result/branches",
+        "/result/heads/1/name"
       ]
     },
     {
       "op": "author.merge",
       "precondition": [
         {
-          "dli": "0.6.1",
+          "dli": "2.0.0",
           "id": "pre",
           "op": "author.open",
           "params": {
@@ -2423,7 +2079,7 @@
         }
       ],
       "control": {
-        "dli": "0.6.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.merge",
         "params": {
@@ -2432,7 +2088,7 @@
         }
       },
       "attack": {
-        "dli": "0.6.1",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.merge",
         "params": {

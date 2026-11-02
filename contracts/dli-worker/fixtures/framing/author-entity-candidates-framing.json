@@ -7,7 +7,7 @@
     {
       "op": "author.entity_candidates",
       "control": {
-        "dli": "1.10.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.entity_candidates",
         "params": {
@@ -17,7 +17,7 @@
         }
       },
       "attack": {
-        "dli": "1.10.0",
+        "dli": "2.0.0",
         "id": "1",
         "op": "author.entity_candidates",
         "params": {

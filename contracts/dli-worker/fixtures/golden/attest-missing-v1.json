@@ -1,35 +1,35 @@
 {
   "fixture": "golden/attest-missing-v1",
-  "version": 1,
   "project": true,
   "steps": [
     {
-      "send": {
-        "dli": "0.5.1",
-        "id": "1",
-        "op": "dli.attest.missing",
-        "params": {
-          "document": "saltmarket"
-        }
-      },
       "expect": {
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
           "questions": [
             {
+              "fingerprint": "fnv1a64:0188e5c00ba334ce",
               "question": {
-                "kind": "marker-basis",
                 "atom": "marker-basis(baseline)",
+                "kind": "marker-basis",
                 "subject": "baseline"
               },
-              "fingerprint": "fnv1a64:0188e5c00ba334ce",
               "reason": "missing"
             }
           ]
         }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "dli.attest.missing",
+        "params": {
+          "document": "saltmarket"
+        }
       }
     }
-  ]
+  ],
+  "version": 1
 }

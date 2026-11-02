@@ -50,7 +50,7 @@ fn pack() -> Pack {
 
 fn request(id: &str, op: Op, params: Value) -> Request {
     Request {
-        dli: "1.5.0".to_owned(),
+        dli: "2.0.0".to_owned(),
         id: id.to_owned(),
         op,
         params,
@@ -84,7 +84,7 @@ fn corpus_export(root: &std::path::Path) -> dli_serve::Response {
     let mut sessions = Sessions::from_project(Arc::new(project));
     let mut author = Store::default();
     let frame = json!({
-        "dli": "1.5.0",
+        "dli": "2.0.0",
         "id": "canon",
         "op": "dli.corpus.export",
         "params": {"document": "demo", "format": "canon"}
@@ -396,7 +396,13 @@ fn contract_1_5_promotes_and_defeats_without_deleting_the_object() {
         )
         .expect("interner index fits in an atom"),
     );
-    assert_eq!(reference.valuation.get(decision_atom), Some(false));
+    assert_eq!(reference.valuation.get(decision_atom), None);
+    let attacks = lorestore.decision_attacks_from(&reference.commit).unwrap();
+    assert!(
+        attacks
+            .iter()
+            .any(|attack| attack.attacker == "D-2" && attack.target == "D-1")
+    );
     let defeated_fact = lorestore
         .fact_hashes_from(&reference.commit)
         .expect("read folded facts")
@@ -413,7 +419,8 @@ fn contract_1_5_promotes_and_defeats_without_deleting_the_object() {
             .provenance
             .as_ref()
             .and_then(|provenance| provenance.defeated_by.as_deref()),
-        Some("D-2")
+        None,
+        "conditional defeat leaves the stored claim unchanged"
     );
     let defeated_canon = canon(root.path());
     assert!(

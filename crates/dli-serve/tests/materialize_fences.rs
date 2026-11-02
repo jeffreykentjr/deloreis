@@ -10,7 +10,7 @@ use dli_serve::session::Sessions;
 use dli_world::pack::Pack;
 use serde_json::{Value, json};
 
-const CURRENT: &str = "1.13.0";
+const CURRENT: &str = "2.0.0";
 
 fn fixture() -> (tempfile::TempDir, Sessions, Store) {
     let root = tempfile::tempdir().expect("temporary project");
@@ -317,14 +317,14 @@ fn native_branch_materialize_is_fenced_and_idempotent() {
 }
 
 #[test]
-fn materialize_fence_negotiation_preserves_only_the_0_5_refusal() {
+fn retired_contracts_refuse_before_materialize_fencing() {
     let (_root, mut sessions, mut store) = fixture();
     let (workspace, _) = open(None, &mut sessions, &mut store);
     for (version, expected) in [
-        ("0.5.1", "schema-violation"),
-        ("0.6.0", "stale-fence"),
-        ("1.12.0", "stale-fence"),
-        ("1.13.0", "stale-fence"),
+        ("0.5.1", "killed-form"),
+        ("0.6.0", "killed-form"),
+        ("1.12.0", "killed-form"),
+        ("2.0.0", "stale-fence"),
     ] {
         let response = drive(
             &json!({

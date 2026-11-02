@@ -1,9 +1,8 @@
 {
   "fixture": "golden/author-merge-v1",
-  "project": true,
   "precondition": [
     {
-      "dli": "0.6.1",
+      "dli": "2.0.0",
       "id": "pre-1",
       "op": "author.open",
       "params": {
@@ -11,38 +10,39 @@
       }
     },
     {
-      "dli": "0.6.1",
+      "dli": "2.0.0",
       "id": "pre-2",
       "op": "author.branch",
       "params": {
-        "workspace": "ws-1",
         "action": "create",
-        "name": "feature"
+        "name": "feature",
+        "workspace": "ws-1"
       }
     }
   ],
+  "project": true,
   "steps": [
     {
-      "send": {
-        "dli": "0.6.1",
-        "id": "1",
-        "op": "author.merge",
-        "params": {
-          "workspace": "ws-1",
-          "source": "feature"
-        }
-      },
       "expect": {
-        "dli": "0.6.1",
+        "dli": "2.0.0",
         "id": "1",
         "ok": true,
         "result": {
-          "merge_commit": "sha256:b11d49c61a4752841eef527815063292b917f5b9b9436192fc86343687eaa17f",
-          "merge_base": "sha256:80a9a4b639ed9f863ad603de313b3c1499654396d712f50881037495570e4973",
           "conflicts": [],
           "findings": [],
-          "stratifies": true,
-          "standing_changes": []
+          "merge_base": "sha256:80a9a4b639ed9f863ad603de313b3c1499654396d712f50881037495570e4973",
+          "merge_commit": "sha256:b11d49c61a4752841eef527815063292b917f5b9b9436192fc86343687eaa17f",
+          "standing_changes": [],
+          "stratifies": true
+        }
+      },
+      "send": {
+        "dli": "2.0.0",
+        "id": "1",
+        "op": "author.merge",
+        "params": {
+          "source": "feature",
+          "workspace": "ws-1"
         }
       }
     }

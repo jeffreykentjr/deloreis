@@ -43,14 +43,13 @@ minted per:
   expressible — one variable per clause, not one per decision),
 - option of an open question,
 - coherent proposal bundle,
-- simulation-run export (origin: the run manifest),
 - episode-acceptance.
 
 Each variable carries metadata **outside the algebra** — the algebra sees only a
 Boolean variable, never its label:
 
-- **kind** — `ratified | provisional | option | bundle | sim | episode`,
-- **origin** — who, when, fork lineage, run manifest,
+- **kind** — `ratified | provisional | option | bundle | episode`,
+- **origin** — who, when, fork lineage,
 - **scope** — the variable's affects-set (the attachment side condition of §3).
 
 Three pieces of **global state** complete the picture:
@@ -317,8 +316,7 @@ decision state and supplies it with the affected scope; DLI verifies the
 referenced decision and re-evaluates the valuation. The affected atom set can
 therefore be generated, origins persist as lineage, and forged or unknown
 citations fail closed. DLI does not decide which caller was entitled to make the
-decision (DL-0054, DL-0058). A sim-born variable carries its run manifest, so a
-promoted simulation finding renders its provenance in full.
+decision (DL-0054, DL-0058).
 
 **The keep-stamp is visibility, not valuation.** It is a thin second dimension —
 `kept-present | kept-absent | removed` — applied *after* evaluation and composing
@@ -404,7 +402,7 @@ inverts the fixpoint, and those inversions are enumerable (see
 - **Status is a view.** The legacy five statuses collapse into support × grade,
   with exactly the four honest residues of §3 carried outside the algebra —
   `C`, the conflict duty, V11 attachment, and the threaded episode fold
-  (`03-time.md`, `06-craft-and-payloads.md`).
+  (`03-time.md`).
 
 ---
 

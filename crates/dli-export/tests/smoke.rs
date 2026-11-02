@@ -76,16 +76,8 @@ fn manifest_round_trips() {
 #[test]
 fn profile_serializes_kebab_case() {
     assert_eq!(
-        serde_json::to_string(&ExportProfile::LudiiGdl).unwrap(),
-        "\"ludii-gdl\""
-    );
-    assert_eq!(
         serde_json::to_string(&ExportProfile::ContextPack).unwrap(),
         "\"context-pack\""
-    );
-    assert_eq!(
-        serde_json::to_string(&ExportProfile::Cards).unwrap(),
-        "\"cards\""
     );
     assert_eq!(
         serde_json::to_string(&ExportProfile::StaticWiki).unwrap(),
@@ -245,7 +237,7 @@ fn an_unknown_named_profile_is_an_error() {
         ExportTarget::ContextPack,
         &world,
         &ExportOpts {
-            profile_name: Some("cards/nowhere".to_owned()),
+            profile_name: Some("wiki/nowhere".to_owned()),
             ..anchored_opts()
         },
     )

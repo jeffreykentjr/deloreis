@@ -118,60 +118,14 @@ result, and the workspace digest; read them, do not guess.
 staged fact objects to the lorestore and returns them as JSON by default, with
 `.dli` rendering as the `rendered: true` opt-in (DL-0046); `author.discard` is
 the reject decision; tools write fact objects to the store per-add (DL-0045).
-The contract is **1.13.0** (DL-0051, DL-0053, DL-0055, DL-0056, DL-0058,
-DL-0059, DL-0069, DL-0070, DL-0074, DL-0077, DL-0078, DL-0080, DL-0081,
-DL-0082, DL-0083, DL-0084, DL-0091, DL-0092, DL-0096, DL-0097, DL-0098),
-served multi-version dual-mode: `0.5.1`, `0.6.0`–`0.6.4`, and
-`1.0.0`–`1.13.0` stay accepted — a `0.5.1` caller keeps the rendered-lines
-return. EXT-F4 is complete, which licenses the `0.x` retirement but has not
-performed it: that is DM-6's, at `2.0.0`, and it runs through the killed-form
-registry naming each version's successor, never silently. `1.3.0` added seven
-expert authoring tools; `1.5.0` adds `author.set_standing` and
-`author.defeat`, taking the surface to 59 operations. `1.6.0` adds
-`author.declare_functional`, taking the surface to 60 operations. `1.7.0`
-adds `author.assert_same_as` and `author.add_rule` (the wire-surface-
-completion campaign, DL-0077), taking the surface to 62 operations. `1.8.0`
-adds `author.declare_inertial`, taking the surface to 63 operations —
-declaring a predicate inertial reshapes its fluent projection, bounding an
-open value's forward persistence at the next distinct certain value. `1.9.0`
-adds `author.as_of` and `author.record_decision`, taking the surface to 65
-operations. `1.10.0` adds `author.predicates` and
-`author.entity_candidates`, taking the surface to 67; `1.11.0` corrects
-declared-only entity-candidate ranking without adding an operation; and
-`1.12.0` adds `author.assert_predicate_same_as`, taking the surface to 68.
-`1.13.0` adds `author.record_decisions`, taking the surface to 69, and adds
-conditional decision attacks plus valuation-aware explanation fields without
-removing an earlier capability. `SKILL.md` governs the
-authoring session; supervision reviews
-**structured diffs** — the LS-5 contract's per-fact rows with before/after
-standing (deloreis serves the JSON; rendering is consumer-owned). Raw `.dli`
-editing is a measured fallback with no reliability claim, not the taught
-path.
+The server serves **contract 2.0.0** only (DL-0101, DL-0103); retired
+versions and operations are refused with their successor. `SKILL.md` governs
+the authoring session. Review structured diffs with their before/after
+standing; callers own presentation and approval policy.
 
-DL-0054 amends the authority half of that law, and the scrub **landed at
-`1.3.0`** (DL-0058). The engine no longer gates on *who may rule*: at `1.3.0` and
-above a mutating call may carry citation-bearing provenance, and caller-supplied
-attribution and decision state are recorded as data — a citation of a **declared**
-decision is recorded as `decided` and the claim reads certain, which is the point
-of the scrub, not a side effect. What it keeps is referential integrity: a cited
-decision must resolve, and an unknown one raises the `citation.unknown-decision`
-error-severity finding rather than a refused frame, with `check::run` barring
-materialize and the decision's variable left open so the claim can never read
-certain. Review and approval workflow belong to the consuming application.
-**Below `1.3.0` nothing changed** — `provenance.cited-refused` is the served
-behavior on every earlier accepted version, permanently, and every `0.x` wire
-keeps it byte-exact.
-
-At `1.5.0`, cited provenance requires caller-supplied
-`state: provisional | ratified`. Stored standing uses
-`asserted | proposed | provisional | ratified`; schema v4 upcasts legacy
-`Decided` metadata to `Provisional`. Promotion records the ratifying decision;
-defeat records a new decision and rules the old supporting decision false while
-keeping the object reachable. Canon excludes dead claims and verifies the
-commit decision list against stored `Ratify` carriage objects.
-
-At `1.13.0`, newly negotiated defeats are durable conditional attacks rather
-than destructive false assignments: defeating the attacker can restore the
-target, while self and attack cycles remain undecided/possible. Schema v5 adds
-the append-only attack lane; schema-v4 commits upcast with no invented attacks,
-and every contract through `1.12.0` retains one-way defeat semantics.
+Callers supply attribution and decision state. A cited decision must resolve;
+unknown citations produce an error finding and cannot make a claim certain.
+Stored standing distinguishes asserted, proposed, provisional, and ratified
+claims. Conditional decision attacks preserve earlier claims and can restore a
+claim when its attacker is defeated. Attack cycles remain possible rather than
+being forced true or false. The lorestore keeps committed history replayable.

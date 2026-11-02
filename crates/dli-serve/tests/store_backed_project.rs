@@ -223,7 +223,7 @@ fn a_pinned_project_can_materialize_after_its_origin_branch_advances() {
     let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
     let mut author = author_store_for(&project);
     let opened = send(
-        &serde_json::json!({"dli":"1.3.0","id":"open","op":"author.open",
+        &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open",
                             "params":{"scope":"tpth"}}),
         &mut sessions,
         &mut author,
@@ -233,7 +233,7 @@ fn a_pinned_project_can_materialize_after_its_origin_branch_advances() {
         .expect("workspace id")
         .to_owned();
     let staged = send(
-        &serde_json::json!({"dli":"1.3.0","id":"stage","op":"author.add_fact",
+        &serde_json::json!({"dli":"2.0.0","id":"stage","op":"author.add_fact",
                             "params":{"workspace":workspace,"entity":"bedivere",
                                       "key":"color","value":"red",
                                       "provenance":{"kind":"proposed","origin":"pinned-author"}}}),
@@ -242,7 +242,7 @@ fn a_pinned_project_can_materialize_after_its_origin_branch_advances() {
     );
     assert_eq!(staged["ok"], true, "the pinned workspace stages: {staged}");
     let materialized = send(
-        &serde_json::json!({"dli":"1.3.0","id":"commit","op":"author.materialize",
+        &serde_json::json!({"dli":"2.0.0","id":"commit","op":"author.materialize",
                             "params":{"workspace":workspace}}),
         &mut sessions,
         &mut author,
@@ -252,14 +252,14 @@ fn a_pinned_project_can_materialize_after_its_origin_branch_advances() {
         "a pinned replay can still append to its advanced origin branch: {materialized}"
     );
     let reopened = send(
-        &serde_json::json!({"dli":"1.3.0","id":"reopen","op":"author.open",
+        &serde_json::json!({"dli":"2.0.0","id":"reopen","op":"author.open",
                             "params":{"scope":"tpth"}}),
         &mut sessions,
         &mut author,
     );
     let reopened_workspace = reopened["result"]["workspace"].as_str().unwrap();
     let status = send(
-        &serde_json::json!({"dli":"1.3.0","id":"status","op":"author.status",
+        &serde_json::json!({"dli":"2.0.0","id":"status","op":"author.status",
                             "params":{"workspace":reopened_workspace}}),
         &mut sessions,
         &mut author,
@@ -291,7 +291,7 @@ fn bulk_decisions_from_a_pinned_replay_append_to_the_live_origin() {
     let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
     let mut author = author_store_for(&project);
     let opened = send(
-        &serde_json::json!({"dli":"1.13.0","id":"open","op":"author.open",
+        &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open",
                             "params":{"scope":"tpth"}}),
         &mut sessions,
         &mut author,
@@ -300,7 +300,7 @@ fn bulk_decisions_from_a_pinned_replay_append_to_the_live_origin() {
         .as_str()
         .expect("workspace id");
     let recorded = send(
-        &serde_json::json!({"dli":"1.13.0","id":"bulk","op":"author.record_decisions",
+        &serde_json::json!({"dli":"2.0.0","id":"bulk","op":"author.record_decisions",
                             "params":{"workspace":workspace,
                                       "records":[{"decision":"d-pinned"}]}}),
         &mut sessions,
@@ -357,7 +357,7 @@ fn a_pinned_workspace_refuses_an_origin_advance_after_open() {
     let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
     let mut author = author_store_for(&project);
     let opened = send(
-        &serde_json::json!({"dli":"1.3.0","id":"open","op":"author.open",
+        &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open",
                             "params":{"scope":"tpth"}}),
         &mut sessions,
         &mut author,
@@ -389,7 +389,7 @@ fn a_pinned_workspace_refuses_an_origin_advance_after_open() {
         .expect("authority advances the origin after open");
 
     let staged = send(
-        &serde_json::json!({"dli":"1.3.0","id":"stage","op":"author.add_fact",
+        &serde_json::json!({"dli":"2.0.0","id":"stage","op":"author.add_fact",
                             "params":{"workspace":workspace,"entity":"bedivere",
                                       "key":"color","value":"red",
                                       "provenance":{"kind":"proposed","origin":"pinned-race"}}}),
@@ -398,7 +398,7 @@ fn a_pinned_workspace_refuses_an_origin_advance_after_open() {
     );
     assert_eq!(staged["ok"], true, "the workspace stages: {staged}");
     let materialized = send(
-        &serde_json::json!({"dli":"1.3.0","id":"commit","op":"author.materialize",
+        &serde_json::json!({"dli":"2.0.0","id":"commit","op":"author.materialize",
                             "params":{"workspace":workspace}}),
         &mut sessions,
         &mut author,
@@ -466,7 +466,7 @@ fn bulk_decisions_survive_reopen_with_identical_why_and_canon() {
     let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
     let mut author = author_store_for(&project);
     let opened = send(
-        &serde_json::json!({"dli":"1.13.0","id":"open","op":"author.open",
+        &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open",
                             "params":{"scope":"tpth"}}),
         &mut sessions,
         &mut author,
@@ -476,7 +476,7 @@ fn bulk_decisions_survive_reopen_with_identical_why_and_canon() {
         .expect("workspace id")
         .to_owned();
     let recorded = send(
-        &serde_json::json!({"dli":"1.13.0","id":"bulk","op":"author.record_decisions",
+        &serde_json::json!({"dli":"2.0.0","id":"bulk","op":"author.record_decisions",
                             "params":{"workspace":workspace,
                                       "records":[{"decision":"d-reopen"}]}}),
         &mut sessions,
@@ -484,7 +484,7 @@ fn bulk_decisions_survive_reopen_with_identical_why_and_canon() {
     );
     assert_eq!(recorded["ok"], true, "record succeeds: {recorded}");
     let added = send(
-        &serde_json::json!({"dli":"1.13.0","id":"fact","op":"author.add_fact",
+        &serde_json::json!({"dli":"2.0.0","id":"fact","op":"author.add_fact",
                             "params":{"workspace":workspace,
                                       "entity":"bedivere","key":"rank","value":"captain",
                                       "provenance":{"kind":"cited",
@@ -495,7 +495,7 @@ fn bulk_decisions_survive_reopen_with_identical_why_and_canon() {
     );
     assert_eq!(added["ok"], true, "cited fact stages: {added}");
     let live_why = send(
-        &serde_json::json!({"dli":"1.13.0","id":"why-live","op":"author.why",
+        &serde_json::json!({"dli":"2.0.0","id":"why-live","op":"author.why",
                             "params":{"workspace":workspace,
                                       "goal_atom":{"pred":"rank",
                                                    "args":[{"Sym":"bedivere"},
@@ -505,7 +505,7 @@ fn bulk_decisions_survive_reopen_with_identical_why_and_canon() {
     );
     assert_eq!(live_why["ok"], true, "live why succeeds: {live_why}");
     let materialized = send(
-        &serde_json::json!({"dli":"1.13.0","id":"materialize","op":"author.materialize",
+        &serde_json::json!({"dli":"2.0.0","id":"materialize","op":"author.materialize",
                             "params":{"workspace":workspace,"rendered":false}}),
         &mut sessions,
         &mut author,
@@ -523,7 +523,7 @@ fn bulk_decisions_survive_reopen_with_identical_why_and_canon() {
         let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
         let mut author = author_store_for(&project);
         let canon = send(
-            &serde_json::json!({"dli":"1.13.0","id":format!("canon-{suffix}"),
+            &serde_json::json!({"dli":"2.0.0","id":format!("canon-{suffix}"),
                                 "op":"dli.corpus.export",
                                 "params":{"document":"tpth","format":"canon"}}),
             &mut sessions,
@@ -531,7 +531,7 @@ fn bulk_decisions_survive_reopen_with_identical_why_and_canon() {
         );
         assert_eq!(canon["ok"], true, "canon export succeeds: {canon}");
         let opened = send(
-            &serde_json::json!({"dli":"1.13.0","id":format!("open-{suffix}"),
+            &serde_json::json!({"dli":"2.0.0","id":format!("open-{suffix}"),
                                 "op":"author.open","params":{"scope":"tpth"}}),
             &mut sessions,
             &mut author,
@@ -540,7 +540,7 @@ fn bulk_decisions_survive_reopen_with_identical_why_and_canon() {
             .as_str()
             .expect("workspace id");
         let why = send(
-            &serde_json::json!({"dli":"1.13.0","id":format!("why-{suffix}"),
+            &serde_json::json!({"dli":"2.0.0","id":format!("why-{suffix}"),
                                 "op":"author.why",
                                 "params":{"workspace":workspace,
                                           "goal_atom":{"pred":"rank",
@@ -685,7 +685,7 @@ fn a_store_outside_the_project_root_is_refused() {
 /// are pinned by their own contract fixtures; what is under test here is that
 /// the store-backed source form reaches the same machinery.
 #[test]
-fn a_store_backed_project_answers_the_five_consumer_read_ops() {
+fn a_store_backed_project_answers_core_read_ops() {
     use std::sync::Arc;
 
     use dli_serve::author::store::Store as AuthorStore;
@@ -709,7 +709,7 @@ fn a_store_backed_project_answers_the_five_consumer_read_ops() {
 
     // 1. dli.check — compile and check the document the store reconstructed.
     let checked = send(
-        serde_json::json!({"dli":"1.1.0","id":"1","op":"dli.check",
+        serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.check",
                            "params":{"document":"tpth"}}),
         &mut sessions,
         &mut store,
@@ -719,7 +719,7 @@ fn a_store_backed_project_answers_the_five_consumer_read_ops() {
     // 2. dli.query — the typed `goal_atom`; the rendered `goal` is a killed
     //    field at major >= 1, so the 1.1.0 caller sends the typed form.
     let queried = send(
-        serde_json::json!({"dli":"1.1.0","id":"2","op":"dli.query",
+        serde_json::json!({"dli":"2.0.0","id":"2","op":"dli.query",
                            "params":{"document":"tpth",
                                      "goal_atom":{"pred":"sworn",
                                                   "args":[{"Sym":"bedivere"}]}}}),
@@ -730,7 +730,7 @@ fn a_store_backed_project_answers_the_five_consumer_read_ops() {
 
     // 3. dli.name.check — the kernel half of the naming oracle.
     let vetted = send(
-        serde_json::json!({"dli":"1.1.0","id":"3","op":"dli.name.check",
+        serde_json::json!({"dli":"2.0.0","id":"3","op":"dli.name.check",
                            "params":{"name":"bedivere","dialect":"common"}}),
         &mut sessions,
         &mut store,
@@ -739,33 +739,12 @@ fn a_store_backed_project_answers_the_five_consumer_read_ops() {
 
     // 4. dli.export.run — the context-pack profile off the built-in registry.
     let exported = send(
-        serde_json::json!({"dli":"1.1.0","id":"4","op":"dli.export.run",
+        serde_json::json!({"dli":"2.0.0","id":"4","op":"dli.export.run",
                            "params":{"document":"tpth","profile":"context-pack"}}),
         &mut sessions,
         &mut store,
     );
     assert!(exported.ok, "dli.export.run answered: {:?}", exported.error);
-
-    // 5. dli.check-draft — the full battery over a minimal `payload/v1` draft.
-    let drafted = send(
-        serde_json::json!({"dli":"1.1.0","id":"5","op":"dli.check-draft",
-                           "params":{"document":"tpth","source":"baseline",
-                                     "payload":{
-                                       "meta":{"episode":"episode-1",
-                                               "source":{"file":"draft.md",
-                                                         "sha256":"8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24",
-                                                         "words":1},
-                                               "extracted":"2026-07-25",
-                                               "extractors":{"schema":"payload/v1"}},
-                                       "claims":[],"deltas":[],"scenes":[],"beats":[],
-                                       "promises":{"opened":[],"closed":[]},
-                                       "proof_ledgers":[],
-                                       "names":{"introduced":[]},
-                                       "lexicon":{"banned_hits":[],"register_tokens":0}}}}),
-        &mut sessions,
-        &mut store,
-    );
-    assert!(drafted.ok, "dli.check-draft answered: {:?}", drafted.error);
 }
 
 // ── the corpus exchange, in both lanes (DM-3, DL-0056) ──────────────────────
@@ -851,7 +830,7 @@ fn a_rendered_export_refuses_loudly_where_no_renderer_is_linked() {
     let (_root, mut sessions, mut store) = corpus_server("corpus-rendered-export");
 
     let rendered = send(
-        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.export",
+        &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.export",
                             "params":{"document":"tpth","format":"rendered"}}),
         &mut sessions,
         &mut store,
@@ -876,7 +855,7 @@ fn a_rendered_export_refuses_loudly_where_no_renderer_is_linked() {
 
     // The default is JSON-first on both builds, and stays a success.
     let objects = send(
-        &serde_json::json!({"dli":"1.2.0","id":"2","op":"dli.corpus.export",
+        &serde_json::json!({"dli":"2.0.0","id":"2","op":"dli.corpus.export",
                             "params":{"document":"tpth"}}),
         &mut sessions,
         &mut store,
@@ -899,7 +878,7 @@ fn a_rendered_export_refuses_loudly_where_no_renderer_is_linked() {
 /// retain the released closed-enum schema refusal, while 1.4.0 exposes the
 /// store-derived projection without changing the objects default.
 #[test]
-fn canon_export_is_gated_at_contract_1_4_0() {
+fn canon_export_is_available_on_contract_two() {
     let (_root, mut sessions, mut store) = corpus_server("corpus-canon-version");
 
     let old = send(
@@ -912,17 +891,17 @@ fn canon_export_is_gated_at_contract_1_4_0() {
         old["ok"], false,
         "1.3.0 keeps the canon schema refusal: {old}"
     );
-    assert_eq!(old["error"]["code"], "schema-violation", "{old}");
+    assert_eq!(old["error"]["code"], "killed-form", "{old}");
     assert!(
         old["error"]["message"]
             .as_str()
             .unwrap_or_default()
-            .contains("unknown variant `canon`"),
+            .contains("2.0.0"),
         "the refusal names the released enum surface: {old}"
     );
 
     let current = send(
-        &serde_json::json!({"dli":"1.4.0","id":"2","op":"dli.corpus.export",
+        &serde_json::json!({"dli":"2.0.0","id":"2","op":"dli.corpus.export",
                             "params":{"document":"tpth","format":"canon"}}),
         &mut sessions,
         &mut store,
@@ -945,7 +924,7 @@ fn canon_export_is_gated_at_contract_1_4_0() {
 fn an_exported_corpus_reimports_to_the_same_commit() {
     let (_root, mut sessions, mut store) = corpus_server("corpus-roundtrip-source");
     let exported = send(
-        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.export",
+        &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.export",
                             "params":{"document":"tpth"}}),
         &mut sessions,
         &mut store,
@@ -960,7 +939,7 @@ fn an_exported_corpus_reimports_to_the_same_commit() {
     // is an append onto an identical head rather than into a vacuum.
     let (_root2, mut sessions2, mut store2) = corpus_server("corpus-roundtrip-target");
     let imported = send(
-        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.import",
+        &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.import",
                             "params":{"document":"tpth","mode":"append",
                                       "objects":result["objects"],
                                       "interner":result["interner"],
@@ -971,7 +950,7 @@ fn an_exported_corpus_reimports_to_the_same_commit() {
     assert_eq!(imported["ok"], true, "the import answers: {imported}");
 
     let reexported = send(
-        &serde_json::json!({"dli":"1.2.0","id":"2","op":"dli.corpus.export",
+        &serde_json::json!({"dli":"2.0.0","id":"2","op":"dli.corpus.export",
                             "params":{"document":"tpth"}}),
         &mut sessions2,
         &mut store2,
@@ -1001,13 +980,13 @@ fn an_exported_corpus_reimports_to_the_same_commit() {
 fn an_objects_import_without_its_interner_is_refused() {
     let (_root, mut sessions, mut store) = corpus_server("corpus-import-no-interner");
     let exported = send(
-        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.export",
+        &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.export",
                             "params":{"document":"tpth"}}),
         &mut sessions,
         &mut store,
     );
     let refused = send(
-        &serde_json::json!({"dli":"1.2.0","id":"2","op":"dli.corpus.import",
+        &serde_json::json!({"dli":"2.0.0","id":"2","op":"dli.corpus.import",
                             "params":{"document":"tpth","mode":"append",
                                       "objects":exported["result"]["objects"]}}),
         &mut sessions,
@@ -1193,7 +1172,7 @@ fn an_append_that_drops_the_decision_set_is_refused() {
 
     // An empty append that carries the interner but omits `decisions`.
     let response = send(
-        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.import",
+        &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.import",
                             "params":{"document":"tpth","mode":"append",
                                       "objects":[],"interner":interner}}),
         &mut sessions,
@@ -1238,10 +1217,10 @@ fn a_dli_append_that_regresses_the_name_table_is_a_schema_violation() {
     // Only the new document, not the whole corpus: its compiled name table
     // starts from empty and so cannot extend the store's.
     let response = send(
-        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.import",
+        &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.import",
             "params":{"document":"tpth","mode":"append","interner":[],
                       "dli_documents":[{"id":"extra",
-                          "text":"scope tpth\nratify d-2\nperson kes decided d-2\n"}]}}),
+                          "text":"scope tpth\nratify d-2\nperson kes ratified d-2\n"}]}}),
         &mut sessions,
         &mut author,
     );
@@ -1272,7 +1251,7 @@ fn a_dli_append_that_drops_a_ratify_is_refused() {
     fs::create_dir_all(&dir).unwrap();
     let store = Lorestore::open(dir.clone()).expect("open store");
 
-    let seed = "scope corpus\nratify d-1\nperson wren decided d-1\n";
+    let seed = "scope corpus\nratify d-1\nperson wren ratified d-1\n";
     let (seed_doc, diagnostics) = dli_syntax::parse_document(seed);
     assert!(diagnostics.iter().all(|d| !d.class.is_error()));
     let head = store
@@ -1283,7 +1262,7 @@ fn a_dli_append_that_drops_a_ratify_is_refused() {
         .expect("seed the store");
     let before = store.reconstruct_at(&head).expect("reconstruct");
     assert!(
-        dli_syntax::format_document(&before.documents[0]).contains("decided d-1"),
+        dli_syntax::format_document(&before.documents[0]).contains("ratified d-1"),
         "the seeded fact is decided"
     );
 
@@ -1294,10 +1273,10 @@ fn a_dli_append_that_drops_a_ratify_is_refused() {
 
     // The whole corpus again, minus the `ratify` line.
     let response = send(
-        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.import",
+        &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.import",
             "params":{"document":"corpus","mode":"append",
                       "dli_documents":[{"id":"corpus",
-                          "text":"scope corpus\nperson wren decided d-1\n"}]}}),
+                          "text":"scope corpus\nperson wren ratified d-1\n"}]}}),
         &mut sessions,
         &mut author,
     );
@@ -1346,13 +1325,13 @@ fn an_append_under_a_different_document_id_preserves_the_committed_scope() {
     let mut author = dli_serve::author::store::Store::default();
 
     let exported = send(
-        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.export",
+        &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.export",
                             "params":{"document":"beta"}}),
         &mut sessions,
         &mut author,
     );
     let imported = send(
-        &serde_json::json!({"dli":"1.2.0","id":"2","op":"dli.corpus.import",
+        &serde_json::json!({"dli":"2.0.0","id":"2","op":"dli.corpus.import",
                             "params":{"document":"beta","mode":"append",
                                       "objects":exported["result"]["objects"],
                                       "interner":exported["result"]["interner"],
@@ -1396,7 +1375,7 @@ fn a_dli_append_declaring_a_different_scope_is_refused() {
     let mut author = dli_serve::author::store::Store::default();
 
     let response = send(
-        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.import",
+        &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.import",
             "params":{"document":"tpth","mode":"append",
                       "dli_documents":[{"id":"other","text":"scope beta\nperson kes\n"}]}}),
         &mut sessions,
@@ -1440,7 +1419,7 @@ fn materialize_under_a_different_document_id_preserves_the_committed_scope() {
     let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
 
     let opened = send(
-        &serde_json::json!({"dli":"1.2.0","id":"1","op":"author.open",
+        &serde_json::json!({"dli":"2.0.0","id":"1","op":"author.open",
                             "params":{"scope":"beta"}}),
         &mut sessions,
         &mut author,
@@ -1451,7 +1430,7 @@ fn materialize_under_a_different_document_id_preserves_the_committed_scope() {
         .to_owned();
 
     let staged = send(
-        &serde_json::json!({"dli":"1.2.0","id":"2","op":"author.add_entity",
+        &serde_json::json!({"dli":"2.0.0","id":"2","op":"author.add_entity",
             "params":{"workspace":workspace,"kind":"person","id":"kes",
                       "name":"Kes","provenance":{"kind":"proposed","origin":"session-scope-test"}}}),
         &mut sessions,
@@ -1460,7 +1439,7 @@ fn materialize_under_a_different_document_id_preserves_the_committed_scope() {
     assert_eq!(staged["ok"], true, "the entity stages: {staged}");
 
     let materialized = send(
-        &serde_json::json!({"dli":"1.2.0","id":"3","op":"author.materialize",
+        &serde_json::json!({"dli":"2.0.0","id":"3","op":"author.materialize",
                             "params":{"workspace":workspace}}),
         &mut sessions,
         &mut author,
@@ -1471,7 +1450,7 @@ fn materialize_under_a_different_document_id_preserves_the_committed_scope() {
     );
 
     let staged_again = send(
-        &serde_json::json!({"dli":"1.2.0","id":"4","op":"author.add_entity",
+        &serde_json::json!({"dli":"2.0.0","id":"4","op":"author.add_entity",
             "params":{"workspace":workspace,"kind":"person","id":"galahad",
                       "name":"Galahad","provenance":{"kind":"proposed","origin":"session-scope-test"}}}),
         &mut sessions,
@@ -1482,7 +1461,7 @@ fn materialize_under_a_different_document_id_preserves_the_committed_scope() {
         "the same workspace stages a second delta: {staged_again}"
     );
     let materialized_again = send(
-        &serde_json::json!({"dli":"1.2.0","id":"5","op":"author.materialize",
+        &serde_json::json!({"dli":"2.0.0","id":"5","op":"author.materialize",
                             "params":{"workspace":workspace}}),
         &mut sessions,
         &mut author,
@@ -1535,7 +1514,7 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
             .expect("project-backed sessions"),
     );
     let opened = send(
-        &serde_json::json!({"dli":"1.3.0","id":"open","op":"author.open",
+        &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open",
                             "params":{"scope":"tpth"}}),
         &mut sessions,
         &mut author,
@@ -1545,7 +1524,7 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
         .expect("workspace id")
         .to_owned();
     let staged = send(
-        &serde_json::json!({"dli":"1.3.0","id":"add","op":"author.add_fact",
+        &serde_json::json!({"dli":"2.0.0","id":"add","op":"author.add_fact",
                             "params":{"workspace":workspace,"entity":"bedivere",
                                       "key":"color","value":"red",
                                       "provenance":{"kind":"proposed","origin":"source-b"}}}),
@@ -1554,7 +1533,7 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
     );
     assert_eq!(staged["ok"], true, "the proposed fact stages: {staged}");
     let materialized = send(
-        &serde_json::json!({"dli":"1.3.0","id":"commit","op":"author.materialize",
+        &serde_json::json!({"dli":"2.0.0","id":"commit","op":"author.materialize",
                             "params":{"workspace":workspace}}),
         &mut sessions,
         &mut author,
@@ -1635,7 +1614,7 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
     let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
     let mut author = author_store_for(&project);
     let opened = send(
-        &serde_json::json!({"dli":"1.3.0","id":"restart-open","op":"author.open",
+        &serde_json::json!({"dli":"2.0.0","id":"restart-open","op":"author.open",
                             "params":{"scope":"tpth"}}),
         &mut sessions,
         &mut author,
@@ -1645,7 +1624,7 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
         .expect("restarted workspace id")
         .to_owned();
     let status = send(
-        &serde_json::json!({"dli":"1.3.0","id":"status","op":"author.status",
+        &serde_json::json!({"dli":"2.0.0","id":"status","op":"author.status",
                             "params":{"workspace":workspace}}),
         &mut sessions,
         &mut author,
@@ -1657,7 +1636,7 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
 
     let goal = serde_json::json!({"pred":"color","args":[{"Sym":"bedivere"},{"Sym":"red"}]});
     let author_query = send(
-        &serde_json::json!({"dli":"1.3.0","id":"author-query","op":"author.query",
+        &serde_json::json!({"dli":"2.0.0","id":"author-query","op":"author.query",
                             "params":{"workspace":workspace,"goal_atom":goal,"layer":"all"}}),
         &mut sessions,
         &mut author,
@@ -1681,7 +1660,7 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
     );
 
     let stale_stage = send(
-        &serde_json::json!({"dli":"1.3.0","id":"stale-stage","op":"author.add_fact",
+        &serde_json::json!({"dli":"2.0.0","id":"stale-stage","op":"author.add_fact",
                             "params":{"workspace":workspace,"entity":"bedivere",
                                       "key":"weight","value":"heavy",
                                       "provenance":{"kind":"proposed","origin":"source-c"}}}),
@@ -1693,7 +1672,7 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
         "stale workspace may still stage: {stale_stage}"
     );
     let stale_materialize = send(
-        &serde_json::json!({"dli":"1.3.0","id":"stale-commit","op":"author.materialize",
+        &serde_json::json!({"dli":"2.0.0","id":"stale-commit","op":"author.materialize",
                             "params":{"workspace":workspace}}),
         &mut sessions,
         &mut author,
@@ -1704,7 +1683,7 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
     );
 
     let batch_query = send(
-        &serde_json::json!({"dli":"1.3.0","id":"batch-query","op":"dli.query",
+        &serde_json::json!({"dli":"2.0.0","id":"batch-query","op":"dli.query",
                             "params":{"document":"tpth","goal_atom":goal,"layer":"all"}}),
         &mut sessions,
         &mut author,
@@ -1773,7 +1752,7 @@ fn the_expert_tools_reach_the_language_model_through_the_store() {
     let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
 
     let opened = send(
-        &serde_json::json!({"dli":"1.3.0","id":"0","op":"author.open",
+        &serde_json::json!({"dli":"2.0.0","id":"0","op":"author.open",
                             "params":{"scope":"tpth"}}),
         &mut sessions,
         &mut author,
@@ -1817,7 +1796,7 @@ fn the_expert_tools_reach_the_language_model_through_the_store() {
             _ => "author.add_banned",
         };
         let staged = send(
-            &serde_json::json!({"dli":"1.3.0","id":id,"op":op,"params":frame}),
+            &serde_json::json!({"dli":"2.0.0","id":id,"op":op,"params":frame}),
             &mut sessions,
             &mut author,
         );
@@ -1838,7 +1817,7 @@ fn the_expert_tools_reach_the_language_model_through_the_store() {
     }
 
     let materialized = send(
-        &serde_json::json!({"dli":"1.3.0","id":"5","op":"author.materialize",
+        &serde_json::json!({"dli":"2.0.0","id":"5","op":"author.materialize",
                             "params":{"workspace":ws}}),
         &mut sessions,
         &mut author,
@@ -1940,7 +1919,7 @@ fn empty_corpus_server(
 fn a_scope_less_dli_corpus_imports() {
     let (_root, mut sessions, mut store) = empty_corpus_server("corpus-scope-less");
     let imported = send(
-        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.import","params":{
+        &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.import","params":{
             "document":"tpth","mode":"append",
             "dli_documents":[{"id":"tpth","text":"person gwern \"Gwern\" proposed\n"}]}}),
         &mut sessions,
@@ -1970,7 +1949,7 @@ fn a_scope_less_corpus_round_trips_through_export() {
     let (root, mut sessions, mut store) = empty_corpus_server("corpus-scope-less-roundtrip");
     let text = "person gwern \"Gwern\" proposed\nperson mara \"Mara\" proposed\n";
     let imported = send(
-        &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.import","params":{
+        &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.import","params":{
             "document":"tpth","mode":"append",
             "dli_documents":[{"id":"tpth","text":text}]}}),
         &mut sessions,
@@ -1979,7 +1958,7 @@ fn a_scope_less_corpus_round_trips_through_export() {
     assert_eq!(imported["ok"], true, "import: {imported}");
 
     let exported = send(
-        &serde_json::json!({"dli":"1.2.0","id":"2","op":"dli.corpus.export",
+        &serde_json::json!({"dli":"2.0.0","id":"2","op":"dli.corpus.export",
                             "params":{"document":"tpth"}}),
         &mut sessions,
         &mut store,
@@ -2069,7 +2048,7 @@ fn a_scope_less_corpus_round_trips_through_export() {
 fn init_seeds_a_genesis_only_store_and_still_refuses_a_seeded_one() {
     let (_root, mut sessions, mut store) = empty_corpus_server("corpus-init-genesis");
     let frame = |id: &str| {
-        serde_json::json!({"dli":"1.2.0","id":id,"op":"dli.corpus.import","params":{
+        serde_json::json!({"dli":"2.0.0","id":id,"op":"dli.corpus.import","params":{
             "document":"tpth","mode":"init",
             "dli_documents":[{"id":"tpth","text":"person gwern \"Gwern\" proposed\n"}]}})
     };
@@ -2192,7 +2171,7 @@ fn an_imported_dli_corpus_renders_back_as_the_document_that_was_authored() {
 
         let (mut sessions, mut store) = load(&root);
         let imported = send(
-            &serde_json::json!({"dli":"1.2.0","id":"1","op":"dli.corpus.import","params":{
+            &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.import","params":{
                 "document": document, "mode":"append",
                 "dli_documents":[{"id": document, "text": authored}]}}),
             &mut sessions,
@@ -2203,7 +2182,7 @@ fn an_imported_dli_corpus_renders_back_as_the_document_that_was_authored() {
         // Reload from disk — a fresh process sees exactly this — then render.
         let (mut sessions, mut store) = load(&root);
         let exported = send(
-            &serde_json::json!({"dli":"1.2.0","id":"2","op":"dli.corpus.export","params":{
+            &serde_json::json!({"dli":"2.0.0","id":"2","op":"dli.corpus.export","params":{
                 "document": document, "format":"rendered"}}),
             &mut sessions,
             &mut store,
@@ -2237,7 +2216,7 @@ fn new_workspace_reads_materialized_main_without_restarting_server() {
     let mut author = author_store_for(&project);
     let open = |id: &str, sessions: &mut _, author: &mut _| {
         let result = send(
-            &serde_json::json!({"dli":"1.13.0","id":id,"op":"author.open",
+            &serde_json::json!({"dli":"2.0.0","id":id,"op":"author.open",
                                 "params":{"scope":"camelot"}}),
             sessions,
             author,
@@ -2247,7 +2226,7 @@ fn new_workspace_reads_materialized_main_without_restarting_server() {
     let writer = open("writer", &mut sessions, &mut author);
     let old = open("old", &mut sessions, &mut author);
     let staged = send(
-        &serde_json::json!({"dli":"1.13.0","id":"add","op":"author.add_fact",
+        &serde_json::json!({"dli":"2.0.0","id":"add","op":"author.add_fact",
             "params":{"workspace":writer,"entity":"bedivere","key":"color","value":"red",
                       "provenance":{"kind":"proposed","origin":"fresh-workspace"}}}),
         &mut sessions,
@@ -2255,7 +2234,7 @@ fn new_workspace_reads_materialized_main_without_restarting_server() {
     );
     assert_eq!(staged["ok"], true, "{staged}");
     let committed = send(
-        &serde_json::json!({"dli":"1.13.0","id":"commit","op":"author.materialize",
+        &serde_json::json!({"dli":"2.0.0","id":"commit","op":"author.materialize",
                             "params":{"workspace":writer}}),
         &mut sessions,
         &mut author,
@@ -2264,7 +2243,7 @@ fn new_workspace_reads_materialized_main_without_restarting_server() {
     let fresh = open("fresh", &mut sessions, &mut author);
     let query = |workspace: &str, sessions: &mut _, author: &mut _| {
         send(
-            &serde_json::json!({"dli":"1.13.0","id":"query","op":"author.query",
+            &serde_json::json!({"dli":"2.0.0","id":"query","op":"author.query",
                 "params":{"workspace":workspace,"goal_atom":{"pred":"color",
                           "args":[{"Sym":"bedivere"},{"Sym":"red"}]},"layer":"all"}}),
             sessions,

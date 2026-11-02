@@ -339,21 +339,21 @@ mod standing {
     fn cite_then_read(decision: &str, rel: &str) -> (Value, String) {
         let (_temp, mut sessions, mut store) = fixture_project();
         let opened = drive(
-            &json!({"dli":"1.3.0","id":"o","op":"author.open",
+            &json!({"dli":"2.0.0","id":"o","op":"author.open",
                     "params":{"scope":"saltmarket"}}),
             &mut sessions,
             &mut store,
         );
         let ws = opened["result"]["workspace"].as_str().unwrap().to_owned();
         let added = drive(
-            &json!({"dli":"1.3.0","id":"1","op":"author.add_relation","params":{
+            &json!({"dli":"2.0.0","id":"1","op":"author.add_relation","params":{
                 "workspace": ws, "relation": rel, "from":"baseline", "to":"baseline",
-                "provenance":{"kind":"cited","decisions":[decision]}}}),
+                "provenance":{"kind":"cited","decisions":[decision],"state":"ratified"}}}),
             &mut sessions,
             &mut store,
         );
         let queried = drive(
-            &json!({"dli":"1.3.0","id":"2","op":"author.query","params":{
+            &json!({"dli":"2.0.0","id":"2","op":"author.query","params":{
                 "workspace": ws, "why": true,
                 "goal_atom":{"pred": rel, "args":[{"Sym":"baseline"},{"Sym":"baseline"}]}}}),
             &mut sessions,
@@ -379,7 +379,7 @@ mod standing {
         );
         assert_eq!(
             added["rendered"],
-            json!(["serves(baseline, baseline) decided d-1"]),
+            json!(["serves(baseline, baseline) ratified d-1"]),
             "the claim records the marker and the id the caller supplied: {added}"
         );
         assert_eq!(

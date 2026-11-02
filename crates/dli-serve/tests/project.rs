@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 
 use dli_serve::project::Project;
 use dli_serve::serve::serve_project_io;
-use dli_world::payload::source_hash;
 use serde_json::Value;
 
 fn norse() -> PathBuf {
@@ -29,20 +28,6 @@ fn write_manifest(root: &Path, body: &str) {
     .unwrap();
 }
 
-fn enable_craft_packs(root: &Path, packs: &[&str]) {
-    fs::create_dir_all(root.join("craft")).unwrap();
-    let values = packs
-        .iter()
-        .map(|pack| format!("\"{pack}\""))
-        .collect::<Vec<_>>()
-        .join(", ");
-    fs::write(
-        root.join("craft/enabled-packs.toml"),
-        format!("packs = [{values}]\n"),
-    )
-    .unwrap();
-}
-
 fn serve_request(project: Project, request: &Value) -> Value {
     let mut output = Vec::new();
     serve_project_io(
@@ -52,73 +37,6 @@ fn serve_request(project: Project, request: &Value) -> Value {
     )
     .unwrap();
     serde_json::from_slice(&output).unwrap()
-}
-
-fn claim_payload_request(
-    source: &str,
-    episode: &str,
-    source_file: &str,
-    atom: &str,
-    quote: &str,
-    line: u32,
-    prompt_digit: char,
-) -> Value {
-    serde_json::json!({
-        "dli": "0.5.1",
-        "id": format!("submit-{episode}"),
-        "op": "dli.payload-submit",
-        "params": {
-            "document": "world",
-            "source": source,
-            "payload": {
-                "meta": {
-                    "episode": episode,
-                    "source": {
-                        "file": source_file,
-                        "sha256": source_hash(source),
-                        "words": source.split_whitespace().count()
-                    },
-                    "extracted": "2026-07-26",
-                    "extractors": {
-                        "schema": "payload/v1",
-                        "fields": {
-                            "claims": {
-                                "model": "fixture-extractor",
-                                "prompt": format!("sha256:{}", prompt_digit.to_string().repeat(64))
-                            }
-                        }
-                    }
-                },
-                "claims": [{
-                    "atom": atom,
-                    "quote": quote,
-                    "line": line
-                }]
-            }
-        }
-    })
-}
-
-fn assert_payload_finding(
-    findings: &[Value],
-    source_file: &str,
-    payload_digest: &Value,
-    episode: &str,
-    line: u32,
-    quote: &str,
-) {
-    let finding = findings
-        .iter()
-        .find(|finding| {
-            finding["code"] == "factcheck.unsupported" && finding["source_file"] == source_file
-        })
-        .unwrap_or_else(|| panic!("changed world did not invalidate {source_file}"));
-    assert_eq!(finding["domain"], "payload", "{finding}");
-    assert_eq!(finding["payload_digest"], *payload_digest, "{finding}");
-    assert_eq!(finding["episode"], episode, "{finding}");
-    assert_eq!(finding["source_file"], source_file, "{finding}");
-    assert_eq!(finding["line"], line, "{finding}");
-    assert_eq!(finding["quote"], quote, "{finding}");
 }
 
 #[test]
@@ -160,7 +78,7 @@ fn document_source_anchor_changes_with_source_bytes() {
 #[test]
 fn project_worker_uses_the_document_profile_catalog() {
     let project = Project::load(norse()).expect("Norse project loads");
-    let input = b"{\"dli\":\"0.5.1\",\"id\":\"csv\",\"op\":\"dli.export.run\",\"params\":{\"document\":\"norse\",\"profile\":\"csv\",\"profile_name\":\"tabular/nine-realms@1\"}}\n";
+    let input = b"{\"dli\":\"2.0.0\",\"id\":\"csv\",\"op\":\"dli.export.run\",\"params\":{\"document\":\"norse\",\"profile\":\"csv\",\"profile_name\":\"tabular/nine-realms@1\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let response: Value = serde_json::from_slice(&output).unwrap();
@@ -181,12 +99,12 @@ fn project_worker_uses_the_document_profile_catalog() {
 fn project_worker_resolves_declared_ids_and_never_demo_falls_back() {
     let project = Project::load(norse()).expect("Norse project loads");
     let input = b"\
-{\"dli\":\"0.5.1\",\"id\":\"1\",\"op\":\"dli.query\",\"params\":{\"document\":\"norse\",\"goal\":\"adjacent(asgard, midgard)\",\"layer\":\"certain\"}}\n\
-{\"dli\":\"0.5.1\",\"id\":\"2\",\"op\":\"dli.check\",\"params\":{\"document\":\"camelot\"}}\n\
-{\"dli\":\"0.5.1\",\"id\":\"3\",\"op\":\"author.open\",\"params\":{\"scope\":\"norse\"}}\n\
-{\"dli\":\"0.5.1\",\"id\":\"4\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal\":\"adjacent(asgard, midgard)\",\"layer\":\"certain\"}}\n\
-{\"dli\":\"0.5.1\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"camelot\"}}\n\
-{\"dli\":\"0.5.1\",\"id\":\"6\",\"op\":\"dli.export.run\",\"params\":{\"document\":\"french-deck\",\"profile\":\"cards\"}}\n";
+{\"dli\":\"2.0.0\",\"id\":\"1\",\"op\":\"dli.query\",\"params\":{\"document\":\"norse\",\"goal_atom\":{\"pred\":\"adjacent\",\"args\":[{\"Sym\":\"asgard\"},{\"Sym\":\"midgard\"}]},\"layer\":\"certain\"}}\n\
+{\"dli\":\"2.0.0\",\"id\":\"2\",\"op\":\"dli.check\",\"params\":{\"document\":\"camelot\"}}\n\
+{\"dli\":\"2.0.0\",\"id\":\"3\",\"op\":\"author.open\",\"params\":{\"scope\":\"norse\"}}\n\
+{\"dli\":\"2.0.0\",\"id\":\"4\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal_atom\":{\"pred\":\"adjacent\",\"args\":[{\"Sym\":\"asgard\"},{\"Sym\":\"midgard\"}]},\"layer\":\"certain\"}}\n\
+{\"dli\":\"2.0.0\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"camelot\"}}\n\
+{\"dli\":\"2.0.0\",\"id\":\"6\",\"op\":\"dli.export.run\",\"params\":{\"document\":\"unknown\",\"profile\":\"context-pack\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let responses: Vec<Value> = String::from_utf8(output)
@@ -216,8 +134,8 @@ fn project_worker_resolves_declared_ids_and_never_demo_falls_back() {
 fn project_door_t_rejects_invented_forks() {
     let project = Project::load(norse()).expect("Norse project loads");
     let input = b"\
-{\"dli\":\"0.5.1\",\"id\":\"1\",\"op\":\"author.open\",\"params\":{\"fork\":\"what-does-wisdom-cost\"}}\n\
-{\"dli\":\"0.5.1\",\"id\":\"2\",\"op\":\"author.open\",\"params\":{\"fork\":\"invented-fork\"}}\n";
+{\"dli\":\"2.0.0\",\"id\":\"1\",\"op\":\"author.open\",\"params\":{\"fork\":\"what-does-wisdom-cost\"}}\n\
+{\"dli\":\"2.0.0\",\"id\":\"2\",\"op\":\"author.open\",\"params\":{\"fork\":\"invented-fork\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let responses: Vec<Value> = String::from_utf8(output)
@@ -250,14 +168,14 @@ fn project_stateful_handles_and_workspaces_cannot_cross_documents() {
     );
     let project = Project::load(&root).expect("two-document project loads");
     let input = b"\
-{\"dli\":\"0.5.1\",\"id\":\"1\",\"op\":\"dli.fork.new\",\"params\":{\"document\":\"one\"}}\n\
-{\"dli\":\"0.5.1\",\"id\":\"2\",\"op\":\"dli.query\",\"params\":{\"document\":\"two\",\"goal\":\"marked(beta)\",\"fork\":\"fork-1\"}}\n\
-{\"dli\":\"0.5.1\",\"id\":\"3\",\"op\":\"dli.fork.new\",\"params\":{\"document\":\"two\",\"base\":\"fork-1\"}}\n\
-{\"dli\":\"0.5.1\",\"id\":\"4\",\"op\":\"dli.fork.list\",\"params\":{\"document\":\"missing\"}}\n\
-{\"dli\":\"0.5.1\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"one\"}}\n\
-{\"dli\":\"0.5.1\",\"id\":\"6\",\"op\":\"author.open\",\"params\":{\"scope\":\"two\"}}\n\
-{\"dli\":\"0.5.1\",\"id\":\"7\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal\":\"marked(?)\",\"layer\":\"certain\"}}\n\
-{\"dli\":\"0.5.1\",\"id\":\"8\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-2\",\"goal\":\"marked(?)\",\"layer\":\"certain\"}}\n";
+{\"dli\":\"2.0.0\",\"id\":\"1\",\"op\":\"dli.fork.new\",\"params\":{\"document\":\"one\"}}\n\
+{\"dli\":\"2.0.0\",\"id\":\"2\",\"op\":\"dli.query\",\"params\":{\"document\":\"two\",\"goal_atom\":{\"pred\":\"marked\",\"args\":[{\"Sym\":\"beta\"}]},\"fork\":\"fork-1\"}}\n\
+{\"dli\":\"2.0.0\",\"id\":\"3\",\"op\":\"dli.fork.new\",\"params\":{\"document\":\"two\",\"base\":\"fork-1\"}}\n\
+{\"dli\":\"2.0.0\",\"id\":\"4\",\"op\":\"dli.fork.list\",\"params\":{\"document\":\"missing\"}}\n\
+{\"dli\":\"2.0.0\",\"id\":\"5\",\"op\":\"author.open\",\"params\":{\"scope\":\"one\"}}\n\
+{\"dli\":\"2.0.0\",\"id\":\"6\",\"op\":\"author.open\",\"params\":{\"scope\":\"two\"}}\n\
+{\"dli\":\"2.0.0\",\"id\":\"7\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-1\",\"goal_atom\":{\"pred\":\"marked\",\"args\":[{\"Var\":\"x\"}]},\"layer\":\"certain\"}}\n\
+{\"dli\":\"2.0.0\",\"id\":\"8\",\"op\":\"author.query\",\"params\":{\"workspace\":\"ws-2\",\"goal_atom\":{\"pred\":\"marked\",\"args\":[{\"Var\":\"x\"}]},\"layer\":\"certain\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let responses: Vec<Value> = String::from_utf8(output)
@@ -291,7 +209,7 @@ fn cyclic_timeline_reports_blame_without_cursor_order_claims() {
     .unwrap();
     write_manifest(&root, "[documents.world]\nsources = [\"world.dli\"]\n");
     let project = Project::load(&root).expect("cyclic chronology remains diagnosable");
-    let input = b"{\"dli\":\"0.5.1\",\"id\":\"1\",\"op\":\"dli.timeline.show\",\"params\":{\"document\":\"world\",\"at\":\"first\"}}\n";
+    let input = b"{\"dli\":\"2.0.0\",\"id\":\"1\",\"op\":\"dli.timeline.show\",\"params\":{\"document\":\"world\",\"at\":\"first\"}}\n";
     let mut output = Vec::new();
     serve_project_io(&mut Cursor::new(input), &mut output, project).expect("worker completes");
     let response: Value = serde_json::from_slice(&output).unwrap();
@@ -386,15 +304,6 @@ fn rejects_ambiguous_ids_duplicate_sources_and_duplicate_forks() {
     let error = Project::load(&root).unwrap_err().to_string();
     assert!(error.contains("dialect `common`"), "{error}");
     assert!(error.contains("project-wide"), "{error}");
-
-    fs::write(root.join("rules.json"), "{}").unwrap();
-    write_manifest(
-        &root,
-        "[documents.world]\nsources = [\"world.dli\"]\n\
-         [games.world]\nrules = \"rules.json\"\n",
-    );
-    let error = Project::load(&root).unwrap_err().to_string();
-    assert!(error.contains("both a document and a game"), "{error}");
 }
 
 #[test]
@@ -449,38 +358,6 @@ fn loads_optional_project_assets_without_demo_resolution() {
         root.join("episodes.yaml"),
     )
     .unwrap();
-    fs::write(
-        root.join("outlines.yaml"),
-        "id: season-1\ntitle: Season One\nepisodes:\n  - {id: e01, title: First}\n",
-    )
-    .unwrap();
-    fs::write(root.join("craft-ledger.yaml"), "{}\n").unwrap();
-    enable_craft_packs(&root, &["try-fail-cycles"]);
-    fs::write(
-        root.join("craft/thresholds.toml"),
-        "[season]\n\
-         major_prior_failures = 2\n\
-         climax_prior_failures = 3\n\
-         competence_floor = 5\n\
-         reveal_lead_episodes = 1\n\
-         mystery_starved_gap = 3\n\
-         cold_open_cast_ceiling = 2\n\
-         cast_introduction_band = [1, 3]\n\
-         ten_position_band = [0.55, 0.8]\n\
-         audio_high_run = 3\n\
-         calibrated = true\n",
-    )
-    .unwrap();
-    fs::copy(
-        repo.join("examples/norse/games/rune-wheel/rules.json"),
-        root.join("rules.json"),
-    )
-    .unwrap();
-    fs::copy(
-        repo.join("examples/norse/games/rune-wheel/profiles.json"),
-        root.join("game-profiles.json"),
-    )
-    .unwrap();
     fs::copy(
         repo.join("examples/norse/export-profiles.json"),
         root.join("document-profiles.json"),
@@ -490,33 +367,13 @@ fn loads_optional_project_assets_without_demo_resolution() {
         &root,
         "[documents.world]\nsources = [\"world.dli\"]\n\
          episodes = \"episodes.yaml\"\n\
-         outlines = \"outlines.yaml\"\n\
-         craft_ledger = \"craft-ledger.yaml\"\n\
-         craft_config = \"craft\"\n\
          killed_tokens = \"killed.yaml\"\n\
-         profiles = \"document-profiles.json\"\n\
-         [games.rune-wheel]\nrules = \"rules.json\"\nprofiles = \"game-profiles.json\"\n",
+         profiles = \"document-profiles.json\"\n",
     );
 
     let project = Project::load(&root).expect("all optional assets load");
     let document = project.document("world").unwrap();
     assert!(!document.episodes.as_ref().unwrap().is_empty());
-    assert_eq!(document.outlines.as_ref().unwrap().episodes[0].id, "e01");
-    assert!(document.craft_ledger.as_ref().unwrap().episodes.is_empty());
-    assert!(
-        document
-            .craft_principles
-            .as_ref()
-            .is_some_and(|principles| !principles.is_empty())
-    );
-    assert_eq!(
-        document
-            .craft_thresholds
-            .expect("configured thresholds")
-            .major_prior_failures,
-        2
-    );
-    assert!(document.craft_policy.is_some());
     assert!(document.killed.hit("the Old Name returns").is_some());
     assert_eq!(
         document
@@ -527,14 +384,6 @@ fn loads_optional_project_assets_without_demo_resolution() {
         vec!["d-0009"]
     );
     assert!(document.profiles.resolve("wiki/nine-realms").is_some());
-    assert!(
-        project
-            .game("rune-wheel")
-            .unwrap()
-            .profiles
-            .resolve("cards/rune-wheel")
-            .is_some()
-    );
 }
 
 #[test]
@@ -564,7 +413,7 @@ fn project_timeline_knows_lists_every_declared_knower_source() {
         "[documents.world]\nsources = [\"world.dli\"]\nepisodes = \"episodes.yaml\"\n",
     );
     let request = serde_json::json!({
-        "dli": "0.5.1",
+        "dli": "2.0.0",
         "id": "knowers",
         "op": "dli.timeline.knows",
         "params": {"document": "world", "at": "0"}
@@ -603,7 +452,7 @@ fn project_check_proof_selects_one_named_proof_and_refuses_ambiguity() {
     let ambiguous = serve_request(
         Project::load(&root).unwrap(),
         &serde_json::json!({
-            "dli": "0.5.1",
+            "dli": "2.0.0",
             "id": "ambiguous",
             "op": "dli.check-proof",
             "params": {"document": "world"}
@@ -621,7 +470,7 @@ fn project_check_proof_selects_one_named_proof_and_refuses_ambiguity() {
     let selected = serve_request(
         Project::load(&root).unwrap(),
         &serde_json::json!({
-            "dli": "0.5.1",
+            "dli": "2.0.0",
             "id": "selected",
             "op": "dli.check-proof",
             "params": {"document": "world", "proof": "second"}
@@ -634,7 +483,7 @@ fn project_check_proof_selects_one_named_proof_and_refuses_ambiguity() {
     let missing = serve_request(
         Project::load(&root).unwrap(),
         &serde_json::json!({
-            "dli": "0.5.1",
+            "dli": "2.0.0",
             "id": "missing",
             "op": "dli.check-proof",
             "params": {"document": "world", "proof": "missing"}
@@ -680,443 +529,6 @@ fn rejects_an_ambiguous_document_profile_catalog() {
     assert!(error.contains("registered more than once"), "{error}");
     assert!(!root.join(".dli-evidence").exists());
     assert!(!root.join(".dli-cache").exists());
-}
-
-#[test]
-fn rejects_a_game_profile_that_the_ruleset_cannot_render() {
-    let root = temp("project-invalid-game-profile");
-    fs::write(root.join("world.dli"), "scope world\n").unwrap();
-    fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/games/french-deck/rules.json"),
-        root.join("rules.json"),
-    )
-    .unwrap();
-    fs::write(
-        root.join("profiles.json"),
-        r#"{
-          "profiles": [{
-            "target": "cards",
-            "name": "cards/invalid",
-            "version": 1,
-            "selects": {"sorts": ["card"], "relations": ["invented"]},
-            "renders": {
-              "card": {"id": "{missing}", "keep": ["invented"]}
-            },
-            "carries_provenance": "dev-metadata"
-          }]
-        }"#,
-    )
-    .unwrap();
-    write_manifest(
-        &root,
-        "[documents.world]\nsources = [\"world.dli\"]\n\
-         [games.deck]\nrules = \"rules.json\"\nprofiles = \"profiles.json\"\n",
-    );
-
-    let error = Project::load(&root).unwrap_err().to_string();
-    assert!(error.contains("selected relation `invented`"), "{error}");
-    assert!(error.contains("profiles.json"), "{error}");
-    assert!(!error.contains("rules.json is malformed"), "{error}");
-    assert!(!root.join(".dli-evidence").exists());
-    assert!(!root.join(".dli-cache").exists());
-}
-
-#[test]
-fn payload_handler_reads_project_owned_outline_context() {
-    let root = temp("project-payload-context");
-    fs::write(root.join("world.dli"), "scope world\n").unwrap();
-    fs::write(
-        root.join("outlines.yaml"),
-        "id: season-1\ntitle: Season One\nepisodes:\n  - id: e01\n    title: First\n    tryfail_beats:\n      - {id: promised, attempt: open-door, outcome: no-and}\n",
-    )
-    .unwrap();
-    write_manifest(
-        &root,
-        "[documents.world]\nsources = [\"world.dli\"]\n\
-         outlines = \"outlines.yaml\"\n",
-    );
-    let project = Project::load(&root).unwrap();
-    let source = "draft";
-    let request = serde_json::json!({
-        "dli": "0.5.1",
-        "id": "outline-context",
-        "op": "dli.check-draft",
-        "params": {
-            "document": "world",
-            "source": source,
-            "payload": {
-                "meta": {
-                    "episode": "e01",
-                    "source": {"sha256": source_hash(source)}
-                }
-            }
-        }
-    });
-    let typo = serde_json::json!({
-        "dli": "0.5.1",
-        "id": "outline-typo",
-        "op": "dli.payload-submit",
-        "params": {
-            "document": "world",
-            "source": source,
-            "payload": {
-                "meta": {
-                    "episode": "typo",
-                    "source": {
-                        "file": "draft.md",
-                        "sha256": source_hash(source),
-                        "words": 1
-                    },
-                    "extracted": "2026-07-26",
-                    "extractors": {"schema": "payload/v1", "fields": {}}
-                }
-            }
-        }
-    });
-    let mut output = Vec::new();
-    serve_project_io(
-        &mut Cursor::new(format!("{request}\n{typo}\n")),
-        &mut output,
-        project,
-    )
-    .unwrap();
-    let responses = String::from_utf8(output)
-        .unwrap()
-        .lines()
-        .map(|line| serde_json::from_str::<Value>(line).unwrap())
-        .collect::<Vec<_>>();
-    let response = &responses[0];
-    let codes = response["result"]["findings"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|finding| finding["code"].as_str().unwrap())
-        .collect::<Vec<_>>();
-    assert!(codes.contains(&"outline.beat-unaccounted"), "{response}");
-    let typo_response = &responses[1];
-    assert_eq!(
-        typo_response["result"]["accepted"], false,
-        "{typo_response}"
-    );
-    assert!(
-        typo_response["result"]["payload_digest"].is_null(),
-        "{typo_response}"
-    );
-    assert!(
-        typo_response["result"]["findings"]
-            .as_array()
-            .is_some_and(|findings| findings
-                .iter()
-                .any(|finding| { finding["code"] == "payload.outline-episode-unknown" })),
-        "{typo_response}"
-    );
-}
-
-#[test]
-fn check_draft_consumes_caller_owned_runtime_continuity_context() {
-    let root = temp("project-runtime-continuity");
-    fs::write(
-        root.join("world.dli"),
-        "scope world\nratify D-0001\nplace anchor ratified D-0001\nfact anchor gender male ratified D-0001\n",
-    )
-    .unwrap();
-    write_manifest(&root, "[documents.world]\nsources = [\"world.dli\"]\n");
-    let source = "draft";
-    let request = serde_json::json!({
-        "dli": "0.5.1",
-        "id": "runtime-continuity",
-        "op": "dli.check-draft",
-        "params": {
-            "document": "world",
-            "source": source,
-            "payload": {
-                "meta": {"source": {"sha256": source_hash(source)}}
-            },
-            "continuity": {
-                "established": [
-                    {"predicate": "gender", "subject": "anchor", "value": "female"},
-                    {"predicate": "mood", "subject": "anchor", "value": "grim"}
-                ],
-                "references": ["ghost"],
-                "prior_facts": [
-                    {"predicate": "mood", "subject": "anchor", "value": "weary"}
-                ],
-                "closed_promises": ["unowed-debt"]
-            }
-        }
-    });
-
-    let response = serve_request(Project::load(&root).unwrap(), &request);
-    let findings = response["result"]["findings"].as_array().unwrap();
-    let codes = findings
-        .iter()
-        .map(|finding| finding["code"].as_str().unwrap())
-        .collect::<Vec<_>>();
-
-    assert!(
-        codes.contains(&"continuity.world-contradiction"),
-        "{response}"
-    );
-    assert!(codes.contains(&"continuity.unknown-entity"), "{response}");
-    assert_eq!(
-        codes
-            .iter()
-            .filter(|code| **code == "continuity.prior-contradiction")
-            .count(),
-        2,
-        "{response}"
-    );
-}
-
-#[test]
-fn payload_handler_uses_project_finding_policy() {
-    let root = temp("project-payload-finding-policy");
-    fs::write(root.join("world.dli"), "scope world\n").unwrap();
-    enable_craft_packs(&root, &["try-fail-cycles"]);
-    fs::write(
-        root.join("craft/finding-policy.toml"),
-        "[[rules]]\ncode = \"craft.accomplishment-earned\"\ncitations = [\"D-9999\"]\n",
-    )
-    .unwrap();
-    write_manifest(
-        &root,
-        "[documents.world]\nsources = [\"world.dli\"]\ncraft_config = \"craft\"\n",
-    );
-    let source = "triumph";
-    let request = serde_json::json!({
-        "dli": "0.5.1",
-        "id": "finding-policy",
-        "op": "dli.check-draft",
-        "params": {
-            "document": "world",
-            "source": source,
-            "payload": {
-                "meta": {
-                    "episode": "e01",
-                    "source": {"sha256": source_hash(source)}
-                },
-                "scenes": [{"id": "s1"}],
-                "beats": [{
-                    "id": "triumph",
-                    "scene": "s1",
-                    "kind": "accomplishment",
-                    "thread": "road",
-                    "magnitude": "major",
-                    "quote": source,
-                    "line": 1
-                }]
-            }
-        }
-    });
-    let response = serve_request(Project::load(&root).unwrap(), &request);
-    let finding = response["result"]["findings"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|finding| finding["code"] == "craft.accomplishment-earned")
-        .expect("craft finding");
-    assert_eq!(finding["citations"], serde_json::json!(["D-9999"]));
-    assert!(!response.to_string().contains("D-0128"), "{response}");
-}
-
-#[test]
-fn outline_policy_survives_check_submit_and_restart_replay() {
-    let root = temp("project-outline-finding-policy");
-    fs::write(root.join("world.dli"), "scope world\n").unwrap();
-    fs::write(
-        root.join("outlines.yaml"),
-        "id: season-1\ntitle: Season One\nepisodes:\n  - id: e01\n    title: First\n    tryfail_beats:\n      - {id: promised, attempt: open-door, outcome: no-and}\n",
-    )
-    .unwrap();
-    enable_craft_packs(&root, &["try-fail-cycles"]);
-    fs::write(
-        root.join("craft/finding-policy.toml"),
-        "[[rules]]\ncode = \"outline.beat-unaccounted\"\ncitations = [\"D-9999\"]\nseverity = \"warn\"\n",
-    )
-    .unwrap();
-    write_manifest(
-        &root,
-        "[documents.world]\nsources = [\"world.dli\"]\noutlines = \"outlines.yaml\"\ncraft_config = \"craft\"\n",
-    );
-
-    let source = "baseline";
-    let payload = serde_json::json!({
-        "meta": {
-            "episode": "e01",
-            "source": {
-                "file": "draft.md",
-                "sha256": source_hash(source),
-                "words": 1
-            },
-            "extracted": "2026-07-26",
-            "extractors": {"schema": "payload/v1", "fields": {}}
-        }
-    });
-    let check_draft = serde_json::json!({
-        "dli": "0.5.1",
-        "id": "outline-policy-check",
-        "op": "dli.check-draft",
-        "params": {
-            "document": "world",
-            "source": source,
-            "payload": payload.clone()
-        }
-    });
-    let checked = serve_request(Project::load(&root).unwrap(), &check_draft);
-    let checked_finding = checked["result"]["findings"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|finding| finding["code"] == "outline.beat-unaccounted")
-        .expect("outline finding");
-    assert_eq!(checked_finding["severity"], "warn", "{checked}");
-    assert_eq!(
-        checked_finding["citations"],
-        serde_json::json!(["D-9999"]),
-        "{checked}"
-    );
-
-    let submit = serde_json::json!({
-        "dli": "0.5.1",
-        "id": "outline-policy-submit",
-        "op": "dli.payload-submit",
-        "params": {
-            "document": "world",
-            "source": source,
-            "payload": payload
-        }
-    });
-    let submitted = serve_request(Project::load(&root).unwrap(), &submit);
-    assert_eq!(submitted["result"]["accepted"], true, "{submitted}");
-    assert!(
-        submitted["result"]["payload_digest"].is_string(),
-        "{submitted}"
-    );
-    assert_eq!(
-        submitted["result"]["findings"][0]["severity"], "warn",
-        "{submitted}"
-    );
-    assert_eq!(
-        submitted["result"]["findings"][0]["citations"],
-        serde_json::json!(["D-9999"]),
-        "{submitted}"
-    );
-
-    let check = serde_json::json!({
-        "dli": "0.5.1",
-        "id": "outline-policy-replay",
-        "op": "dli.check",
-        "params": {"document": "world"}
-    });
-    let replayed = serve_request(Project::load(&root).unwrap(), &check);
-    assert_eq!(replayed["result"]["ok"], true, "{replayed}");
-    let replayed_finding = replayed["result"]["findings"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|finding| finding["code"] == "outline.beat-unaccounted")
-        .expect("replayed outline finding");
-    assert_eq!(replayed_finding["domain"], "payload", "{replayed_finding}");
-    assert_eq!(replayed_finding["severity"], "warn", "{replayed_finding}");
-    assert_eq!(
-        replayed_finding["citations"],
-        serde_json::json!(["D-9999"]),
-        "{replayed_finding}"
-    );
-}
-
-#[test]
-fn document_check_replays_committed_payloads_after_restart() {
-    let root = temp("project-payload-replay");
-    enable_craft_packs(&root, &["try-fail-cycles"]);
-    fs::write(
-        root.join("world.dli"),
-        "scope world\n\nratify d-1\n\
-         place baseline \"Baseline\" decided d-1\n\
-         place marker \"Marker\" decided d-1\n\
-         place witness \"Witness\" decided d-1\n\
-         adjacent(baseline, marker) decided d-1\n\
-         adjacent(marker, witness) decided d-1\n",
-    )
-    .unwrap();
-    fs::write(
-        root.join("outlines.yaml"),
-        "id: season-1\ntitle: Season One\nepisodes:\n  - id: e01\n    title: First\n  - id: e02\n    title: Second\n",
-    )
-    .unwrap();
-    write_manifest(
-        &root,
-        "[documents.world]\nsources = [\"world.dli\"]\n\
-         outlines = \"outlines.yaml\"\n\
-         craft_config = \"craft\"\n",
-    );
-    let source = "baseline marker";
-    let submit = claim_payload_request(
-        source,
-        "e01",
-        "draft.md",
-        "adjacent(baseline, marker)",
-        source,
-        1,
-        '0',
-    );
-    let accepted = serve_request(Project::load(&root).unwrap(), &submit);
-    assert_eq!(accepted["result"]["accepted"], true, "{accepted}");
-    let payload_digest = accepted["result"]["payload_digest"].clone();
-
-    let second_quote = "marker witness";
-    let second_source = format!("\n\n\n{second_quote}");
-    let second_submit = claim_payload_request(
-        &second_source,
-        "e02",
-        "second.md",
-        "adjacent(marker, witness)",
-        second_quote,
-        4,
-        '1',
-    );
-    let second_accepted = serve_request(Project::load(&root).unwrap(), &second_submit);
-    assert_eq!(
-        second_accepted["result"]["accepted"], true,
-        "{second_accepted}"
-    );
-    let second_payload_digest = second_accepted["result"]["payload_digest"].clone();
-    assert_ne!(payload_digest, second_payload_digest);
-
-    fs::write(
-        root.join("outlines.yaml"),
-        "id: season-1\ntitle: Season One\nepisodes:\n  - id: e01\n    title: First\n    tryfail_beats:\n      - {id: promised, attempt: open-door, outcome: no-and}\n  - id: e02\n    title: Second\n",
-    )
-    .unwrap();
-    fs::write(root.join("world.dli"), "scope world\n").unwrap();
-    let check = serde_json::json!({
-        "dli": "0.5.1",
-        "id": "check",
-        "op": "dli.check",
-        "params": {"document": "world"}
-    });
-    let replayed = serve_request(Project::load(&root).unwrap(), &check);
-    assert_eq!(replayed["result"]["ok"], false, "{replayed}");
-    assert!(
-        replayed["result"]["findings"]
-            .as_array()
-            .is_some_and(|findings| findings
-                .iter()
-                .any(|finding| finding["code"] == "outline.beat-unaccounted")),
-        "{replayed}"
-    );
-    let findings = replayed["result"]["findings"]
-        .as_array()
-        .expect("check findings");
-    assert_payload_finding(findings, "draft.md", &payload_digest, "e01", 1, source);
-    assert_payload_finding(
-        findings,
-        "second.md",
-        &second_payload_digest,
-        "e02",
-        4,
-        second_quote,
-    );
 }
 
 #[cfg(unix)]

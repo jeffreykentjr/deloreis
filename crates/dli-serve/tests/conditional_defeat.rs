@@ -182,7 +182,7 @@ fn predicate_claim_id(store: &dli_lorestore::Lorestore, predicate: &str) -> Stri
 fn query_predicate(store: &mut Store, workspace: &str, id: &str, predicate: &str) -> Value {
     result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             id,
             Op::AuthorQuery,
             json!({
@@ -198,7 +198,7 @@ fn query_predicate(store: &mut Store, workspace: &str, id: &str, predicate: &str
 fn why_predicate(store: &mut Store, workspace: &str, id: &str, predicate: &str) -> Value {
     result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             id,
             Op::AuthorWhy,
             json!({
@@ -238,7 +238,7 @@ fn assert_named_standings(store: &dli_lorestore::Lorestore, expected: &[(&str, b
 fn author_query(store: &mut Store, workspace: &str, id: &str) -> Value {
     result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             id,
             Op::AuthorQuery,
             json!({
@@ -254,7 +254,7 @@ fn author_query(store: &mut Store, workspace: &str, id: &str) -> Value {
 fn author_why(store: &mut Store, workspace: &str, id: &str) -> Value {
     result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             id,
             Op::AuthorWhy,
             json!({
@@ -276,7 +276,7 @@ fn defeat(
 ) {
     let defeated = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             id,
             Op::AuthorDefeat,
             json!({
@@ -298,7 +298,7 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
     let lorestore = dli_lorestore::Lorestore::open(path.clone()).unwrap();
     let d1_claim = claim_id(&lorestore, None, "mara");
     let workspace = result(dispatch(
-        &request("1.13.0", "open", Op::AuthorOpen, json!({"scope": "demo"})),
+        &request("2.0.0", "open", Op::AuthorOpen, json!({"scope": "demo"})),
         &mut store,
     ))["workspace"]
         .as_str()
@@ -334,7 +334,7 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
     );
     let blocked_why = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "why1",
             Op::AuthorWhy,
             json!({
@@ -362,7 +362,7 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
     let restored = author_query(&mut store, &workspace, "q2");
     let restored_why = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "why2",
             Op::AuthorWhy,
             json!({
@@ -401,7 +401,7 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
     );
     let reblocked_why = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "why3",
             Op::AuthorWhy,
             json!({
@@ -475,7 +475,7 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
         .unwrap();
     let mut sessions = Sessions::from_project(Arc::clone(&project));
     let frame = json!({
-        "dli": "1.13.0",
+        "dli": "2.0.0",
         "id": "reopen",
         "op": "dli.query",
         "params": {
@@ -493,7 +493,7 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
             .is_empty()
     );
     let reopened_open = json!({
-        "dli": "1.13.0", "id": "author-reopen", "op": "author.open",
+        "dli": "2.0.0", "id": "author-reopen", "op": "author.open",
         "params": {"scope": "demo"}
     });
     let reopened_open = respond(&reopened_open.to_string(), &mut sessions, &mut author).unwrap();
@@ -503,7 +503,7 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
         .to_owned();
     let reopened_why = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "author-why-reopen",
             Op::AuthorWhy,
             json!({
@@ -524,7 +524,7 @@ fn nested_defeat_restores_and_reopens_without_false_ref_bits() {
         .set_compile_cache_enabled(false);
     let reopened_miss = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "author-why-reopen-miss",
             Op::AuthorWhy,
             json!({
@@ -548,14 +548,14 @@ fn stale_sibling_bulk_installs_the_current_attack_valuation() {
     let target_claim = claim_id(&lorestore, None, "mara");
 
     let first = result(dispatch(
-        &request("1.13.0", "open-a", Op::AuthorOpen, json!({"scope": "demo"})),
+        &request("2.0.0", "open-a", Op::AuthorOpen, json!({"scope": "demo"})),
         &mut store,
     ))["workspace"]
         .as_str()
         .unwrap()
         .to_owned();
     let stale = result(dispatch(
-        &request("1.13.0", "open-b", Op::AuthorOpen, json!({"scope": "demo"})),
+        &request("2.0.0", "open-b", Op::AuthorOpen, json!({"scope": "demo"})),
         &mut store,
     ))["workspace"]
         .as_str()
@@ -594,7 +594,7 @@ fn stale_sibling_bulk_installs_the_current_attack_valuation() {
 
     let bulk = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "bulk",
             Op::AuthorRecordDecisions,
             json!({"workspace": stale, "records": [{"decision": "d3"}]}),
@@ -610,7 +610,7 @@ fn stale_sibling_bulk_installs_the_current_attack_valuation() {
     let stale_rows = author_query(&mut store, &stale, "stale-query")["rows"].clone();
     let fresh = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "open-c",
             Op::AuthorOpen,
             json!({"scope": "demo", "branch": "main"}),
@@ -683,7 +683,7 @@ fn duplicate_projected_blocked_paths_still_report_the_global_blocker() {
     let p_claim = predicate_claim_id(&lorestore, "p");
     let workspace = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "open-projected",
             Op::AuthorOpen,
             json!({"scope": "demo", "branch": "main"}),
@@ -720,7 +720,7 @@ fn author_why_is_pinned_to_each_branch_workspace_root() {
     let claim = claim_id(&lorestore, None, "mara");
     let main_workspace = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "open-main",
             Op::AuthorOpen,
             json!({"scope": "demo"}),
@@ -732,7 +732,7 @@ fn author_why_is_pinned_to_each_branch_workspace_root() {
         .to_owned();
     result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "create-rival",
             Op::AuthorBranch,
             json!({
@@ -746,7 +746,7 @@ fn author_why_is_pinned_to_each_branch_workspace_root() {
     ));
     let rival_workspace = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "open-rival",
             Op::AuthorOpen,
             json!({"scope": "demo", "branch": "rival"}),
@@ -767,7 +767,7 @@ fn author_why_is_pinned_to_each_branch_workspace_root() {
 
     let rival_why = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "why-rival",
             Op::AuthorWhy,
             json!({
@@ -795,7 +795,7 @@ fn author_why_is_pinned_to_each_branch_workspace_root() {
 
     let main_why = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "why-main",
             Op::AuthorWhy,
             json!({
@@ -897,7 +897,7 @@ fn contract_1_13_unknown_atom_has_explicit_empty_explanation_arrays() {
     let (_root, mut store, _path) = fixture();
     let workspace = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "open-unknown",
             Op::AuthorOpen,
             json!({"scope": "demo"}),
@@ -925,7 +925,7 @@ fn self_mutual_and_odd_cycles_are_possible_end_to_end() {
         let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
         let workspace = result(dispatch(
             &request(
-                "1.13.0",
+                "2.0.0",
                 &format!("open-{name}"),
                 Op::AuthorOpen,
                 json!({"scope": "demo"}),
@@ -958,7 +958,7 @@ fn self_mutual_and_odd_cycles_are_possible_end_to_end() {
         let mut sessions = Sessions::from_project(Arc::new(project));
         let mut author = Store::default();
         let frame = json!({
-            "dli": "1.13.0", "id": format!("reopen-{name}"), "op": "dli.query",
+            "dli": "2.0.0", "id": format!("reopen-{name}"), "op": "dli.query",
             "params": {"document": "demo", "goal_atom": {"pred": "rank", "args": [{"Sym": "mara"}, {"Sym": "gold"}]}, "layer": "all"}
         });
         let reopened = respond(&frame.to_string(), &mut sessions, &mut author).unwrap();
@@ -970,7 +970,7 @@ fn self_mutual_and_odd_cycles_are_possible_end_to_end() {
         if name == "odd" {
             for format in ["objects", "canon"] {
                 let export = json!({
-                    "dli": "1.13.0", "id": format!("export-{format}"),
+                    "dli": "2.0.0", "id": format!("export-{format}"),
                     "op": "dli.corpus.export",
                     "params": {"document": "demo", "format": format}
                 });
@@ -1027,7 +1027,7 @@ fn depths_one_two_four_and_eight_alternate_deterministically() {
         let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
         let workspace = result(dispatch(
             &request(
-                "1.13.0",
+                "2.0.0",
                 &format!("open-{depth}"),
                 Op::AuthorOpen,
                 json!({"scope": "demo"}),
@@ -1071,7 +1071,7 @@ fn defeat_idempotency_replay_does_not_advance_the_ref() {
     let claim = claim_id(&lorestore, None, "mara");
     let workspace = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "open-idem",
             Op::AuthorOpen,
             json!({"scope": "demo"}),
@@ -1082,7 +1082,7 @@ fn defeat_idempotency_replay_does_not_advance_the_ref() {
         .unwrap()
         .to_owned();
     let mut frame = request(
-        "1.13.0",
+        "2.0.0",
         "idem",
         Op::AuthorDefeat,
         json!({
@@ -1119,7 +1119,7 @@ fn multiple_attackers_are_order_independent_end_to_end() {
         let claim = claim_id(&lorestore, None, "mara");
         let workspace = result(dispatch(
             &request(
-                "1.13.0",
+                "2.0.0",
                 "open-order",
                 Op::AuthorOpen,
                 json!({"scope": "demo"}),
@@ -1172,7 +1172,7 @@ fn real_rule_propagation_matrix_separates_derivation_depth_from_attack_depth() {
             let p_claim = predicate_claim_id(&lorestore, "p");
             let workspace = result(dispatch(
                 &request(
-                    "1.13.0",
+                    "2.0.0",
                     "open-propagation",
                     Op::AuthorOpen,
                     json!({"scope": "demo"}),
@@ -1353,7 +1353,7 @@ fn multiple_attackers_require_every_live_attack_to_be_defeated() {
     let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
     let workspace = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "open-multi",
             Op::AuthorOpen,
             json!({"scope": "demo"}),
@@ -1405,7 +1405,7 @@ fn all_redundant_paths_report_their_distinct_direct_blockers() {
     let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
     let workspace = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "open-distinct",
             Op::AuthorOpen,
             json!({"scope": "demo"}),
@@ -1490,7 +1490,7 @@ fn possible_alternative_prevents_a_blocked_path_from_becoming_a_global_blocker()
     let p_claim = predicate_claim_id(&lorestore, "p");
     let workspace = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "open-mixed",
             Op::AuthorOpen,
             json!({"scope": "demo"}),
@@ -1550,7 +1550,7 @@ fn six_legal_declaration_and_attack_orders_have_exact_named_standing() {
         let lorestore = dli_lorestore::Lorestore::open(path).unwrap();
         let workspace = result(dispatch(
             &request(
-                "1.13.0",
+                "2.0.0",
                 &format!("open-order-{case}"),
                 Op::AuthorOpen,
                 json!({"scope": "demo"}),
@@ -1652,7 +1652,7 @@ fn ingest_accepted_fact(
 ) {
     let added = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             &format!("add-accepted-{id}"),
             Op::AuthorAddFact,
             json!({
@@ -1672,7 +1672,7 @@ fn ingest_accepted_fact(
     );
     let materialized = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             &format!("materialize-accepted-{id}"),
             Op::AuthorMaterialize,
             json!({"workspace": workspace, "rendered": false, "decision": decision}),
@@ -1699,7 +1699,7 @@ fn stage_cited_fact(
 ) {
     let added = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             &format!("add-{id}"),
             Op::AuthorAddFact,
             json!({
@@ -1726,7 +1726,7 @@ fn stage_cited_fact(
 fn materialize_cited_facts(store: &mut Store, workspace: &str) {
     let materialized = result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             "materialize-cited-facts",
             Op::AuthorMaterialize,
             json!({"workspace": workspace, "rendered": false}),
@@ -1754,7 +1754,7 @@ fn explanation_fields(why: &Value) -> Value {
 fn why_attribute(store: &mut Store, workspace: &str, id: &str, key: &str, value: &str) -> Value {
     result(dispatch(
         &request(
-            "1.13.0",
+            "2.0.0",
             id,
             Op::AuthorWhy,
             json!({
@@ -1810,7 +1810,7 @@ fn six_persisted_compile_skews_keep_exact_name_explanations_byte_identical() {
         let (_root, mut author, path) = skew_fixture();
         let workspace = result(dispatch(
             &request(
-                "1.13.0",
+                "2.0.0",
                 &format!("open-skew-{case}"),
                 Op::AuthorOpen,
                 json!({"scope": "demo"}),
@@ -1984,7 +1984,7 @@ fn fresh_workspace_observes_defeat_without_changing_existing_snapshot() {
     let target = claim_id(&lorestore, None, "mara");
     let open = |store: &mut Store, id: &str| {
         result(dispatch(
-            &request("1.13.0", id, Op::AuthorOpen, json!({"scope": "demo"})),
+            &request("2.0.0", id, Op::AuthorOpen, json!({"scope": "demo"})),
             store,
         ))["workspace"]
             .as_str()
