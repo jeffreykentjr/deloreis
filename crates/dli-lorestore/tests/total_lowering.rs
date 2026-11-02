@@ -463,3 +463,40 @@ fn lower_decl_parity_on_gated_and_malformed_shapes() {
         "per-decl lowering must keep the interner in lock-step with the loader"
     );
 }
+
+#[test]
+fn era_order_reopens_with_symbolic_support() {
+    let source = "scope storybook\nratify d-0001\nratify d-0002\nera early < late ratified d-0001\nevent first during early ratified d-0001\nevent second during late ratified d-0002\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics.iter().all(|d| !d.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let pack = dli_world::pack::Pack {
+        name: "storybook".to_owned(),
+        documents: vec![document],
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let store = dli_lorestore::Lorestore::open(dir.path().to_owned()).unwrap();
+    store.ensure_pack_imported(&pack).unwrap();
+    let head = store.root_hash().unwrap().unwrap();
+    drop(store);
+    let reopened = dli_lorestore::Lorestore::open(dir.path().to_owned()).unwrap();
+    let mut world = reopened.compile_at(&head).unwrap();
+    let first = world.model.world.time_points.lookup("first").unwrap().0;
+    let second = world.model.world.time_points.lookup("second").unwrap().0;
+    let ordered = |world: &dli_world::CompiledWorld| {
+        world
+            .model
+            .chronology_with_era_membership()
+            .edges
+            .iter()
+            .any(|(a, b)| a.0 == first && b.0 == second)
+    };
+    assert!(ordered(&world));
+    let decision = world.model.world.interner.lookup("d-0002").unwrap();
+    world.model.world.valuation.set(decision, false);
+    assert!(!ordered(&world));
+    world.model.world.valuation.set(decision, true);
+    assert!(ordered(&world));
+}

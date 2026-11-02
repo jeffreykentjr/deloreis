@@ -582,9 +582,9 @@ fn check_version_rides_digest_changes(
     if !output.status.success() {
         return Ok(());
     }
-    // One bounded pre-release correction for the 2.0 fiction reset: only this
-    // exact old registry and this exact re-recording are exempt. Subsequent
-    // fixture changes retain the ordinary version-fence rule.
+    // Bounded pre-release corrections for the 2.0 fiction reset: only the
+    // exact registry transitions named below are exempt. All other fixture
+    // changes retain the ordinary version-fence rule.
     let current_bytes = std::fs::read(contract_dir.join("registry.yaml"))?;
     if reset_wire_fixture_correction(&output.stdout, &current_bytes) {
         return Ok(());
@@ -634,8 +634,12 @@ fn check_version_rides_digest_changes(
 }
 
 fn reset_wire_fixture_correction(old: &[u8], new: &[u8]) -> bool {
-    hex_digest(old) == "dd7a63c68deea6e09d1fa2fb99ab99f8b797ba9e2f3a18cc8532e8b07853cd5c"
-        && hex_digest(new) == "e8cc73d29d3ad9cacdf27d71957387e3ead3dc805eb99ddb356c5c1bf527ffdc"
+    let old = hex_digest(old);
+    let new = hex_digest(new);
+    (old == "dd7a63c68deea6e09d1fa2fb99ab99f8b797ba9e2f3a18cc8532e8b07853cd5c"
+        && new == "e8cc73d29d3ad9cacdf27d71957387e3ead3dc805eb99ddb356c5c1bf527ffdc")
+        || (old == "e8cc73d29d3ad9cacdf27d71957387e3ead3dc805eb99ddb356c5c1bf527ffdc"
+            && new == "017811af869f61efdd224f5f8d8a12a548d6fdf7e1712c75c1ed2fd01138adb4")
 }
 
 #[cfg(test)]

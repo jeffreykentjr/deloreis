@@ -127,10 +127,13 @@ fn load_finding_to_world(finding: &LoadFinding) -> WorldFinding {
 /// (`era a < b < a`) is a first-class finding — not silently accepted — and the
 /// finding is blamed on the exact edges and their declaring rulings.
 fn chronology_cycle(world: &CompiledWorld) -> Vec<WorldFinding> {
-    let chronology = &world.model.world.chronology;
-    let Some(blame) = chronology.find_cycle(&world.model.chronology_anns) else {
+    let certain = world.model.chronology_with_era_membership();
+    let Some(mut blame) = certain.find_cycle(&[]) else {
         return Vec::new();
     };
+    for edge in &mut blame.cycle {
+        edge.ann = world.model.certain_edge_annotation(edge.before, edge.after);
+    }
     let time_points = &world.model.world.time_points;
     let interner = &world.model.world.interner;
 
@@ -149,7 +152,12 @@ fn chronology_cycle(world: &CompiledWorld) -> Vec<WorldFinding> {
     let mut citations: Vec<String> = Vec::new();
     for edge in &blame.cycle {
         if let Some(ann) = &edge.ann {
-            for citation in ann_citations(ann, interner) {
+            for citation in active_ann_citations(
+                ann,
+                interner,
+                &world.model.world.valuation,
+                &world.model.world.theory,
+            ) {
                 if !citations.contains(&citation) {
                     citations.push(citation);
                 }
@@ -175,6 +183,31 @@ fn point_name(time_points: &Interner, point: dli_time::chronology::TimePoint) ->
     time_points
         .resolve(Atom(point.0))
         .map_or_else(|| format!("#{}", point.0), ToOwned::to_owned)
+}
+
+/// Names from support paths that actually establish the edge under the
+/// current valuation. Dead or merely possible alternatives are not blame.
+fn active_ann_citations(
+    ann: &Ann,
+    interner: &Interner,
+    valuation: &dli_core::valuation::Valuation,
+    theory: &dli_core::ann::Theory,
+) -> Vec<String> {
+    let mut names = Vec::new();
+    for monomial in ann
+        .support
+        .monomials()
+        .filter(|m| ann.support_path_is_active(m, valuation, theory))
+    {
+        for lit in monomial.lits() {
+            if let Some(name) = interner.resolve(lit.atom)
+                && !names.contains(&name.to_owned())
+            {
+                names.push(name.to_owned());
+            }
+        }
+    }
+    names
 }
 
 /// The decision variables an ordering ruling's support rests on, resolved to
@@ -802,7 +835,8 @@ fn fluent_clash(
     timeline: &FluentTimeline<String>,
     inertial: Option<&Ann>,
 ) -> Option<(TimePoint, Vec<String>)> {
-    let chronology = &world.model.world.chronology;
+    let chronology = world.model.chronology_with_era_membership();
+    let chronology = &chronology;
     let valuation = &world.model.world.valuation;
     let theory = &world.model.world.theory;
     for at in fluent_sweep_points(world) {
@@ -866,7 +900,8 @@ fn fluent_order_gap(
     timeline: &FluentTimeline<String>,
     inertial: Option<&Ann>,
 ) -> Option<WorldFinding> {
-    let chronology = &world.model.world.chronology;
+    let chronology = world.model.chronology_with_era_membership();
+    let chronology = &chronology;
     let valuation = &world.model.world.valuation;
     let theory = &world.model.world.theory;
     let certain: Vec<&dli_time::fluent::Span<String>> = timeline
@@ -1018,7 +1053,8 @@ fn fluent_finding_data(
     inertial: Option<&Ann>,
 ) -> serde_json::Value {
     let interner = &world.model.world.time_points;
-    let chronology = &world.model.world.chronology;
+    let chronology = world.model.chronology_with_era_membership();
+    let chronology = &chronology;
     let valuation = &world.model.world.valuation;
     let theory = &world.model.world.theory;
     let capping = inertial.is_some_and(|ann| ann.status(valuation, theory) == Status::Certain);
@@ -1179,7 +1215,8 @@ pub fn slot_state_at(
 ) -> SlotStateAt {
     let canon = identity_canon(world);
     let slot = canon_slot(world, &canon, &(pred.to_owned(), subject.to_owned()));
-    let chronology = &world.model.world.chronology;
+    let chronology = world.model.chronology_with_era_membership();
+    let chronology = &chronology;
     let valuation = &world.model.world.valuation;
     let theory = &world.model.world.theory;
     let citation_interner = &world.model.world.interner;

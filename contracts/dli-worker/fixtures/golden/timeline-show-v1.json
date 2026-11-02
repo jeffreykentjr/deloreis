@@ -14,8 +14,6 @@
               "points": [
                 "uthers-time",
                 "the-sword-drawn",
-                "the-round-table-founded",
-                "the-grail-quest",
                 "the-speaking-day",
                 "the-warning"
               ],
@@ -24,13 +22,15 @@
             {
               "points": [
                 "arthurs-reign",
-                "the-battle-of-camlann"
+                "the-round-table-founded",
+                "the-grail-quest"
               ],
               "rank": 1
             },
             {
               "points": [
-                "after-camlann"
+                "after-camlann",
+                "the-battle-of-camlann"
               ],
               "rank": 2
             }
@@ -107,8 +107,6 @@
               "points": [
                 "uthers-time",
                 "the-sword-drawn",
-                "the-round-table-founded",
-                "the-grail-quest",
                 "the-speaking-day",
                 "the-warning"
               ],
@@ -117,13 +115,15 @@
             {
               "points": [
                 "arthurs-reign",
-                "the-battle-of-camlann"
+                "the-round-table-founded",
+                "the-grail-quest"
               ],
               "rank": 1
             },
             {
               "points": [
-                "after-camlann"
+                "after-camlann",
+                "the-battle-of-camlann"
               ],
               "rank": 2
             }

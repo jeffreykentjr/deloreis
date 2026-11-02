@@ -173,3 +173,23 @@ colliding names are refused, and normal finding checks apply to outcome text.
 
 **Rationale.** A fiction author needs rival accounts to retain separate,
 replayable support, without losing options on commit or aliasing alternatives.
+
+## DL-0110 — Preserve standing in era-derived chronology
+
+*Date: 2026-11-02*
+
+**Attribution:** machine.
+
+**Ruling.** Events placed during ordered eras inherit symbolic precedence from
+both memberships and the complete era-order path. Alternative paths retain
+conditioned support and defeaters. A possible path must be jointly compatible
+with the constraint theory. Timeline reads and fluent projections use certain
+precedence; hard chronology-cycle findings require a certain cycle and retain
+its supporting rulings. Possible precedence remains available to the
+standing-aware order reader. These judgments re-evaluate after valuation changes
+and replay from stored declarations. Permit only the exact pre-release
+fixture-registry transition in `xtask/src/fixtures.rs` for the two recaptured
+timeline responses; all other fixture changes retain the version fence.
+
+**Rationale.** Story-time order must not turn a draft or defeated placement
+into certain chronology, hide a conflict, or lose its evidence after replay.

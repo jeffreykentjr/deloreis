@@ -798,7 +798,9 @@ fn handle_timeline_show(request: &Request, sessions: &mut Sessions) -> Result<Re
         .map(|episodes| fold(&episodes).placements().to_vec())
         .unwrap_or_default();
     let scope = resolve(sessions, &p.document)?;
-    let world = &scope.world.model.world;
+    let mut projected_world = scope.world.model.world.clone();
+    projected_world.chronology = scope.world.model.chronology_with_era_membership();
+    let world = &projected_world;
     let points = time_universe(world);
     let (layers, cycle) = match world.chronology.topological_layers(&points) {
         Ok(layers) => (
@@ -878,7 +880,9 @@ fn handle_timeline_show(request: &Request, sessions: &mut Sessions) -> Result<Re
 fn handle_timeline_order(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: TimelineOrderParams = params(request)?;
     let scope = resolve(sessions, &p.document)?;
-    let world = &scope.world.model.world;
+    let mut projected_world = scope.world.model.world.clone();
+    projected_world.chronology = scope.world.model.chronology_with_era_membership();
+    let world = &projected_world;
     if let Some(blame) = world.chronology.find_cycle(&[]) {
         return Ok(ok_response(
             request,

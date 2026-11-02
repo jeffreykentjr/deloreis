@@ -370,6 +370,28 @@ impl LoadFinding {
     }
 }
 
+/// A provenance-bearing assertion that an event occurs during an era.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct EraMembership {
+    /// Event in the era.
+    pub event: dli_time::chronology::TimePoint,
+    /// Era containing the event.
+    pub era: dli_time::chronology::TimePoint,
+    /// Support for this membership.
+    pub ann: Ann,
+}
+
+/// One symbolically inferred precedence between eras and its complete support.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct EraEdge {
+    /// Earlier era.
+    pub earlier: dli_time::chronology::TimePoint,
+    /// Later era.
+    pub later: dli_time::chronology::TimePoint,
+    /// Symbolic support, including every alternative derivation.
+    pub ann: Ann,
+}
+
 /// A compiled world model: the evaluable world, its authoring tables, and the
 /// compiled provenance container.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -400,6 +422,12 @@ pub struct WorldModel {
     /// serialized before this field round-trips.
     #[serde(default)]
     pub chronology_anns: Vec<Ann>,
+    /// Event-in-era assertions, kept symbolic until read under a valuation.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub era_memberships: Vec<EraMembership>,
+    /// Symbolic order among eras with event memberships.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub inferred_era_edges: Vec<EraEdge>,
     /// Per-slot fluent timelines, keyed by the `(pred, subject)` slot a `state`
     /// declaration lowers to. A `state s.p = v [since/until …]` pushes a
     /// [`Span`](dli_time::fluent::Span) here carrying `v`, its interval anchors,
@@ -442,6 +470,153 @@ pub struct WorldModel {
 }
 
 impl WorldModel {
+    /// Visit inferred event edges, combining both memberships with the era path.
+    fn for_each_inferred_edge(
+        &self,
+        mut visit: impl FnMut(dli_time::chronology::TimePoint, dli_time::chronology::TimePoint, Ann),
+    ) {
+        use dli_eval::world::conjoin_annotations;
+        let mut by_era: BTreeMap<u32, Vec<&EraMembership>> = BTreeMap::new();
+        for member in &self.era_memberships {
+            by_era.entry(member.era.0).or_default().push(member);
+        }
+        for path in &self.inferred_era_edges {
+            for first in by_era.get(&path.earlier.0).into_iter().flatten() {
+                let prefix = conjoin_annotations(&first.ann, &path.ann);
+                for second in by_era.get(&path.later.0).into_iter().flatten() {
+                    visit(
+                        first.event,
+                        second.event,
+                        conjoin_annotations(&prefix, &second.ann),
+                    );
+                }
+            }
+        }
+    }
+
+    /// Visit all distinct edges, joining alternatives when the same pair can
+    /// be obtained more than once. The common case has one membership per
+    /// event, so inferred pairs can be streamed without storing them.
+    fn for_each_order_edge(
+        &self,
+        mut visit: impl FnMut(dli_time::chronology::TimePoint, dli_time::chronology::TimePoint, Ann),
+    ) {
+        use dli_eval::world::disjoin_annotations;
+        use dli_time::chronology::TimePoint;
+        let mut buffered: BTreeMap<(u32, u32), Ann> = BTreeMap::new();
+        for (index, &(a, b)) in self.world.chronology.edges.iter().enumerate() {
+            let ann = self
+                .chronology_anns
+                .get(index)
+                .cloned()
+                .unwrap_or_else(Ann::unconditional);
+            buffered
+                .entry((a.0, b.0))
+                .and_modify(|old| *old = disjoin_annotations(old, &ann))
+                .or_insert(ann);
+        }
+        let mut events = BTreeSet::new();
+        let mut repeated_events = BTreeSet::new();
+        for member in &self.era_memberships {
+            if !events.insert(member.event.0) {
+                repeated_events.insert(member.event.0);
+            }
+        }
+        self.for_each_inferred_edge(|a, b, ann| {
+            let key = (a.0, b.0);
+            if repeated_events.contains(&a.0)
+                || repeated_events.contains(&b.0)
+                || buffered.contains_key(&key)
+            {
+                buffered
+                    .entry(key)
+                    .and_modify(|old| *old = disjoin_annotations(old, &ann))
+                    .or_insert(ann);
+            } else {
+                visit(a, b, ann);
+            }
+        });
+        for ((a, b), ann) in buffered {
+            visit(TimePoint(a), TimePoint(b), ann);
+        }
+    }
+
+    /// All authored and inferred edges with their matching annotations.
+    /// This expands event pairs on demand; the stored model remains compact.
+    #[must_use]
+    pub fn annotated_chronology(&self) -> (dli_time::chronology::Chronology, Vec<Ann>) {
+        let mut graph = dli_time::chronology::Chronology::default();
+        let mut anns = Vec::new();
+        self.for_each_order_edge(|earlier, later, ann| {
+            graph.edges.push((earlier, later));
+            anns.push(ann);
+        });
+        (graph, anns)
+    }
+
+    /// Only precedence that is certain under the current valuation.
+    #[must_use]
+    pub fn chronology_with_era_membership(&self) -> dli_time::chronology::Chronology {
+        use dli_core::ann::Status;
+        let mut graph = dli_time::chronology::Chronology::default();
+        self.for_each_order_edge(|earlier, later, ann| {
+            if ann.status(&self.world.valuation, &self.world.theory) == Status::Certain {
+                graph.edges.push((earlier, later));
+            }
+        });
+        graph
+    }
+
+    /// Certain support for one edge, including all independent authored and inferred paths.
+    #[must_use]
+    pub fn certain_edge_annotation(
+        &self,
+        earlier: dli_time::chronology::TimePoint,
+        later: dli_time::chronology::TimePoint,
+    ) -> Option<Ann> {
+        use dli_core::ann::Status;
+        use dli_eval::world::{conjoin_annotations, disjoin_annotations};
+        let mut result: Option<Ann> = None;
+        let mut add = |ann: Ann| {
+            result = Some(
+                result
+                    .as_ref()
+                    .map_or_else(|| ann.clone(), |old| disjoin_annotations(old, &ann)),
+            );
+        };
+        for (index, &(a, b)) in self.world.chronology.edges.iter().enumerate() {
+            if a == earlier && b == later {
+                add(self
+                    .chronology_anns
+                    .get(index)
+                    .cloned()
+                    .unwrap_or_else(Ann::unconditional));
+            }
+        }
+        for first in self
+            .era_memberships
+            .iter()
+            .filter(|member| member.event == earlier)
+        {
+            for second in self
+                .era_memberships
+                .iter()
+                .filter(|member| member.event == later)
+            {
+                for path in self
+                    .inferred_era_edges
+                    .iter()
+                    .filter(|edge| edge.earlier == first.era && edge.later == second.era)
+                {
+                    let prefix = conjoin_annotations(&first.ann, &path.ann);
+                    add(conjoin_annotations(&prefix, &second.ann));
+                }
+            }
+        }
+        result
+            .filter(|ann| ann.status(&self.world.valuation, &self.world.theory) == Status::Certain)
+    }
+
     /// The entities observed in the world.
     #[must_use]
     pub fn entities(&self) -> &[EntityEntry] {

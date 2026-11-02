@@ -240,7 +240,12 @@ proposed edge — it holds only if that ruling lands; and **unordered-under-unce
 when no path relates the pair under any standing. A merely-proposed `before`-fact
 thus yields *possibly-before*, never a hard *before* — the same discipline the
 projection of §2 already applies to fluents, now applied to the order relation
-that anchors them.
+that anchors them. Event order inferred from `during` memberships retains the
+support of both memberships and the entire era-order path. A path is possible
+only if its combined support is jointly consistent with the constraint theory.
+Timeline reads and fluent projections use the certain graph; hard cycle
+findings require a certain cycle and name its supporting rulings. Possible
+precedence remains available to the standing-aware order reader.
 
 ---
 

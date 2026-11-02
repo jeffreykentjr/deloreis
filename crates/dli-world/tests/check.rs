@@ -1311,7 +1311,11 @@ fn a_contradictory_era_spine_is_a_first_class_cycle_finding() {
     // the chain head-exclusive (name `a`, chain `[b, a]`); prepending the head
     // makes both the a→b and b→a edges exist, so the SAME cycle detection the
     // `before`-graph uses reports it — never the old silent clean exit.
-    let world = compile(&pack("h", vec![era("a", &["b", "a"], "d-0001")])).expect("compiles");
+    let world = compile(&pack(
+        "h",
+        vec![ratify_decl("d-0001"), era("a", &["b", "a"], "d-0001")],
+    ))
+    .expect("compiles");
     let cycles: Vec<_> = check::run(&world)
         .into_iter()
         .filter(|f| f.code == "continuity.chronology-cycle")
@@ -1332,7 +1336,12 @@ fn a_two_chain_era_contradiction_is_caught_and_blamed_on_both_rulings() {
     // (d-0002). Neither chain is a cycle alone; together they contradict.
     let world = compile(&pack(
         "h",
-        vec![era("a", &["b"], "d-0001"), era("b", &["a"], "d-0002")],
+        vec![
+            ratify_decl("d-0001"),
+            ratify_decl("d-0002"),
+            era("a", &["b"], "d-0001"),
+            era("b", &["a"], "d-0002"),
+        ],
     ))
     .expect("compiles");
     let cycles: Vec<_> = check::run(&world)

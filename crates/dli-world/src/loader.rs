@@ -464,6 +464,17 @@ impl LoadCtx {
             true,
             entity.name.span,
         );
+        if entity.kind == EntityKind::Event
+            && let Some(TimeClause::During(era)) = &entity.time
+        {
+            let event = self.time_point(&entity.name.text);
+            let era = self.time_point(&era.text);
+            self.wm.era_memberships.push(crate::model::EraMembership {
+                event,
+                era,
+                ann: compiled.ann.clone(),
+            });
+        }
         // Lift the era-order chain onto the chronology exactly as the evaluator
         // does (defect F), INCLUDING its declared head. The parser hands us the
         // run *after* the entity name (`era a < b < c` → name `a`, chain

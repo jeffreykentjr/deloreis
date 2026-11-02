@@ -1503,3 +1503,23 @@ fn typo_hints_do_not_treat_untyped_values_as_entities() {
     let output = bin().arg("check").arg(&doc).output().unwrap();
     assert!(output.status.success(), "{}", stdout(&output));
 }
+
+#[test]
+fn timeline_orders_certain_events_in_ordered_eras() {
+    let output = bin()
+        .args(["timeline", "show", "--corpus"])
+        .arg(camelot())
+        .args(["--at", "the-sword-drawn"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let text = stdout(&output);
+    let cursor = text
+        .lines()
+        .find(|line| line.starts_with("at the-sword-drawn:"))
+        .unwrap();
+    assert!(
+        cursor.contains("before [the-round-table-founded, the-grail-quest"),
+        "{cursor}"
+    );
+}

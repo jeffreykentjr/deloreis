@@ -134,3 +134,16 @@ proptest! {
         prop_assert_eq!(chrono.precedes(tp(p), tp(p)), TemporalVerdict::Unordered);
     }
 }
+
+#[test]
+fn topological_layers_reject_self_cycles() {
+    let chronology = Chronology {
+        edges: vec![(TimePoint(0), TimePoint(0))],
+    };
+    let blame = chronology
+        .topological_layers(&[])
+        .expect_err("a self edge is a cycle");
+    assert_eq!(blame.cycle.len(), 1);
+    assert_eq!(blame.cycle[0].before, TimePoint(0));
+    assert_eq!(blame.cycle[0].after, TimePoint(0));
+}
