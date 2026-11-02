@@ -135,7 +135,7 @@ fn factcheck_contradicts_a_single_valued_slot() {
 fn factcheck_unsupported_when_canon_bears_no_certain_fact() {
     let world = saltcast_world();
     // `origin` is proposed-only (shadow), so there is no *certain* fact.
-    let reports = factcheck(&world, &[atom("origin", &["anchor", "gwern"])]);
+    let reports = factcheck(&world, &[atom("origin", &["anchor", "keeper"])]);
     assert_eq!(reports[0].verdict, Verdict::Unsupported);
 }
 
@@ -571,10 +571,10 @@ fn multi_citation_conjoins_and_supersession_degrades_on_both_sides() {
             ratify_decl("D-2"),
             fact(
                 "kept-by",
-                &["tide-bell", "guild"],
+                &["copper-bell", "guild"],
                 Some(marker(ProvenanceMarker::Ratified, &["D-1", "D-2"])),
             ),
-            fact("rings", &["tide-bell", "dawn"], Some(assumes)),
+            fact("rings", &["copper-bell", "dawn"], Some(assumes)),
         ],
     };
     let world = compile(&Pack {
@@ -600,8 +600,8 @@ fn multi_citation_conjoins_and_supersession_degrades_on_both_sides() {
     // Base standings agree: the two-citation fact is certain, the assumes-gated
     // proposal is a shadow.
     for (pred, args, expected) in [
-        ("kept-by", ["tide-bell", "guild"], Status::Certain),
-        ("rings", ["tide-bell", "dawn"], Status::Possible),
+        ("kept-by", ["copper-bell", "guild"], Status::Certain),
+        ("rings", ["copper-bell", "dawn"], Status::Possible),
     ] {
         let loaded = loaded_status(&world, pred, &args);
         assert_eq!(
@@ -642,7 +642,7 @@ fn multi_citation_conjoins_and_supersession_degrades_on_both_sides() {
         .eval_under(
             &ev_nu,
             &Query {
-                goal: atom("kept-by", &["tide-bell", "guild"]),
+                goal: atom("kept-by", &["copper-bell", "guild"]),
             },
         )
         .expect("known pred")
@@ -682,7 +682,7 @@ fn options_and_hypotheses_lower_without_status_divergence() {
                         implies: Some(atom("keeps", &["ledger", "old-fen"])),
                     },
                     dli_ast::decl::OptionClause {
-                        name: id("mara"),
+                        name: id("wren"),
                         label: None,
                         implies: None,
                     },
@@ -1030,14 +1030,10 @@ fn intra_episode_does_not_fire_on_a_multivalued_relation() {
     let world = compile(&pack(
         "world",
         vec![
+            fact("adjacent", &["thornfield", "ashby"], Some(ratified("D-1"))),
             fact(
                 "adjacent",
-                &["saltmarket", "the-shallows"],
-                Some(ratified("D-1")),
-            ),
-            fact(
-                "adjacent",
-                &["saltmarket", "the-weir"],
+                &["thornfield", "lighthouse"],
                 Some(ratified("D-1")),
             ),
         ],
@@ -1046,8 +1042,8 @@ fn intra_episode_does_not_fire_on_a_multivalued_relation() {
     let findings = check::continuity::check_claims(
         &world,
         &[
-            atom("adjacent", &["saltmarket", "the-shallows"]),
-            atom("adjacent", &["saltmarket", "the-weir"]),
+            atom("adjacent", &["thornfield", "ashby"]),
+            atom("adjacent", &["thornfield", "lighthouse"]),
         ],
     );
     assert!(
@@ -1116,7 +1112,7 @@ fn a_declared_state_is_an_evaluable_queryable_fact() {
         vec![
             ratify_decl("D-1"),
             state(
-                "gwern.water-status",
+                "keeper.water-status",
                 Some("commons"),
                 None,
                 Some(ratified("D-1")),
@@ -1130,7 +1126,7 @@ fn a_declared_state_is_an_evaluable_queryable_fact() {
         .query(&Query {
             goal: AtomExpr {
                 pred: id("water-status"),
-                args: vec![Term::Sym(id("gwern")), Term::Var(id("value"))],
+                args: vec![Term::Sym(id("keeper")), Term::Var(id("value"))],
             },
         })
         .expect("the state predicate is evaluable");
@@ -1155,13 +1151,13 @@ fn disjoint_span_states_raise_no_continuity_finding() {
             ratify_decl("D-1"),
             event("enclosure", "D-1"),
             state(
-                "gwern.water-status",
+                "keeper.water-status",
                 Some("commons"),
                 Some(TimeClause::Until(id("enclosure"))),
                 Some(ratified("D-1")),
             ),
             state(
-                "gwern.water-status",
+                "keeper.water-status",
                 Some("enclosed"),
                 Some(TimeClause::Since(id("enclosure"))),
                 Some(ratified("D-1")),
@@ -1186,13 +1182,13 @@ fn overlapping_span_states_raise_exactly_one_fluent_contradiction() {
             ratify_decl("D-1"),
             event("enclosure", "D-1"),
             state(
-                "gwern.water-status",
+                "keeper.water-status",
                 Some("commons"),
                 Some(TimeClause::Since(id("enclosure"))),
                 Some(ratified("D-1")),
             ),
             state(
-                "gwern.water-status",
+                "keeper.water-status",
                 Some("enclosed"),
                 Some(TimeClause::Since(id("enclosure"))),
                 Some(ratified("D-1")),
@@ -1229,7 +1225,7 @@ fn a_disjoint_fluent_value_is_never_a_factcheck_contradiction() {
             ratify_decl("D-1"),
             event("enclosure", "D-1"),
             state(
-                "gwern.water-status",
+                "keeper.water-status",
                 Some("commons"),
                 Some(TimeClause::Until(id("enclosure"))),
                 Some(ratified("D-1")),
@@ -1237,7 +1233,7 @@ fn a_disjoint_fluent_value_is_never_a_factcheck_contradiction() {
         ],
     ))
     .expect("compiles");
-    let reports = factcheck(&world, &[atom("water-status", &["gwern", "enclosed"])]);
+    let reports = factcheck(&world, &[atom("water-status", &["keeper", "enclosed"])]);
     assert!(
         reports.iter().all(|r| r.verdict != Verdict::Contradicted),
         "a disjoint fluent value must not contradict: {reports:?}"
@@ -1250,15 +1246,15 @@ fn killed_token_survives_separator_stripping() {
     // including the run-together evasion — across every match mode.
     for mode in [MatchMode::Word, MatchMode::Phrase, MatchMode::Substring] {
         let killed = KilledTokens::new(vec![KilledToken {
-            token: "tide-bell".to_owned(),
+            token: "copper-bell".to_owned(),
             mode,
             decision: "D-9".to_owned(),
             scope: "killed name".to_owned(),
         }]);
         for text in [
-            "the tide-bell rang",
-            "the tide bell rang",
-            "the tidebell rang",
+            "the copper-bell rang",
+            "the copper bell rang",
+            "the copperbell rang",
         ] {
             assert!(
                 killed.hit(text).is_some(),
@@ -1271,21 +1267,25 @@ fn killed_token_survives_separator_stripping() {
 #[test]
 fn killed_token_word_boundary_vs_substring() {
     // Documented boundary: Word/Phrase match the whole run only — a longer word
-    // that merely contains it (`tidebells`) is not the killed token — while
+    // that merely contains it (`copperbells`) is not the killed token — while
     // Substring is liberal and matches anywhere.
     let make = |mode| {
         KilledTokens::new(vec![KilledToken {
-            token: "tide-bell".to_owned(),
+            token: "copper-bell".to_owned(),
             mode,
             decision: "D-9".to_owned(),
             scope: "killed name".to_owned(),
         }])
     };
-    assert!(make(MatchMode::Word).hit("the tidebells rang").is_none());
-    assert!(make(MatchMode::Phrase).hit("the tidebells rang").is_none());
+    assert!(make(MatchMode::Word).hit("the copperbells rang").is_none());
+    assert!(
+        make(MatchMode::Phrase)
+            .hit("the copperbells rang")
+            .is_none()
+    );
     assert!(
         make(MatchMode::Substring)
-            .hit("the tidebells rang")
+            .hit("the copperbells rang")
             .is_some()
     );
 }

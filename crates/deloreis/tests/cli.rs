@@ -17,12 +17,6 @@ fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-/// The committed world packs under `worlds/tpth/packs/`, absolute so a recorded
-/// corpus path resolves regardless of the test process's working directory.
-fn examples() -> PathBuf {
-    repo().join("worlds/tpth/packs")
-}
-
 #[test]
 fn validate_repo_emits_stable_json_findings() {
     let root = tmp("validate-repo");
@@ -96,9 +90,9 @@ fn validate_repo_reports_v12_text_corpus_defects() {
     }));
 }
 
-/// The shared saltmarket corpus.
-fn saltmarket() -> PathBuf {
-    examples().join("saltmarket.dli")
+/// The public-domain Camelot example.
+fn camelot() -> PathBuf {
+    repo().join("examples/camelot.dli")
 }
 
 /// A fresh temp subdirectory for a test (per-binary, isolated).
@@ -190,9 +184,9 @@ fn check_clean_corpus_exits_zero() {
         &doc,
         "scope demo\n\
          ratify d-0001\n\
-         place saltmarket \"Saltmarket\" decided d-0001\n\
-         place the-shallows \"The Shallows\" decided d-0001\n\
-         adjacent(saltmarket, the-shallows) decided d-0001\n",
+         place thornfield \"Thornfield\" decided d-0001\n\
+         place ashby \"Ashby\" decided d-0001\n\
+         adjacent(camelot, the-lake) decided d-0001\n",
     )
     .unwrap();
 
@@ -211,8 +205,8 @@ fn golden_check_output() {
         &doc,
         "scope demo\n\
          ratify d-0001\n\
-         place saltmarket \"Saltmarket\" decided d-0001\n\
-         adjacent(saltmarket, saltmarket) decided d-0001\n",
+         place thornfield \"Thornfield\" decided d-0001\n\
+         adjacent(thornfield, thornfield) decided d-0001\n",
     )
     .unwrap();
 
@@ -342,8 +336,8 @@ fn report_includes_malformed_question_children() {
 #[test]
 fn fmt_check_is_idempotent_on_the_corpus() {
     let dir = tmp("fmt-idempotent");
-    let doc = dir.join("saltmarket.dli");
-    fs::copy(saltmarket(), &doc).unwrap();
+    let doc = dir.join("thornfield.dli");
+    fs::copy(camelot(), &doc).unwrap();
 
     // Format once to canonical, then --check must find it already canonical.
     let formatted = bin().arg("fmt").arg(&doc).output().unwrap();
@@ -360,8 +354,8 @@ fn fmt_check_is_idempotent_on_the_corpus() {
 fn fmt_refuses_malformed_and_does_not_rewrite() {
     let dir = tmp("fmt-malformed");
     let doc = dir.join("bad.dli");
-    // `fact mara lives-in` is missing its object — a malformed triple.
-    let original = "scope demo\nfact mara lives-in\n";
+    // `fact wren lives-in` is missing its object — a malformed triple.
+    let original = "scope demo\nfact wren lives-in\n";
     fs::write(&doc, original).unwrap();
 
     let output = bin().arg("fmt").arg(&doc).output().unwrap();
@@ -380,24 +374,24 @@ fn fmt_refuses_malformed_and_does_not_rewrite() {
 fn query_found_exits_zero() {
     let output = bin()
         .arg("query")
-        .arg("adjacent(saltmarket, the-shallows)")
+        .arg("adjacent(camelot, the-lake)")
         .arg("--corpus")
-        .arg(saltmarket())
+        .arg(camelot())
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(0));
     let out = stdout(&output);
     assert!(out.contains("certain"));
-    assert!(out.contains("adjacent(saltmarket, the-shallows)"));
+    assert!(out.contains("adjacent(camelot, the-lake)"));
 }
 
 #[test]
 fn query_empty_exits_one() {
     let output = bin()
         .arg("query")
-        .arg("adjacent(saltmarket, nowhere)")
+        .arg("adjacent(camelot, nowhere)")
         .arg("--corpus")
-        .arg(saltmarket())
+        .arg(camelot())
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(1));
@@ -408,9 +402,9 @@ fn query_empty_exits_one() {
 fn query_modifiers_and_generated_name_view_are_live() {
     let explained = bin()
         .arg("query")
-        .arg("adjacent(saltmarket, the-shallows)")
+        .arg("adjacent(camelot, the-lake)")
         .arg("--corpus")
-        .arg(saltmarket())
+        .arg(camelot())
         .args(["--layer", "certain", "--why"])
         .output()
         .unwrap();
@@ -427,14 +421,14 @@ fn query_modifiers_and_generated_name_view_are_live() {
         .arg(&workspace)
         .arg("new")
         .arg("--corpus")
-        .arg(saltmarket())
+        .arg(camelot())
         .args(["--name", "query-view"])
         .output()
         .unwrap();
     assert_eq!(created.status.code(), Some(0), "{}", stderr(&created));
     let forked = bin()
         .arg("query")
-        .arg("adjacent(saltmarket, the-shallows)")
+        .arg("adjacent(camelot, the-lake)")
         .args(["--fork", "query-view", "--workspace"])
         .arg(&workspace)
         .output()
@@ -459,9 +453,9 @@ fn query_modifiers_and_generated_name_view_are_live() {
 fn query_json_refuses_undefined_combinations() {
     let ordinary = bin()
         .arg("query")
-        .arg("adjacent(saltmarket, the-shallows)")
+        .arg("adjacent(camelot, the-lake)")
         .arg("--corpus")
-        .arg(saltmarket())
+        .arg(camelot())
         .arg("--json")
         .output()
         .unwrap();
@@ -487,7 +481,7 @@ fn fork_new_suppose_diff_flow() {
         .arg(&workspace)
         .arg("new")
         .arg("--corpus")
-        .arg(saltmarket())
+        .arg(camelot())
         .args(["--name", "drop-people"])
         .output()
         .unwrap();
@@ -537,7 +531,7 @@ fn fork_suppose_rejects_unknown_target() {
         .arg(&workspace)
         .arg("new")
         .arg("--corpus")
-        .arg(saltmarket())
+        .arg(camelot())
         .args(["--name", "f"])
         .output()
         .unwrap();
@@ -561,7 +555,7 @@ fn fork_management_commands_round_trip_and_alias_preflight() {
         .arg(&workspace)
         .arg("new")
         .arg("--corpus")
-        .arg(saltmarket())
+        .arg(camelot())
         .args(["--name", "all-ops"])
         .output()
         .unwrap();
@@ -579,7 +573,7 @@ fn fork_management_commands_round_trip_and_alias_preflight() {
     let added = bin()
         .args(["fork", "-w"])
         .arg(&workspace)
-        .args(["add", "all-ops", "keeps(old-fen, the-salt-ledger)"])
+        .args(["add", "all-ops", "keeps(merlin, excalibur)"])
         .output()
         .unwrap();
     assert_eq!(added.status.code(), Some(0), "{}", stdout(&added));
@@ -1080,64 +1074,6 @@ fn proof_atoms_and_quoted_bindings_share_the_parser_grammar() {
 }
 
 #[test]
-fn craft_why_uses_builtin_and_caller_owned_principles() {
-    let builtin = bin()
-        .args(["craft", "why", "outline.cast-over-four"])
-        .output()
-        .unwrap();
-    assert_eq!(builtin.status.code(), Some(0), "{}", stderr(&builtin));
-    assert!(stdout(&builtin).contains("sixty-second-hook"));
-
-    let configured = bin()
-        .args([
-            "craft",
-            "why",
-            "outline.cast-over-four",
-            "--config",
-            "worlds/tpth/craft",
-        ])
-        .current_dir(repo())
-        .output()
-        .unwrap();
-    assert_eq!(configured.status.code(), Some(0), "{}", stderr(&configured));
-    assert!(stdout(&configured).contains("sixty-second-hook"));
-
-    let unknown = bin()
-        .args(["craft", "why", "craft.no-such-rule"])
-        .output()
-        .unwrap();
-    assert_eq!(unknown.status.code(), Some(1));
-
-    let invented_outline = bin()
-        .args(["craft", "why", "outline.no-such-rule"])
-        .output()
-        .unwrap();
-    assert_eq!(invented_outline.status.code(), Some(1));
-    assert!(stdout(&invented_outline).contains("no principle claims"));
-}
-
-#[test]
-fn simulate_practice_runs_an_honest_battery() {
-    // simulate is wired (SIM-1): a bounded seeded battery over a declared practice,
-    // graded with honest metrics (tested) and invariants (checked). It no longer
-    // reports a typed not-yet.
-    let corpus = examples().join("true-naming.dli");
-    let output = bin()
-        .args(["simulate", "true-naming", "--games", "64", "--seed", "1"])
-        .arg("--corpus")
-        .arg(&corpus)
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
-    let out = stdout(&output);
-    assert!(out.contains("grades are honest"), "honest manifest:\n{out}");
-    assert!(
-        !out.contains("not wired yet"),
-        "simulate is wired now:\n{out}"
-    );
-}
-
-#[test]
 fn simulate_game_runs_a_deal_battery() {
     let game = repo().join("examples/games/french-deck");
     let output = bin()
@@ -1340,7 +1276,7 @@ fn broken_pipe_does_not_panic() {
     let pipeline = format!(
         "{bin:?} timeline order -c {corpus:?} | head -1",
         bin = env!("CARGO_BIN_EXE_deloreis"),
-        corpus = saltmarket(),
+        corpus = camelot(),
     );
     let output = Command::new("sh")
         .arg("-c")
@@ -1368,9 +1304,9 @@ fn broken_pipe_does_not_panic() {
 fn query_unknown_as_of_exits_two() {
     let output = bin()
         .arg("query")
-        .arg("adjacent(saltmarket, the-shallows)")
+        .arg("adjacent(camelot, the-lake)")
         .arg("--corpus")
-        .arg(saltmarket())
+        .arg(camelot())
         .arg("--as-of")
         .arg("no-such-era")
         .output()
@@ -1383,11 +1319,11 @@ fn query_unknown_as_of_exits_two() {
 fn query_known_as_of_is_accepted() {
     let output = bin()
         .arg("query")
-        .arg("adjacent(saltmarket, the-shallows)")
+        .arg("adjacent(camelot, the-lake)")
         .arg("--corpus")
-        .arg(saltmarket())
+        .arg(camelot())
         .arg("--as-of")
-        .arg("the-drought-years")
+        .arg("arthurs-reign")
         .output()
         .unwrap();
     // A real point resolves; the atom carries no time anchor, so it survives.
@@ -1403,9 +1339,9 @@ fn name_check_does_not_overclaim_register_fit() {
         .arg("check")
         .arg("Zzgrbl")
         .arg("--corpus")
-        .arg(examples().join("cymric-fringe.dli"))
+        .arg(camelot())
         .arg("--dialect")
-        .arg("cymric-fringe")
+        .arg("old-speech")
         .output()
         .unwrap();
     let out = stdout(&output);
@@ -1429,11 +1365,11 @@ fn name_check_clean_candidate_exits_zero() {
     let output = bin()
         .arg("name")
         .arg("check")
-        .arg("Tegwen")
+        .arg("Lena")
         .arg("--corpus")
-        .arg(examples().join("cymric-fringe.dli"))
+        .arg(camelot())
         .arg("--dialect")
-        .arg("cymric-fringe")
+        .arg("old-speech")
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
@@ -1450,17 +1386,17 @@ fn check_draft_killed_token_exits_one() {
         &corpus,
         "scope demo\n\
          ratify d-0001\n\
-         place irondale \"Irondale\" decided d-0001\n\
-         place saltmarket \"Saltmarket\" decided d-0001\n\
-         located-at(irondale, saltmarket) decided d-0001\n",
+         place ironkeep \"Ironkeep\" decided d-0001\n\
+         place thornfield \"Thornfield\" decided d-0001\n\
+         located-at(ironkeep, thornfield) decided d-0001\n",
     )
     .unwrap();
 
-    // A killed-token registry naming `irondale` as struck.
+    // A killed-token registry naming `ironkeep` as struck.
     let registry = dir.join("killed_tokens.yaml");
     fs::write(
         &registry,
-        "killed:\n  - {token: irondale, match: word, decision: D-0101, scope: region name}\n",
+        "killed:\n  - {token: ironkeep, match: word, decision: D-0101, scope: region name}\n",
     )
     .unwrap();
 
@@ -1479,7 +1415,7 @@ fn check_draft_killed_token_exits_one() {
     fields:
       claims: {model: fixture, prompt: "sha256:0000000000000000000000000000000000000000000000000000000000000000"}
 claims:
-  - {atom: "located-at(irondale, saltmarket)", quote: baseline, line: 1}
+  - {atom: "located-at(ironkeep, thornfield)", quote: baseline, line: 1}
 deltas: []
 scenes: []
 beats: []
@@ -1506,7 +1442,7 @@ lexicon: {banned_hits: [], register_tokens: 0}
         stdout(&output_no_killed)
     );
 
-    // With --killed: the draft exits 1 because `Irondale` is a killed token.
+    // With --killed: the draft exits 1 because `Ironkeep` is a killed token.
     let output_killed = bin()
         .arg("check-draft")
         .arg(&payload)

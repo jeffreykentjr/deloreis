@@ -24,21 +24,6 @@
 - [11 · Agent authoring](spec-11.md)
 - [12 · Scale and distribution](spec-12.md)
 
-# The TPtH worldbook
-
-- [Worldbook overview](worldbook-readme.md)
-- [Time](worldbook-time.md)
-- [The Concordance](worldbook-concordance.md)
-- [Language](worldbook-language.md)
-- [Craft](worldbook-craft.md)
-- [The Turning export](worldbook-turning-export.md)
-
-# A worked integration: the fantasy factory
-
-- [Fantasy-worker contract](integration-contract.md)
-- [Migration](integration-migration.md)
-- [Status board](integration-status.md)
-
 # Generated reference
 
 - [Wire operations](reference-ops.md)

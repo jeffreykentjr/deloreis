@@ -31,7 +31,7 @@
 //! let ep_two = Episode {
 //!     id: "e2".to_owned(),
 //!     production_order: 2,
-//!     story_anchor: EpisodeAnchor::era("the-beleaguered-present"),
+//!     story_anchor: EpisodeAnchor::era("present-day"),
 //!     scenes: vec![Scene {
 //!         id: "s1".to_owned(),
 //!         fact_deltas: vec![FactDelta::of("the-well-runs-dry")],
@@ -42,7 +42,7 @@
 //! let ep_one = Episode {
 //!     id: "e1".to_owned(),
 //!     production_order: 1,
-//!     story_anchor: EpisodeAnchor::era("the-beleaguered-present"),
+//!     story_anchor: EpisodeAnchor::era("present-day"),
 //!     scenes: vec![],
 //! };
 //!

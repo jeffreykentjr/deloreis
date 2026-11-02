@@ -412,10 +412,3 @@ question**. The committed evidence record therefore retains both the structured
 payload and the exact source prose used to verify its anchors and source hash;
 `dli.check` verifies and replays those records rather than relying on process
 memory or caller resubmission.
-
----
-
-**Worldbook.** TPtH's craft configuration — the D-0128 pillars that win over
-generic advice, the D-0166 hedge-register tension, the ten-reads-as-battle
-lexicon, and the episode-01 payload (Enfys / the door-ward) — lives in
-[the TPtH worldbook · Craft](../worlds/tpth/craft.md).

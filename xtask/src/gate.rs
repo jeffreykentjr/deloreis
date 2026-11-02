@@ -242,7 +242,6 @@ pub fn gate_steps(ci: bool) -> Vec<GateStep> {
                 "fmt",
                 "--check",
                 "examples/",
-                "worlds/",
             ],
         ),
         command_step(

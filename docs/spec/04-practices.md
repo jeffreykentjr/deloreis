@@ -370,10 +370,3 @@ declarations, checked at compile time before any casting is run:
 A ledger gains one clause — `in <practice>` — and loses nothing: the same
 ledger checker serves oath-binding, merlins-craft, and any declared game, because
 the practice it runs against is data all the way down.
-
----
-
-**Worldbook.** The Concordance — the spoken-proof practice with its
-linear-conserved debt, its nine failure modes, licensed-ignorance and the
-rigged-deck reading, the e01-s04 proof ledger, and Frith conservation — lives in
-[the TPtH worldbook · The Concordance](../worlds/tpth/concordance.md).
