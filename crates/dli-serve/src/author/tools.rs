@@ -3197,6 +3197,8 @@ pub(super) fn record_decision(
         receipt.commit
     };
 
+    store.mark_main_base_dirty(&params.workspace);
+
     // Advance the workspace base to the new commit so subsequent staged reads
     // (add_fact → author.check) see the recorded decision as base — the same
     // tail `durable_standing_change` runs after a defeat.
@@ -3792,6 +3794,10 @@ fn durable_standing_change(
         (receipt.commit, receipt.ref_digest)
     };
 
+    // The first CAS has already advanced the ref, even if a legacy valuation
+    // CAS or later workspace refresh fails.
+    store.mark_main_base_dirty(workspace);
+
     if defeating && !conditional {
         let ls = store
             .workspace_lorestore(workspace)
@@ -4325,7 +4331,7 @@ fn fence_branch_ref(
 /// target-ref CAS — the derived-layer conflict inspection, with no
 /// commitment. `expected_ref` fences the TARGET's whole-ref digest either way.
 pub(super) fn merge(
-    store: &Store,
+    store: &mut Store,
     params: &AuthorMergeParams,
     branch_writes: bool,
     carries_data: bool,
@@ -4355,6 +4361,9 @@ pub(super) fn merge(
             params.expected_ref.as_deref(),
         )
         .map_err(|e| store_error(&e))?;
+    if advance {
+        store.mark_ref_dirty(&params.workspace, target);
+    }
     let result = AuthorMergeResult {
         merge_commit: report.merge_commit.to_string(),
         merge_base: report.merge_base.map(|h| h.to_string()),

@@ -67,6 +67,8 @@ pub struct Store {
     /// lorestore handle: an external CAS after load must not mix its state into
     /// an already loaded project.
     snapshots: BTreeMap<String, StoreSnapshot>,
+    /// Main refs advanced by this server since the original project snapshot.
+    dirty_bases: BTreeSet<String>,
     /// Deterministic operation counters for the durable base-refresh paths.
     /// They are diagnostic only; no verdict depends on them.
     base_update_stats: BaseUpdateStats,
@@ -195,6 +197,7 @@ impl Default for Store {
             origins: BTreeMap::new(),
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
+            dirty_bases: BTreeSet::new(),
             base_update_stats: BaseUpdateStats::default(),
             #[cfg(test)]
             materialize_pre_cas_hook: None,
@@ -229,6 +232,7 @@ impl Store {
             origins: BTreeMap::new(),
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
+            dirty_bases: BTreeSet::new(),
             base_update_stats: BaseUpdateStats::default(),
             #[cfg(test)]
             materialize_pre_cas_hook: None,
@@ -274,6 +278,7 @@ impl Store {
             origins: BTreeMap::new(),
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
+            dirty_bases: BTreeSet::new(),
             base_update_stats: BaseUpdateStats::default(),
             #[cfg(test)]
             materialize_pre_cas_hook: None,
@@ -328,6 +333,7 @@ impl Store {
             origins: BTreeMap::new(),
             pinned_bases: BTreeSet::new(),
             snapshots: BTreeMap::new(),
+            dirty_bases: BTreeSet::new(),
             base_update_stats: BaseUpdateStats::default(),
             #[cfg(test)]
             materialize_pre_cas_hook: None,
@@ -348,8 +354,9 @@ impl Store {
     /// not shared with any other open workspace on the same branch), and every
     /// subsequent read/write against this workspace id sees that compiled
     /// world and routes to that branch — never `main` — until the workspace is
-    /// discarded. `branch: None` is the entire pre-1.7.0 path, untouched below:
-    /// same fields, same order, same fallbacks.
+    /// discarded. Without `branch`, a live base is refreshed on open after an
+    /// authoring operation advances main. Pinned projects retain their selected
+    /// snapshot, and workspaces opened earlier remain unchanged.
     ///
     /// # Errors
     ///
@@ -388,11 +395,16 @@ impl Store {
             .base_named(&base_key)
             .ok_or_else(|| OpenError::UnknownDoc(base_name.clone()))?;
 
-        if let Some(branch_name) = branch {
-            // Branch mode reads a point-in-time compile of the branch head —
-            // deliberately NOT sharing the pinned/snapshot machinery below,
-            // which is about the project's chosen MAIN commit. This is its own
-            // third path.
+        let explicit_branch = branch.is_some();
+        let selected_branch = branch.or_else(|| {
+            self.dirty_bases
+                .contains(&base_key)
+                .then(|| dli_lorestore::MAIN_REF.to_owned())
+        });
+        if let Some(branch_name) = selected_branch {
+            // An explicit branch or a dirty live main base reads one coherent
+            // ref snapshot into a workspace-local base. Pinned projects stay on
+            // the project-selected snapshot below.
             let killed = base.world.killed.clone();
             let ls = self
                 .lorestores
@@ -474,7 +486,7 @@ impl Store {
             workspace.bundle_counter = bundle_counter;
             workspace.base_root_hash = Some(head.to_string());
             workspace.base_ref_digest = branch_ref.digest().ok().map(|digest| digest.0);
-            workspace.target_branch = Some(branch_name);
+            workspace.target_branch = explicit_branch.then_some(branch_name);
             workspace.refresh_resolution(&world, &pack.documents);
             // `Workspace::new` already sealed the initial digest with
             // `target_branch: None` (it has no way to know the branch yet at
@@ -837,6 +849,7 @@ impl Store {
         commit: &dli_lorestore::ContentHash,
         ref_digest: &dli_lorestore::ContentHash,
     ) -> String {
+        self.mark_main_base_dirty(ws_id);
         let mut bundle = 0u32;
         let prefix = self
             .workspaces
@@ -904,6 +917,30 @@ impl Store {
             workspace.staged_fact_hashes.clear();
         }
         self.install_prepared_workspace_base(ws_id, prepared, interner, commit, ref_digest)
+    }
+
+    /// Mark a live main base for refresh when another workspace opens.
+    /// Existing workspaces keep their current snapshot.
+    pub fn mark_main_base_dirty(&mut self, ws_id: &str) {
+        let on_main = self.workspaces.get(ws_id).is_some_and(|ws| {
+            ws.target_branch
+                .as_deref()
+                .unwrap_or(dli_lorestore::MAIN_REF)
+                == dli_lorestore::MAIN_REF
+        });
+        if on_main {
+            self.mark_ref_dirty(ws_id, dli_lorestore::MAIN_REF);
+        }
+    }
+
+    /// Mark a committed target ref for refresh on the next workspace open.
+    pub fn mark_ref_dirty(&mut self, ws_id: &str, target: &str) {
+        if let Some(key) = self.workspace_bases.get(ws_id)
+            && target == dli_lorestore::MAIN_REF
+            && !self.pinned_bases.contains(key)
+        {
+            self.dirty_bases.insert(key.clone());
+        }
     }
 
     /// Diagnostic operation counts used by deterministic scale tests.

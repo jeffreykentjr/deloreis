@@ -815,3 +815,23 @@ fn corrupt_ref_preflight_blocks_defeat_before_any_write() {
         "preflight runs before writing even an orphan object"
     );
 }
+
+#[test]
+fn new_workspace_observes_a_recorded_decision_without_restart() {
+    let (_root, mut store) = store_with_mara();
+    let writer = open(&mut store);
+    let old = open(&mut store);
+    let recorded = record_decision(&mut store, &writer, "d-new");
+    assert!(recorded.ok, "{recorded:?}");
+    let fresh = open(&mut store);
+    let new_codes = add_fact_cited(&mut store, &fresh, "rank", "captain", "d-new");
+    assert!(
+        !new_codes.contains(&"citation.unknown-decision".to_owned()),
+        "{new_codes:?}"
+    );
+    let old_codes = add_fact_cited(&mut store, &old, "rank", "captain", "d-new");
+    assert!(
+        old_codes.contains(&"citation.unknown-decision".to_owned()),
+        "{old_codes:?}"
+    );
+}

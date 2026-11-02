@@ -251,6 +251,20 @@ fn a_pinned_project_can_materialize_after_its_origin_branch_advances() {
         materialized["ok"], true,
         "a pinned replay can still append to its advanced origin branch: {materialized}"
     );
+    let reopened = send(
+        &serde_json::json!({"dli":"1.3.0","id":"reopen","op":"author.open",
+                            "params":{"scope":"tpth"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let reopened_workspace = reopened["result"]["workspace"].as_str().unwrap();
+    let status = send(
+        &serde_json::json!({"dli":"1.3.0","id":"status","op":"author.status",
+                            "params":{"workspace":reopened_workspace}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(status["result"]["root_hash"], pinned, "{status}");
 }
 
 #[test]
@@ -2209,4 +2223,65 @@ fn an_imported_dli_corpus_renders_back_as_the_document_that_was_authored() {
             "{case}: the corpus did not render back as it was authored"
         );
     }
+}
+
+#[test]
+fn new_workspace_reads_materialized_main_without_restarting_server() {
+    use std::sync::Arc;
+
+    let root = temp("fresh-workspace-after-materialize");
+    seed_store(&root, "camelot", "bedivere");
+    write_manifest(&root, "[documents.camelot]\nstore = \"store\"\n");
+    let project = Arc::new(Project::load(&root).unwrap());
+    let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
+    let mut author = author_store_for(&project);
+    let open = |id: &str, sessions: &mut _, author: &mut _| {
+        let result = send(
+            &serde_json::json!({"dli":"1.13.0","id":id,"op":"author.open",
+                                "params":{"scope":"camelot"}}),
+            sessions,
+            author,
+        );
+        result["result"]["workspace"].as_str().unwrap().to_owned()
+    };
+    let writer = open("writer", &mut sessions, &mut author);
+    let old = open("old", &mut sessions, &mut author);
+    let staged = send(
+        &serde_json::json!({"dli":"1.13.0","id":"add","op":"author.add_fact",
+            "params":{"workspace":writer,"entity":"bedivere","key":"color","value":"red",
+                      "provenance":{"kind":"proposed","origin":"fresh-workspace"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(staged["ok"], true, "{staged}");
+    let committed = send(
+        &serde_json::json!({"dli":"1.13.0","id":"commit","op":"author.materialize",
+                            "params":{"workspace":writer}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(committed["ok"], true, "{committed}");
+    let fresh = open("fresh", &mut sessions, &mut author);
+    let query = |workspace: &str, sessions: &mut _, author: &mut _| {
+        send(
+            &serde_json::json!({"dli":"1.13.0","id":"query","op":"author.query",
+                "params":{"workspace":workspace,"goal_atom":{"pred":"color",
+                          "args":[{"Sym":"bedivere"},{"Sym":"red"}]},"layer":"all"}}),
+            sessions,
+            author,
+        )
+    };
+    let result = query(&fresh, &mut sessions, &mut author);
+    assert_eq!(result["ok"], true, "{result}");
+    assert_eq!(
+        result["result"]["rows"].as_array().unwrap().len(),
+        1,
+        "{result}"
+    );
+    let old_result = query(&old, &mut sessions, &mut author);
+    assert_eq!(old_result["ok"], true, "{old_result}");
+    assert!(
+        old_result["result"]["rows"].as_array().unwrap().is_empty(),
+        "{old_result}"
+    );
 }
