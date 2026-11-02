@@ -111,10 +111,11 @@ fn canonical_gate_runs_both_build_lanes() {
             command.starts_with("cargo nextest run -p dli-serve -p dli-lorestore")
                 && command.contains("--lib")
                 && command.contains("--test default_build")
+                && command.contains("--no-default-features")
                 && command.contains("--locked")
                 && !command.contains("--features")
         }),
-        "the canonical gate must run the 1.0-native acceptance test with no features"
+        "the canonical gate must exercise the parser-free acceptance build"
     );
 
     // The syntax lane: the whole workspace, parser linked.

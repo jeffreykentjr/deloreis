@@ -7,10 +7,12 @@ verdict: "The deloreis CLI command reference, generated from the executable's Cl
 
 # CLI commands
 
-`deloreis` exposes **13** top-level subcommands, including Clap's generated `help` command; command groups carry nested operations and generated help paths. Each operation is a rendering over the same engines the `dli.*` worker ops serve. Exit codes are uniform: `0` clean, `1` findings, `2` a usage or operational error.
+`deloreis` exposes **15** top-level subcommands, including Clap's generated `help` command; command groups carry nested operations and generated help paths. Each operation is a rendering over the same engines the `dli.*` worker ops serve. Exit codes are uniform: `0` clean, `1` findings, `2` a usage or operational error.
 
 | Command | Description |
 |---|---|
+| `deloreis init` | Create a new lorestore-backed project |
+| `deloreis import` | Import a .dli file into a new project |
 | `deloreis check` | Validate documents against the world model |
 | `deloreis query` | Query a saturated world |
 | `deloreis fmt` | Format documents into the one canonical surface |

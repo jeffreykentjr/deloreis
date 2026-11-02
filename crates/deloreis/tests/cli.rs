@@ -1195,3 +1195,230 @@ fn name_check_clean_candidate_exits_zero() {
         .unwrap();
     assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
 }
+
+#[test]
+fn init_import_and_mcp_serve_the_imported_world() {
+    use std::io::Write;
+    use std::process::Stdio;
+    let root = tmp("init-import-project");
+    let output = bin().arg("init").arg(&root).output().unwrap();
+    assert!(output.status.success(), "{}", stderr(&output));
+    let output = bin()
+        .arg("import")
+        .arg(camelot())
+        .arg("--project")
+        .arg(&root)
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{}", stderr(&output));
+    let mut child = bin()
+        .arg("mcp")
+        .arg("--project")
+        .arg(&root)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"author.open\",\"arguments\":{\"scope\":\"world\"}}}\n").unwrap();
+    let response = child.wait_with_output().unwrap();
+    assert!(response.status.success(), "{}", stderr(&response));
+    let frame: serde_json::Value = serde_json::from_slice(&response.stdout).unwrap();
+    let body: serde_json::Value =
+        serde_json::from_str(frame["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(body["ok"], true, "{body}");
+    assert!(body["result"]["workspace"].is_string());
+    let repeated = bin()
+        .arg("import")
+        .arg(camelot())
+        .arg("--project")
+        .arg(&root)
+        .output()
+        .unwrap();
+    assert!(
+        !repeated.status.success(),
+        "a second import must not replace the world"
+    );
+}
+
+#[test]
+fn init_refuses_to_overwrite_a_manifest() {
+    let root = tmp("init-existing-project");
+    fs::write(root.join("deloreis.toml"), "existing content\n").unwrap();
+    assert!(
+        !bin()
+            .arg("init")
+            .arg(&root)
+            .output()
+            .unwrap()
+            .status
+            .success()
+    );
+    assert_eq!(
+        fs::read_to_string(root.join("deloreis.toml")).unwrap(),
+        "existing content\n"
+    );
+}
+
+#[test]
+fn import_ref_fence_refuses_a_second_writer() {
+    let dir = tmp("import-ref-fence");
+    let store = dli_lorestore::Lorestore::open(dir).unwrap();
+    let before = store
+        .branch_ref(dli_lorestore::MAIN_REF)
+        .unwrap()
+        .unwrap()
+        .digest()
+        .unwrap();
+    let source = fs::read_to_string(camelot()).unwrap();
+    let (document, diagnostics) = dli_syntax::parse_document(&source);
+    assert!(diagnostics.is_empty());
+    let pack = dli_world::Pack {
+        name: "camelot".to_owned(),
+        documents: vec![document],
+    };
+    let committed = store
+        .import_pack_at_ref(&pack, Some(before.as_str()))
+        .unwrap();
+    let error = store
+        .import_pack_at_ref(&pack, Some(before.as_str()))
+        .unwrap_err();
+    assert!(
+        matches!(error, dli_lorestore::StoreError::RefSnapshotConflict { .. }),
+        "{error}"
+    );
+    assert_eq!(store.root_hash().unwrap().unwrap(), committed);
+}
+
+#[test]
+fn simultaneous_imports_accept_exactly_one_world() {
+    let dir = tmp("import-concurrent");
+    let init = bin().arg("init").arg(&dir).output().unwrap();
+    assert!(init.status.success(), "{}", stderr(&init));
+    let children: Vec<_> = (0..8)
+        .map(|_| {
+            bin()
+                .arg("import")
+                .arg(camelot())
+                .arg("--project")
+                .arg(&dir)
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn()
+                .unwrap()
+        })
+        .collect();
+    let outputs: Vec<_> = children
+        .into_iter()
+        .map(|c| c.wait_with_output().unwrap())
+        .collect();
+    assert_eq!(
+        outputs.iter().filter(|o| o.status.success()).count(),
+        1,
+        "{outputs:?}"
+    );
+}
+
+#[test]
+fn import_rejects_invalid_manifest_before_changing_store() {
+    let dir = tmp("import-invalid-manifest");
+    assert!(
+        bin()
+            .arg("init")
+            .arg(&dir)
+            .output()
+            .unwrap()
+            .status
+            .success()
+    );
+    let manifest = dir.join("deloreis.toml");
+    let text = fs::read_to_string(&manifest).unwrap();
+    fs::write(&manifest, text.replace("version = 1", "version = 999")).unwrap();
+    let output = bin()
+        .arg("import")
+        .arg(camelot())
+        .arg("--project")
+        .arg(&dir)
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(
+        stderr(&output).contains("unsupported"),
+        "{}",
+        stderr(&output)
+    );
+    let store = dli_lorestore::Lorestore::open(dir.join(".deloreis/store")).unwrap();
+    assert!(store.head_pack_name().unwrap().is_none());
+}
+
+#[test]
+fn import_refuses_a_project_pinned_to_genesis() {
+    let dir = tmp("import-pinned-project");
+    assert!(
+        bin()
+            .arg("init")
+            .arg(&dir)
+            .output()
+            .unwrap()
+            .status
+            .success()
+    );
+    let store = dli_lorestore::Lorestore::open(dir.join(".deloreis/store")).unwrap();
+    let genesis = store.root_hash().unwrap().unwrap();
+    let manifest = dir.join("deloreis.toml");
+    let text = fs::read_to_string(&manifest).unwrap();
+    fs::write(
+        &manifest,
+        format!("{text}head = \"{}\"\n", genesis.as_str()),
+    )
+    .unwrap();
+    let output = bin()
+        .arg("import")
+        .arg(camelot())
+        .arg("--project")
+        .arg(&dir)
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(
+        stderr(&output).contains("pinned head"),
+        "{}",
+        stderr(&output)
+    );
+    assert_eq!(store.root_hash().unwrap().unwrap(), genesis);
+}
+
+#[cfg(unix)]
+#[test]
+fn import_refuses_a_manifest_linked_to_a_different_project() {
+    let first = tmp("import-linked-first");
+    let second = tmp("import-linked-second");
+    for dir in [&first, &second] {
+        assert!(
+            bin()
+                .arg("init")
+                .arg(dir)
+                .output()
+                .unwrap()
+                .status
+                .success()
+        );
+    }
+    fs::remove_file(first.join("deloreis.toml")).unwrap();
+    std::os::unix::fs::symlink(second.join("deloreis.toml"), first.join("deloreis.toml")).unwrap();
+    let output = bin()
+        .arg("import")
+        .arg(camelot())
+        .arg("--project")
+        .arg(&first)
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(
+        stderr(&output).contains("manifest must resolve"),
+        "{}",
+        stderr(&output)
+    );
+    let store = dli_lorestore::Lorestore::open(first.join(".deloreis/store")).unwrap();
+    assert!(store.head_pack_name().unwrap().is_none());
+}

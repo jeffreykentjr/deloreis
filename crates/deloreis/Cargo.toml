@@ -9,11 +9,8 @@ rust-version.workspace = true
 publish = false
 
 [features]
-# LS-7: the `.dli` toolchain is opt-in. Off, `deloreis` is a 1.0-native binary —
-# `serve`/`mcp` (lorestore-backed and demo corpora), `craft`, `validate-repo` —
-# and links no parser. On, the `.dli` subcommands come back: `check`, `fmt`,
-# `query`, `fork`, `preflight`, `timeline`, `name`, `report`, `check-proof`,
-# `check-draft`, `simulate`, `export`.
+# Text authoring and rendering ship in the default build.
+default = ["syntax"]
 syntax = ["dep:dli-syntax", "dli-serve/syntax"]
 
 [dependencies]
@@ -24,13 +21,15 @@ dli-time.workspace = true
 dli-eval.workspace = true
 dli-ledger.workspace = true
 dli-world.workspace = true
+dli-lorestore.workspace = true
 dli-export.workspace = true
-dli-serve.workspace = true
+dli-serve = { path = "../dli-serve", default-features = false }
 clap.workspace = true
 miette = { workspace = true, features = ["fancy"] }
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml_ng.workspace = true
+toml.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

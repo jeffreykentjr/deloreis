@@ -92,3 +92,18 @@ cutover are not carried forward.
 
 **Rationale.** The release needs a readable authoritative record while preserving
 its surviving engineering laws and their historical evidence.
+
+## DL-0105 — Ship text tools in the default build
+
+*Date: 2026-11-02*
+
+**Attribution:** machine.
+
+**Ruling.** Ship the `.dli` parser and renderer in the default CLI and server
+builds. Keep the content-addressed lorestore canonical. Provide `deloreis init`
+to create a store-backed project and `deloreis import` to load its first text
+world without overwriting an existing world. A deliberate
+`--no-default-features` build remains parser-free and is checked separately.
+
+**Rationale.** Fiction authors need a working text entry point and a direct path
+from an example document to the persistent authoring server.

@@ -1,7 +1,7 @@
-//! The 1.0-native worker: what the **default** build serves, and how it refuses
+//! The parser-free worker: what the **no-default-features** build serves, and how it refuses
 //! the rest (roadmap §LS-7).
 //!
-//! The LS-7 oracle is a build property — "the default build does not link
+//! The LS-7 oracle is a build property — "the build without default features does not link
 //! `dli_syntax`" — proven by `cargo xtask syntax-free`. This file proves the
 //! consequence: that the build the oracle describes is *a working server*, not a
 //! hollowed-out one, and that where it cannot serve a request it says so by
@@ -13,7 +13,7 @@
 //! it. `cfg!(feature = "syntax")` is the fork, and it appears only where the two
 //! builds genuinely differ:
 //!
-//! | request | default build | `--features syntax` |
+//! | request | `--no-default-features` | default build |
 //! |---|---|---|
 //! | `dli.query` with `goal_atom` | answered | answered |
 //! | `dli.query` with string `goal` | `schema-violation` naming `goal_atom` | answered |
@@ -265,7 +265,7 @@ fn authoring_stages_and_diffs_without_a_renderer() {
     } else {
         assert!(
             rendered.is_empty(),
-            "the default build renders no `.dli`; the fact objects are the surface: {added}"
+            "the parser-free build renders no `.dli`; the fact objects are the surface: {added}"
         );
     }
 
@@ -397,7 +397,7 @@ fn materialize_without_a_lorestore_is_refused_without_a_renderer() {
         );
         return;
     }
-    // A default build has neither half — nothing to commit to and nothing to
+    // A parser-free build has neither half — nothing to commit to and nothing to
     // render — so an `ok` with an empty `findings` list would read to the author
     // as "materialized clean" when nothing was written anywhere.
     let message = error(&response)["message"].as_str().unwrap().to_owned();
@@ -734,7 +734,7 @@ fn author_why_typed_goal_atom_names_the_supporting_decision_syntax_free() {
     let (mut sessions, mut store) = demo();
     // `record_decision` writes a durable `ratify`, so its base needs a branch.
     // Attaching to the camelot demo imports the already-compiled fact objects —
-    // no parser is involved in the import, so this holds on the default build.
+    // no parser is involved in the import, so this also holds on a parser-free build.
     let root = tempfile::tempdir().expect("temporary lorestore root");
     store
         .attach_lorestore(root.path().join("lorestore"))

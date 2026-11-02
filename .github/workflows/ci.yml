@@ -71,7 +71,7 @@ jobs:
           cargo nextest run -p dli-serve -p dli-lorestore
           --lib --test default_build
           --test store_backed_project --test span_identity
-          --locked --profile ci
+          --no-default-features --locked --profile ci
 
   docs-oracle:
     runs-on: ubuntu-latest

@@ -84,9 +84,8 @@ in its params.
 - **`rendered`** — the **opt-in** `.dli` rendering of the result, a convenience
   view for a human reviewer. The canonical result is the structured JSON above
   (findings plus the staged fact objects / rows and the digest); `rendered` is
-  returned only when asked (`rendered: true`) and is **empty on a build with no formatter
-  linked** — the default build links none
-  (LS-7). It is never the authoring surface: you propose through the typed tool
+  returned only when asked (`rendered: true`). The default build includes the
+  formatter; a build with default features disabled may return it empty. It is never the authoring surface: you propose through the typed tool
   params, not by writing these lines.
 - **`workspace_digest`** — the new fence.
 
