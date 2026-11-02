@@ -164,7 +164,7 @@ compatibility mode.
 | `author.add_event` | Add a chronology event (an event is **not** an entity). Provenance required. |
 | `author.add_before` | Order `earlier` before `later`. Provenance required. |
 | `author.open_question` | Open a question — a tracked debt. `{id, prompt}`; no provenance (opening asserts nothing). |
-| `author.add_option` | Add an option `{question, id, label}` to a question already open here. |
+| `author.add_option` | Add an option `{question, id, label}` before the question is materialized. Optional `implies` is a typed ground outcome; option names must differ from other options and hypotheses. |
 | `author.add_hypothesis` | Mint a hyp variable `{id, statement}` — fork workspaces only, one per bundle. |
 | `author.suppose` | Pin staged hypotheses true `{hypotheses:[…]}` and read the consequence shift. |
 | `author.add_dialect` | **1.3.0.** Declare a naming register `{id, label?, body[]}` — its vowels, endings, foreign clusters, cluster/sayability ceilings, stress rule, and `name-kind` slot grammars. `body` is the typed interior; you send the items, not clause text. Provenance required. |

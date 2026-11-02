@@ -1416,6 +1416,9 @@ pub struct AuthorAddOptionParams {
     pub id: String,
     /// The option label.
     pub label: String,
+    /// A ground claim supported by this option while the question is open.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub implies: Option<AtomExpr>,
 }
 
 // -- author.add_hypothesis ---------------------------------------------------

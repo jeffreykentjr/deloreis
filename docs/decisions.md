@@ -157,3 +157,19 @@ facts.
 
 **Rationale.** A retcon must not erase independent accounts, lose its recorded
 evidence, or prevent later metadata promotion and replay.
+
+## DL-0109 — Make question outcomes authorable and durable
+
+*Date: 2026-11-02*
+
+**Attribution:** machine.
+
+**Ruling.** `author.add_option` may specify a ground `implies` atom. Its
+option supports that outcome under the existing mutually exclusive question
+semantics. Option identifiers must be distinct from other option and hypothesis names in
+the world. Adding an option durably stages the replacement question; options
+must be added before that question is materialized. Invalid outcomes and
+colliding names are refused, and normal finding checks apply to outcome text.
+
+**Rationale.** A fiction author needs rival accounts to retain separate,
+replayable support, without losing options on commit or aliasing alternatives.

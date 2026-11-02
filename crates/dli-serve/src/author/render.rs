@@ -153,21 +153,26 @@ pub fn render_scoped(scope: &str, decls: &[Decl]) -> Vec<String> {
 ///
 /// ```
 /// use dli_serve::author::render::render_option;
-/// let lines = render_option("where-the-first-ward-stood", "the-tidewall", "The Tidewall");
+/// let lines = render_option("where-the-first-ward-stood", "the-tidewall", "The Tidewall", None);
 /// # #[cfg(feature = "syntax")]
 /// assert_eq!(lines, vec!["  option the-tidewall \"The Tidewall\""]);
 /// # #[cfg(not(feature = "syntax"))]
 /// assert!(lines.is_empty());
 /// ```
 #[must_use]
-pub fn render_option(question: &str, option: &str, label: &str) -> Vec<String> {
+pub fn render_option(
+    question: &str,
+    option: &str,
+    label: &str,
+    implies: Option<&AtomExpr>,
+) -> Vec<String> {
     let synthetic = QuestionDecl {
         name: Ident::synthetic(escape_controls(question)),
         prompt: None,
         options: vec![OptionClause {
             name: Ident::synthetic(escape_controls(option)),
             label: Some(escape_controls(label)),
-            implies: None,
+            implies: implies.map(sanitize_atom),
         }],
         provenance: None,
     };

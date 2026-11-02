@@ -1503,3 +1503,54 @@ fn naming_warning_requires_a_configured_dialect_and_offers_valid_params() {
         "the suggested repair must be a valid call: {response:?}"
     );
 }
+
+#[test]
+fn option_and_hypothesis_names_cannot_alias_in_either_order() {
+    let mut store = Store::default();
+    let ws = open_fork(&mut store, "crossroads");
+    let q = send(
+        &mut store,
+        &req(
+            "question",
+            Op::AuthorOpenQuestion,
+            json!({"workspace":ws,"id":"choice","prompt":"Choose"}),
+        ),
+    );
+    assert!(q.ok, "{q:?}");
+    let option = send(
+        &mut store,
+        &req(
+            "option",
+            Op::AuthorAddOption,
+            json!({"workspace":ws,"question":"choice","id":"choice-a","label":"A"}),
+        ),
+    );
+    assert!(option.ok, "{option:?}");
+    let collision = send(
+        &mut store,
+        &req(
+            "hyp",
+            Op::AuthorAddHypothesis,
+            json!({"workspace":ws,"id":"choice-a","statement":"same name"}),
+        ),
+    );
+    assert!(!collision.ok, "{collision:?}");
+    let hyp = send(
+        &mut store,
+        &req(
+            "hyp2",
+            Op::AuthorAddHypothesis,
+            json!({"workspace":ws,"id":"choice-b","statement":"a different name"}),
+        ),
+    );
+    assert!(hyp.ok, "{hyp:?}");
+    let collision = send(
+        &mut store,
+        &req(
+            "option2",
+            Op::AuthorAddOption,
+            json!({"workspace":ws,"question":"choice","id":"choice-b","label":"B"}),
+        ),
+    );
+    assert!(!collision.ok, "{collision:?}");
+}

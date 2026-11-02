@@ -1117,6 +1117,20 @@ pub(super) fn add_option(
     store: &mut Store,
     params: &AuthorAddOptionParams,
 ) -> Result<Value, ErrorBody> {
+    if params
+        .implies
+        .as_ref()
+        .is_some_and(|atom| atom.args.iter().any(|term| matches!(term, Term::Var(_))))
+    {
+        return Err(schema_error("an option outcome must be a ground atom"));
+    }
+    let existing_names: BTreeSet<String> = store
+        .workspace_base_docs(&params.workspace)
+        .into_iter()
+        .flatten()
+        .flat_map(|document| &document.decls)
+        .flat_map(option_and_hypothesis_names)
+        .collect();
     let (base, ws) = parts_mut(store, &params.workspace)?;
     let mut findings: Vec<Finding> = [("id", params.id.as_str()), ("label", params.label.as_str())]
         .into_iter()
@@ -1132,23 +1146,76 @@ pub(super) fn add_option(
     };
     // Rebuild the question with the appended option, then swap it in — the
     // immutable borrow ends before the cache-maintaining replace.
-    let updated = if let Some(Decl::Question(q)) = ws.decls.get(i) {
+    let (updated, old_key) = if let Some(Decl::Question(q)) = ws.decls.get(i) {
+        let old_key = decl_key(&ws.decls[i]);
+        if !ws.is_pending_decl(i) {
+            return Err(schema_error(
+                "options can be added only before the question is materialized",
+            ));
+        }
+        if existing_names.contains(&params.id)
+            || ws
+                .pending_decl_refs()
+                .flat_map(option_and_hypothesis_names)
+                .any(|name| name == params.id)
+        {
+            return Err(schema_error("the option id is already used in this world"));
+        }
         let mut question = q.clone();
         question.options.push(OptionClause {
             name: ident(&params.id),
             label: Some(params.label.clone()),
-            implies: None,
+            implies: params.implies.clone(),
         });
-        Some(Decl::Question(question))
-    } else {
-        None
-    };
-    if let Some(decl) = updated {
+        let decl = Decl::Question(question);
+        findings.extend(control_char_findings(&decl));
         findings.extend(declaration_rejected_lore_findings(base, &decl));
-        ws.replace_decl(i, decl);
+        (decl, old_key)
+    } else {
+        return Err(schema_error("question disappeared while adding an option"));
+    };
+    // Durably stage the replacement before changing the workspace. Otherwise
+    // materialize commits the earlier question without the newly added option.
+    store
+        .stage_lorestore(&params.workspace, &updated)
+        .map_err(|error| ErrorBody {
+            code: ErrorCode::Internal,
+            message: format!("durable staging failed; the option was not added: {error}"),
+            data: None,
+        })?;
+    let (_, ws) = parts_mut(store, &params.workspace)?;
+    if let Some(index) = ws
+        .staged_fact_hashes
+        .iter()
+        .position(|(key, _)| *key == old_key)
+    {
+        ws.staged_fact_hashes.remove(index);
     }
-    let rendered = render_option(&params.question, &params.id, &params.label);
+    ws.replace_decl(i, updated);
+    let rendered = render_option(
+        &params.question,
+        &params.id,
+        &params.label,
+        params.implies.as_ref(),
+    );
     Ok(mutation(findings, rendered, &ws.digest))
+}
+
+fn option_and_hypothesis_names(decl: &Decl) -> Vec<String> {
+    match decl {
+        Decl::Question(question) => question
+            .options
+            .iter()
+            .map(|option| option.name.text.clone())
+            .collect(),
+        Decl::Fork(fork) => fork
+            .options
+            .iter()
+            .map(|option| option.name.text.clone())
+            .collect(),
+        Decl::Hypothesis(hypothesis) => vec![hypothesis.name.text.clone()],
+        _ => Vec::new(),
+    }
 }
 
 /// Mint a hypothesis variable for fork-scoped supposition (§3.8): legal only in
@@ -1157,7 +1224,24 @@ pub(super) fn add_hypothesis(
     store: &mut Store,
     params: &AuthorAddHypothesisParams,
 ) -> Result<Value, ErrorBody> {
+    let existing_names: BTreeSet<String> = store
+        .workspace_base_docs(&params.workspace)
+        .into_iter()
+        .flatten()
+        .flat_map(|document| &document.decls)
+        .flat_map(option_and_hypothesis_names)
+        .collect();
     let (base, ws) = parts_mut(store, &params.workspace)?;
+    if existing_names.contains(&params.id)
+        || ws
+            .pending_decl_refs()
+            .flat_map(option_and_hypothesis_names)
+            .any(|name| name == params.id)
+    {
+        return Err(schema_error(
+            "the hypothesis id is already used by an option or hypothesis",
+        ));
+    }
     let decl = Decl::Hypothesis(HypothesisDecl {
         name: ident(&params.id),
         statement: Some(params.statement.clone()),
@@ -2190,6 +2274,12 @@ fn free_text_fields(decl: &Decl) -> Vec<(&'static str, String)> {
                 fields.push(("option", option.name.text.clone()));
                 if let Some(label) = &option.label {
                     fields.push(("option-label", label.clone()));
+                }
+                if let Some(atom) = &option.implies {
+                    fields.push(("option-predicate", atom.pred.text.clone()));
+                    for arg in &atom.args {
+                        fields.push(("option-argument", term_text(arg)));
+                    }
                 }
             }
             annotation_fields(&mut fields, q.provenance.as_ref());
