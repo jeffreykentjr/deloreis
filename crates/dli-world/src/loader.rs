@@ -593,6 +593,9 @@ impl LoadCtx {
                 FluentSpan::new(atom.pred.text.clone(), since, until, compiled.ann.clone()),
             ));
         }
+        self.wm
+            .temporal_atom_facts
+            .insert(self.wm.atoms.len(), fact_index);
         self.push_atom(atom, compiled, pack, state.name.span);
     }
 
@@ -1190,6 +1193,7 @@ impl LoadCtx {
     }
 
     fn finish(mut self) -> LoadOutcome {
+        self.wm.temporal_sources_complete = true;
         for reference in &self.temporal_refs {
             if self.temporal_decls.get(&reference.target) != Some(&reference.expected_kind) {
                 self.findings.push(LoadFinding::UnknownTemporalReference {

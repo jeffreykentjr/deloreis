@@ -1549,3 +1549,51 @@ fn as_of_queries_project_fluents_and_recompute_rules() {
         }
     }
 }
+
+#[test]
+fn historical_exports_project_state_and_bind_cutoff() {
+    let dir = tmp("temporal-export-projection");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nratify d-0001\nevent first ratified d-0001\nevent second ratified d-0001\nbefore first -> second ratified d-0001\ninertial home ratified d-0001\nstate wren.home = old since first ratified d-0001\nstate wren.home = new since second ratified d-0001\n").unwrap();
+    let mut hashes = Vec::new();
+    for (point, expected, absent) in [
+        ("first", "home(wren, old)", "home(wren, new)"),
+        ("second", "home(wren, new)", "home(wren, old)"),
+    ] {
+        let output = bin()
+            .args(["export", "--profile", "context-pack", "--corpus"])
+            .arg(&corpus)
+            .args(["--as-of", point])
+            .output()
+            .unwrap();
+        let text = stdout(&output);
+        assert_eq!(output.status.code(), Some(0), "{text} {}", stderr(&output));
+        let json: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let rendered = json["artifact"]["text"].as_str().unwrap();
+        assert!(rendered.contains(expected), "{rendered}");
+        assert!(!rendered.contains(absent), "{rendered}");
+        assert_eq!(json["manifest"]["as_of"], point);
+        hashes.push(json["manifest"]["profile_hash"].clone());
+    }
+    assert_ne!(hashes[0], hashes[1]);
+}
+
+#[test]
+fn historical_export_keeps_independent_timeless_claim() {
+    let dir = tmp("temporal-export-timeless");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nratify d-0001\nratify d-0002\nevent first ratified d-0001\nevent second ratified d-0001\nbefore first -> second ratified d-0001\ninertial home ratified d-0001\nstate wren.home = old since first ratified d-0001\nstate wren.home = new since second ratified d-0001\nfact wren home old ratified d-0002\n").unwrap();
+    let output = bin()
+        .args(["export", "--profile", "context-pack", "--corpus"])
+        .arg(&corpus)
+        .args(["--as-of", "second"])
+        .output()
+        .unwrap();
+    let text = stdout(&output);
+    assert_eq!(output.status.code(), Some(0), "{text} {}", stderr(&output));
+    let json: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let rendered = json["artifact"]["text"].as_str().unwrap();
+    assert!(rendered.contains("home(wren, old)"), "{rendered}");
+    assert!(rendered.contains("home(wren, new)"), "{rendered}");
+    assert_eq!(rendered.matches("home(wren, old)").count(), 1, "{rendered}");
+}

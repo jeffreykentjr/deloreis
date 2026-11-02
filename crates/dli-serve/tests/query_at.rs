@@ -61,3 +61,47 @@ fn unresolved_inertial_order_has_a_specific_error() {
         "{response}"
     );
 }
+
+#[test]
+fn wire_export_projects_states_and_reports_the_cutoff() {
+    let source = "scope storybook\nratify d-0001\nevent first ratified d-0001\nevent second ratified d-0001\nbefore first -> second ratified d-0001\ninertial home ratified d-0001\nstate wren.home = old since first ratified d-0001\nstate wren.home = new since second ratified d-0001\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics.iter().all(|d| !d.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let root = tempfile::tempdir().unwrap();
+    let store = dli_lorestore::Lorestore::open(root.path().join("store")).unwrap();
+    store
+        .ensure_pack_imported(&dli_world::pack::Pack {
+            name: "storybook".into(),
+            documents: vec![document],
+        })
+        .unwrap();
+    drop(store);
+    fs::write(
+        root.path().join("deloreis.toml"),
+        "version = 1\nname = \"storybook\"\n[documents.storybook]\nstore = \"store\"\n",
+    )
+    .unwrap();
+    let project = dli_serve::project::Project::load(root.path()).unwrap();
+    let mut sessions = dli_serve::session::Sessions::from_project(Arc::new(project));
+    let mut author = dli_serve::author::store::Store::default();
+    for (point, expected, absent) in [
+        ("first", "home(wren, old)", "home(wren, new)"),
+        ("second", "home(wren, new)", "home(wren, old)"),
+    ] {
+        let frame = json!({"dli":"2.0.0","id":"test","op":"dli.export.run","params":{"document":"storybook","profile":"context-pack","as_of":point}});
+        let response = serde_json::to_value(
+            dli_serve::serve::respond(&frame.to_string(), &mut sessions, &mut author).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(response["ok"], true, "{response}");
+        let text = response["result"]["emission"]["artifact"]["text"]
+            .as_str()
+            .unwrap();
+        assert!(text.contains(expected), "{text}");
+        assert!(!text.contains(absent), "{text}");
+        assert_eq!(response["result"]["manifest"]["as_of"], point);
+    }
+}

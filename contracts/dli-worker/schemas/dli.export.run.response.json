@@ -335,6 +335,13 @@
       "description": "Provenance for an exported artifact.",
       "type": "object",
       "properties": {
+        "as_of": {
+          "description": "The story-time cutoff, when this is a historical export.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "commit": {
           "description": "The source commit the export was built from.",
           "type": "string"

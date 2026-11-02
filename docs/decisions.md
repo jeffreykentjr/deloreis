@@ -212,3 +212,20 @@ world. This amends the earlier restriction of inertial projection to
 
 **Rationale.** A historical query must not assert a state before it starts or
 retain a superseded value, and derived answers must follow the same evidence.
+
+## DL-0112 — Bind historical exports to their time point
+
+*Date: 2026-11-02*
+
+**Attribution:** machine.
+
+**Ruling.** Exports may select an era or event through CLI `--as-of` or wire
+`as_of`. The exporter projects each temporal source through the same fluent
+semantics as point-in-time queries before selecting certain source atoms. It
+retains independent timeless claims and source-specific support. The manifest
+records and binds the cutoff. Unresolvable chronology is refused. A compiled
+world lacking complete temporal source metadata must be recompiled before a
+historical query or export, rather than guessing at its support.
+
+**Rationale.** A historical artifact needs the values and provenance that hold
+at its stated point, with enough information to reproduce it after reopening.

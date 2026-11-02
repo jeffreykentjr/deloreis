@@ -316,6 +316,31 @@ fn unrelated_fluents_do_not_block_queries_but_rule_dependencies_do() {
 }
 
 #[test]
+fn legacy_world_without_temporal_mapping_must_be_recompiled() {
+    let source = "scope storybook\nratify d-0001\nevent first ratified d-0001\nevent second ratified d-0001\nbefore first -> second ratified d-0001\nstate wren.awake since second ratified d-0001\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics.iter().all(|d| !d.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let mut compiled = dli_world::compile(&Pack {
+        name: "storybook".into(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let at = TimePoint(compiled.model.world.time_points.lookup("first").unwrap().0);
+    compiled.model.temporal_sources_complete = false;
+    compiled.model.standalone_temporal_facts.clear();
+    compiled.model.temporal_atom_facts.clear();
+    assert!(matches!(
+        dli_world::check::continuity::query_world_at_for_goal(&compiled, at, "awake"),
+        Err(dli_world::check::continuity::TemporalQueryError::Internal(
+            _
+        ))
+    ));
+}
+
+#[test]
 fn cutoff_constraints_respect_known_order_between_distinct_anchors() {
     let source = "scope storybook\nratify d-0001\nevent first ratified d-0001\nevent second ratified d-0001\nevent cutoff ratified d-0001\nbefore first -> second ratified d-0001\nstate wren.home = old until first ratified d-0001\nstate wren.home = new since second ratified d-0001\nrule impossible ratified d-0001\n  impossible($who) :- home($who, old), home($who, new)\n";
     let (document, diagnostics) = dli_syntax::parse_document(source);

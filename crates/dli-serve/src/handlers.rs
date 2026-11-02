@@ -773,14 +773,17 @@ fn export_lore(
         &ExportOpts {
             source_commit,
             profile_name: params.profile_name.clone(),
+            as_of: params.as_of.clone(),
             ..ExportOpts::default()
         },
     )
     .map_err(|err| {
-        (
-            ErrorCode::SchemaViolation,
-            format!("the export profile was refused: {err}"),
-        )
+        let code = match &err {
+            dli_export::ExportError::TemporalIndeterminate(_) => ErrorCode::TemporalIndeterminate,
+            dli_export::ExportError::TemporalInternal(_) => ErrorCode::Internal,
+            _ => ErrorCode::SchemaViolation,
+        };
+        (code, format!("the export profile was refused: {err}"))
     })?;
     let emission = match outcome.artifact {
         dli_export::ExportArtifact::ContextPack(pack) => ExportEmission::ContextPack(pack),

@@ -12,6 +12,7 @@ publish = false
 dli-ast.workspace = true
 dli-core.workspace = true
 dli-eval.workspace = true
+dli-time.workspace = true
 dli-world.workspace = true
 serde.workspace = true
 serde_json.workspace = true

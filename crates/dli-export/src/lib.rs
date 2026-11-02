@@ -81,6 +81,9 @@ pub struct ExportManifest {
     pub valuation: String,
     /// A hash of the export profile and its options.
     pub profile_hash: String,
+    /// The story-time cutoff, when this is a historical export.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub as_of: Option<String>,
 }
 
 /// Render a compiled world out under a profile, returning its artifact and

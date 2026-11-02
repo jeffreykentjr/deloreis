@@ -876,6 +876,9 @@ pub struct ExportRunParams {
     /// Optional qualified profile name from the caller project's catalog.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub profile_name: Option<String>,
+    /// Optional era or event at which to project temporal states.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub as_of: Option<String>,
 }
 
 /// `dli.export.run` result.

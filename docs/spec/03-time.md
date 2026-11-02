@@ -214,6 +214,8 @@ also blocks the query.
 The current evaluator may leave a value possible when multiple alternative
 spans jointly cover every ordering; it does not promote their disjunction to
 certain solely for that reason.
+Compiled worlds serialized before temporal source mappings were recorded must
+be recompiled from their source or lorestore before point-in-time queries.
 
 ---
 
