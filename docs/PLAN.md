@@ -59,14 +59,14 @@ Each node carries:
 Nodes marked **external** or **deferred** are placed in the lane whose artifact
 they touch; they are not a lane of their own.
 
-## External evidence priority
+## Release priority
 
-The four-suite evidence program — SubtleMemory, ClawArena, FlawedFictions, and
-ConStory — is owned by the sibling `dli-benchmarks` repository. It is the
-current priority for validating DLI's epistemic-engine direction, but it is not
-a node in this graph: this repository neither runs nor scores the protocols,
-and no benchmark result gates a local merge. Its traces are the named trigger
-for the deferred distribution work below (DL-0062).
+The current priority is the fiction-release reset (DL-0101), which sits
+outside this graph. The task list is `docs/release/HANDOVER.md` and the
+target is `docs/release/north-star.md`. The four-suite benchmark evidence
+program that used to be named here is retired. The distribution nodes below
+(DIST-*) are parked with no trigger, and the scrub tasks retire or remove the
+BENCH-*, SURF-4 and TPtH-bound nodes.
 
 ## The node registry
 
