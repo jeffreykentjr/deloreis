@@ -8,3 +8,7 @@ src = "src"
 [output.html]
 default-theme = "rust"
 git-repository-url = "https://github.com/jeffreyksmithjr/deloreis"
+
+[preprocessor.strip-frontmatter]
+command = "python3 ../scripts/mdbook-strip-frontmatter.py"
+after = ["links"]
