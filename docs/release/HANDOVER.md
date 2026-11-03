@@ -30,10 +30,9 @@ tracking issue is labelled `release-1`, and each task below has its own issue.
 
 ## Working rules (this repo's, condensed)
 
-- Build and test with a **short target dir**:
-  `CARGO_TARGET_DIR=/home/jeff/tg-rel CI=1 cargo xtask gate`. A long path
-  breaks a Unix-socket test. Don't symlink the target dir. After moving it,
-  run `cargo clean`.
+- Build and test in the checkout's own `target/`: `CI=1 cargo xtask gate`.
+  Any target path works; don't set a shared or home-level
+  `CARGO_TARGET_DIR`. Worktree placement and cleanup are in `AGENTS.md` §5.
 - Run the **gate once per PR**, not in a loop. Docs-only PRs run
   `cargo xtask docs-oracle` and `cargo xtask authority`. Regenerating
   `cli.md` needs `cargo xtask docgen` with `--features syntax` *before* `--`.
@@ -87,7 +86,7 @@ tracking issue is labelled `release-1`, and each task below has its own issue.
 ### T2: Baseline gate run and tag
 - **Goal:** record engine test health before cutting anything, and tag the
   last former-consumer-bearing commit.
-- **Steps:** On green main, run the gate once with the short target dir and
+- **Steps:** On green main, run `CI=1 cargo xtask gate` once and
   note the pass/fail counts in the T2 issue. Then
   `git tag -a pre-fiction-reset -m "last commit with former private consumer, multi-version contract"`
   and push the tag.
