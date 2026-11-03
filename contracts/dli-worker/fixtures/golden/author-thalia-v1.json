@@ -241,7 +241,7 @@
               },
               "atom": "located_in(thalia, joren)",
               "introduced": true,
-              "rendered": "located_in(thalia, joren): dead (asserted) -> possible (asserted)",
+              "rendered": "located_in(thalia, joren): absent -> possible (asserted)",
               "retracted": false
             },
             {
@@ -256,7 +256,7 @@
               },
               "atom": "person(thalia)",
               "introduced": true,
-              "rendered": "person(thalia): dead (asserted) -> possible (asserted)",
+              "rendered": "person(thalia): absent -> possible (asserted)",
               "retracted": false
             },
             {
@@ -271,7 +271,7 @@
               },
               "atom": "place(joren)",
               "introduced": true,
-              "rendered": "place(joren): dead (asserted) -> possible (asserted)",
+              "rendered": "place(joren): absent -> possible (asserted)",
               "retracted": false
             },
             {
@@ -286,7 +286,7 @@
               },
               "atom": "trade(thalia, net-mender)",
               "introduced": true,
-              "rendered": "trade(thalia, net-mender): dead (asserted) -> possible (asserted)",
+              "rendered": "trade(thalia, net-mender): absent -> possible (asserted)",
               "retracted": false
             }
           ],

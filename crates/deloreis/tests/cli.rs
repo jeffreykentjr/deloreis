@@ -2464,3 +2464,27 @@ fn fluent_overlap_names_an_actual_witnessing_state() {
         "{text}"
     );
 }
+
+#[test]
+fn entity_warning_handles_unknown_names_in_established_positions() {
+    let dir = tmp("entity-reference-position");
+    let doc = dir.join("story.dli");
+    fs::write(&doc, "scope story\nperson wren \"Wren\" proposed author\nperson elise \"Elise\" proposed author\nfriend(wren, elise) proposed author\nfriend(wren, bartholomew) proposed author\nweather.sense = rain proposed author\n").unwrap();
+    let out = stdout(&bin().arg("check").arg(&doc).output().unwrap());
+    assert!(out.contains("`bartholomew` is not declared"), "{out}");
+    assert!(!out.contains("`weather` is not declared"), "{out}");
+}
+
+#[test]
+fn undotted_state_values_are_not_mistaken_for_entity_subjects() {
+    let dir = tmp("state-value-is-not-entity");
+    let doc = dir.join("story.dli");
+    fs::write(
+        &doc,
+        "scope story\nperson ned \"Ned\" proposed author\nstate mood = red proposed author\n",
+    )
+    .unwrap();
+    let output = bin().arg("check").arg(&doc).output().unwrap();
+    let out = stdout(&output);
+    assert!(!out.contains("entity.undeclared"), "{out}");
+}

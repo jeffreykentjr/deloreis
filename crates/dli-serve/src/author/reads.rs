@@ -843,11 +843,18 @@ fn classify_standings(
             after_standing.unwrap_or((Status::Dead, Grade::Asserted, PosBool::FALSE));
         let was_dead = before_status == Status::Dead;
         let is_dead = after_status == Status::Dead;
+        let describe = |present, status, grade| {
+            if present {
+                format!("{} ({grade})", status_word(status))
+            } else {
+                "absent".to_owned()
+            }
+        };
         let rendered = format!(
-            "{}: {} ({before_grade}) -> {} ({after_grade})",
+            "{}: {} -> {}",
             atom.render(),
-            status_word(before_status),
-            status_word(after_status)
+            describe(before_present, before_status, before_grade),
+            describe(after_present, after_status, after_grade)
         );
         if before_status == after_status {
             if after_status != Status::Dead
@@ -1086,7 +1093,7 @@ fn world_finding(finding: &WorldFinding, carries_data: bool) -> Finding {
         code: finding.code.clone(),
         message: finding.message.clone(),
         grade: finding.grade,
-        repair: None,
+        repair: crate::finding::entity_repair(finding),
         citations: finding.citations.clone(),
         data: carries_data.then(|| finding.data.clone()).flatten(),
     }

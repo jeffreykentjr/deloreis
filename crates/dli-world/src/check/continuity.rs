@@ -91,6 +91,7 @@ pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
     // world's certain `same-as` links (WS-1) — every reader below
     // canonicalizes through it rather than re-deriving the closure.
     let canon = identity_canon(world);
+    out.extend(super::entity::run(world));
     out.extend(certain_rejected_lore(world));
     out.extend(chronology_cycle(world));
     out.extend(identity_temporal_unsupported(world));

@@ -63,6 +63,13 @@ pub struct Finding {
     pub data: Option<serde_json::Value>,
 }
 
+/// Carry actionable candidate data for the shared entity-reference warning.
+pub(crate) fn entity_repair(finding: &dli_world::check::WorldFinding) -> Option<serde_json::Value> {
+    (finding.code == "entity.undeclared")
+        .then(|| finding.data.clone())
+        .flatten()
+}
+
 /// Escape every control, bidi, and zero-width character in a finding message at
 /// the serialization boundary, so caller-supplied text embedded in the message
 /// can never forge or reorder a line in the review surface a reviewer reads.

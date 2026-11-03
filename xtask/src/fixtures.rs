@@ -647,6 +647,9 @@ fn reset_wire_fixture_correction(old: &[u8], new: &[u8]) -> bool {
         // DL-0117 reauthors the pre-release fiction examples.
         || (old == "2a5e701d775c33c761d514465ec85ff927ec44813d88443b91284c2cf74c7148"
             && new == "809fb34f09c684a0d619d30065a6cd507af186b11c9b1ed51ec3f74da2811bef")
+        // DL-0118 corrects absent standing in human review rows.
+        || (old == "809fb34f09c684a0d619d30065a6cd507af186b11c9b1ed51ec3f74da2811bef"
+            && new == "1eec4129d32eeefae62284ee0d215b4151809905885cc00e34ca324fe9a07003")
 }
 
 #[cfg(test)]

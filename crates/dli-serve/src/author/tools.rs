@@ -4431,7 +4431,7 @@ fn world_finding_to_wire(finding: &WorldFinding) -> Finding {
         code: finding.code.clone(),
         message: finding.message.clone(),
         grade: finding.grade,
-        repair: None,
+        repair: crate::finding::entity_repair(finding),
         citations: finding.citations.clone(),
         data: finding.data.clone(),
     }

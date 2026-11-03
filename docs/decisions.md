@@ -337,3 +337,52 @@ contract-version fence.
 
 **Rationale.** The first public release needs examples independent of a
 former consuming project while preserving the contract's behavior.
+
+## DL-0118 — Report likely undeclared entity references
+
+*Date: 2026-11-03*
+
+**Attribution:** machine.
+
+**Ruling.** The shared world check reports `entity.undeclared` as an advisory
+finding for a likely misspelled entity or an unknown symbol in a position that
+also contains a declared entity in the same scope. It carries the referenced
+name, ranked candidates and source span as repair data. A warning does not
+block materialization. Untyped values and unrelated abstract subjects are not
+assumed to be entities.
+
+Review rows render missing before or after facts as `absent`, rather than
+calling them defeated. Permit the exact pre-release fixture registry transition
+in the fixture checker for that correction; replay and schema checks still apply.
+
+**Rationale.** CLI and authoring clients need the same actionable signal,
+while fictional concepts that were never declared as entities remain usable.
+
+## DL-0119 — Carry forward world independence and store retention
+
+*Date: 2026-11-03*
+
+**Attribution:** machine.
+
+**Ruling.** The standing obligations of DL-0017, DL-0027, and DL-0077 remain
+in force: the engine does not bake in a world's content; accepted records are
+append-only; and deleting a branch removes its pointer, not its reachable or
+orphaned objects. Garbage collection requires a separate decision.
+
+**Rationale.** The reset's summary omitted these still-used rules even though
+implementation and documentation continue to rely on them.
+
+## DL-0120 — Avoid guessing from ambiguous state values
+
+*Date: 2026-11-03*
+
+**Attribution:** machine.
+
+**Ruling.** Qualify DL-0118: an undotted state's value is not diagnosed as an
+entity reference merely because the same predicate has held a declared entity.
+A synthetic valueless dotted state is also excluded from this shared warning
+when lowering has lost the distinction from an undotted value; its authoring
+validation continues to check the reference separately.
+
+**Rationale.** Predicate positions do not declare types, so a concept that
+happens to resemble an entity is not evidence of a misspelling.

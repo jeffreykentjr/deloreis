@@ -17,6 +17,7 @@
 //! in a later wave; this type is the kernel-local truth.
 
 pub mod continuity;
+mod entity;
 pub mod factcheck;
 
 pub use continuity::{SlotDefeater, SlotHolding, SlotStateAt, identity_canon};

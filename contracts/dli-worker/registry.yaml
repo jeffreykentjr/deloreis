@@ -126,7 +126,7 @@ fixtures:
 - path: golden/author-scrub-cited-recorded-v1.json
   sha256: 5175d5dc4df76aa25924bd51b775cd1fb8924f592b25936f645d177cbdb09997
 - path: golden/author-session-v1.json
-  sha256: cd0a6ad2fdabe4211ae3cfea1ced7a76df67b717d5d6083c5301269c9ddfdf07
+  sha256: 0e8c9eb2fa5355ddb94ca76ae50e55a057a293b6ced249b73ba75348d2e8e270
 - path: golden/author-status-v1.json
   sha256: 73f9b79fd72e50cd70553373a3c0629a0b55d36fd83c560b25c2f281fafcce2a
 - path: golden/author-structural-key-v1.json
@@ -134,7 +134,7 @@ fixtures:
 - path: golden/author-suppose-v1.json
   sha256: cd58e45400630d0ff1411c8e61788e94a534c4eabf74ba1f29678fcc9015fb80
 - path: golden/author-thalia-v1.json
-  sha256: 2dc803017096cdc219a4cbd0243e10d7764e12f2897c2e65dbf40dba864d686d
+  sha256: 43a55f4234ebdd705df3c884e3a83877a86cd79a2039432e95a8dd30de82c22c
 - path: golden/author-why-v1.json
   sha256: 309ac98b0e61e59a30319aa68ed020dc71aa17c6d2effdf911b2f128dbfdeb72
 - path: golden/check-basic-v1.json

@@ -85,7 +85,8 @@ The blocks show tool arguments, not shell commands.
 9. Call `author.check` with `{"workspace":"WORKSPACE"}`. Its findings include
    `continuity.fd-violation`, both values, and rulings `d-0001` and `d-0002`.
    `author.materialize` refuses this conflicting staged fact. Use
-   `author.discard` to abandon the staged changes.
+   `author.discard` to abandon the staged changes. Decisions are recorded
+   immediately, so discarding a workspace does not undo them.
 
 The [Hollow transcript](../examples/hollow/transcript.md) continues with
 contested accounts, a retcon, a what-if branch, and replay. See the

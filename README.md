@@ -9,6 +9,10 @@ Wren lives in Thornfield. Three chapters later, someone says she lives in
 Ashby. If both are meant to be true at the same time, De Lore Is can catch the
 conflict before it becomes part of your story.
 
+For example, a check reports `continuity.fd-violation` and names both homes
+and the rulings behind them. The [Hollow walkthrough](examples/hollow/transcript.md)
+shows the actual finding and the refused commit.
+
 De Lore Is keeps track of the people, places, events, and rules you give it.
 It can tell you which claims are settled, which are still in dispute, and why.
 When you change your mind, the old ruling stays in the record. You can explore
@@ -17,6 +21,8 @@ an alternative without rewriting the original.
 It's useful for authors keeping a series bible and for people building tools
 that write or work with fiction. It checks structured lore, not manuscripts:
 you decide what to record and which rules matter in your world.
+It records when you add and rule on claims; it does not model what each
+character knew at a particular point in the story.
 
 ## Install
 

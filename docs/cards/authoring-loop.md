@@ -5,9 +5,9 @@ verdict: "Follow a checked authoring session through The Hollow."
 
 # The authoring loop
 
-This session starts from a copy of `examples/hollow`, whose first ruling says
-Wren lives in Thornfield. The complete [transcript](../../examples/hollow/transcript.md)
-is generated and checked by the MCP driver. Each block below is the arguments
+This session starts with a new world and makes a first ruling that Wren lives
+in Thornfield. The complete [transcript](../../examples/hollow/transcript.md)
+is generated and checked by the MCP driver using `--tools all`. Each block below is the arguments
 object for a `tools/call`; replace `WORKSPACE` with the ID returned by
 `author.open`.
 
@@ -72,9 +72,14 @@ that both explanations survive.
 
 ## Retcon and explore
 
-The [remaining transcript](../../examples/hollow/transcript.md) shows the
-actual output after recording the drowning ruling, defeating its support with
-`d-0004`, and defeating that retcon with `d-0005`. It also shows a branch diff
-and the answer after a server restart. The driver in
-`crates/deloreis/tests/hollow.rs` contains the complete calls, including the
-claim IDs and branch operations.
+Record `d-0003`, add the drowning claim with that citation, and materialize it.
+The returned fact has a claim ID. Pass it to `author.defeat`, along with
+`d-0004` and `defeated_decision: d-0003`, then add the poisoned account under
+`d-0004`. Defeating that retcon with `d-0005` restores the drowning claim;
+the rival account becomes possible again.
+
+Create a branch with `author.branch`, open it with `author.open`, and stage
+the alternative there. `author.diff` shows the new claim and its consequences
+without changing main. The transcript shows the exact calls and their results.
+Finally, restart the server and query the original claim again: the same ruling
+and explanation are still available.

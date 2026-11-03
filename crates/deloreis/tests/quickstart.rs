@@ -86,14 +86,21 @@ fn quickstart_preserves_staged_claims_when_a_decision_is_recorded() {
             .as_str()
             .unwrap()
             .to_owned();
-        for (kind, id, name) in [
-            ("person", "wren", "Wren"),
-            ("place", "thornfield", "Thornfield"),
-            ("place", "ashby", "Ashby"),
-        ] {
-            server.ok("author.add_entity", json!({"workspace":workspace,"kind":kind,"id":id,"name":name,"provenance":{"kind":"proposed","origin":"quickstart"}}));
+        let examples: Vec<Value> = include_str!("../../../docs/quickstart.md")
+            .split("```json\n")
+            .skip(1)
+            .map(|block| serde_json::from_str(block.split("```").next().unwrap()).unwrap())
+            .collect();
+        assert_eq!(examples.len(), 6, "quickstart's JSON calls changed");
+        let args = |index: usize| {
+            let mut value = examples[index].clone();
+            value["workspace"] = json!(workspace);
+            value
+        };
+        for index in 0..3 {
+            server.ok("author.add_entity", args(index));
         }
-        server.ok("author.declare_functional", json!({"workspace":workspace,"pred":"home","provenance":{"kind":"proposed","origin":"quickstart"}}));
+        server.ok("author.declare_functional", args(3));
         if bulk {
             server.ok(
                 "author.record_decisions",
@@ -105,13 +112,13 @@ fn quickstart_preserves_staged_claims_when_a_decision_is_recorded() {
                 json!({"workspace":workspace,"decision":"d-0001"}),
             );
         }
-        server.ok("author.add_fact", json!({"workspace":workspace,"entity":"wren","key":"home","value":"thornfield","provenance":{"kind":"cited","decisions":["d-0001"],"state":"ratified"}}));
+        server.ok("author.add_fact", args(4));
         server.ok("author.materialize", json!({"workspace":workspace}));
         server.ok(
             "author.record_decision",
             json!({"workspace":workspace,"decision":"d-0002"}),
         );
-        server.ok("author.add_fact", json!({"workspace":workspace,"entity":"wren","key":"home","value":"ashby","provenance":{"kind":"cited","decisions":["d-0002"],"state":"ratified"}}));
+        server.ok("author.add_fact", args(5));
         let checked = server.ok("author.check", json!({"workspace":workspace}));
         assert!(
             checked["findings"]
