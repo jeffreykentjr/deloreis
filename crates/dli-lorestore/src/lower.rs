@@ -1292,19 +1292,23 @@ pub fn reconstruct_pack(
         markers: None,
     };
     let mut index = 0;
-    let mut pending: Vec<CarriedFactKey> = Vec::new();
+    let mut pending: BTreeMap<CarriedFactKey, usize> = BTreeMap::new();
     while index < fact_objects.len() {
         let fo = &fact_objects[index];
 
-        if fo.expert_body.is_none()
+        if !pending.is_empty()
+            && fo.expert_body.is_none()
             && let Ok(hash) = fo.content_hash()
-            && let Some(position) = pending
-                .iter()
-                .position(|(expected, claim)| *expected == hash && *claim == fo.claim_id)
         {
-            pending.remove(position);
-            index += 1;
-            continue;
+            let key = (hash, fo.claim_id.clone());
+            if let Some(count) = pending.get_mut(&key) {
+                *count -= 1;
+                if *count == 0 {
+                    pending.remove(&key);
+                }
+                index += 1;
+                continue;
+            }
         }
         if let Some(body) = &fo.expert_body {
             pending.clear();
@@ -1326,7 +1330,9 @@ pub fn reconstruct_pack(
             if let Some(keys) = cited_entity_identity {
                 // Intervening independent supports can precede a carried
                 // child. Keep looking by exact identity until the next carriage.
-                pending = keys;
+                for key in keys {
+                    *pending.entry(key).or_default() += 1;
+                }
             } else {
                 cited_entities.observe(&decl);
                 for expected in carried_atom_renders(&decl) {
