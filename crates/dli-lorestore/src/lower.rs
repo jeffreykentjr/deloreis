@@ -1092,10 +1092,12 @@ impl CitedEntityReplay<'_> {
         &mut self,
         decl: &mut Decl,
         name: &str,
-    ) -> Result<Option<CarriedFactKey>, ReconstructError> {
+    ) -> Result<Option<Vec<CarriedFactKey>>, ReconstructError> {
         let eligible = matches!(decl, Decl::Entity(entity)
-            if entity.slots.is_empty() && entity.provenance.as_ref()
-                .is_some_and(|ann| ann.marker.requires_citation()));
+            if entity.provenance.as_ref().is_some_and(|ann| ann.marker.requires_citation())
+                && entity.slots.iter().all(|slot| slot.provenance.as_ref()
+                    .or(entity.provenance.as_ref())
+                    .is_some_and(|ann| ann.marker.requires_citation())));
         if !eligible {
             return Ok(None);
         }
@@ -1110,38 +1112,77 @@ impl CitedEntityReplay<'_> {
                 reason: "entity provenance is absent from the committed interner".to_owned(),
             });
         }
-        let atom = generated
+        let keys: Vec<_> = generated
             .iter()
-            .find(|object| object.expert_body.is_none())
-            .ok_or_else(|| ReconstructError::Carriage {
+            .filter(|object| object.expert_body.is_none())
+            .map(|atom| {
+                Ok((
+                    atom.content_hash()
+                        .map_err(|error| ReconstructError::Carriage {
+                            name: name.to_owned(),
+                            reason: error.to_string(),
+                        })?,
+                    atom.claim_id.clone(),
+                ))
+            })
+            .collect::<Result<_, ReconstructError>>()?;
+        let Decl::Entity(entity) = decl else {
+            return Ok(None);
+        };
+        if keys.len() != entity.slots.len() + 1 {
+            return Err(ReconstructError::Carriage {
                 name: name.to_owned(),
-                reason: "entity did not regenerate an atom".to_owned(),
-            })?;
-        let key = (
-            atom.content_hash()
-                .map_err(|error| ReconstructError::Carriage {
-                    name: name.to_owned(),
-                    reason: error.to_string(),
-                })?,
-            atom.claim_id.clone(),
-        );
+                reason: "entity did not regenerate its facts".to_owned(),
+            });
+        }
         let markers = self
             .markers
             .get_or_insert_with(|| marker_index(self.objects));
-        if let Some((_, true)) = markers.get(&key) {
-            return Err(ReconstructError::Carriage {
-                name: name.to_owned(),
-                reason: "conflicting standing metadata for the same entity fact".to_owned(),
-            });
-        }
-        if let Some((Some(marker), false)) = markers.get(&key)
-            && marker.requires_citation()
-            && let Decl::Entity(entity) = decl
+        let current_marker =
+            |key: &CarriedFactKey| -> Result<Option<ProvenanceMarker>, ReconstructError> {
+                match markers.get(key) {
+                    Some((_, true)) => Err(ReconstructError::Carriage {
+                        name: name.to_owned(),
+                        reason: "conflicting standing metadata for the same entity fact".to_owned(),
+                    }),
+                    Some((Some(marker), false)) if marker.requires_citation() => Ok(Some(*marker)),
+                    _ => Ok(None),
+                }
+            };
+        // Snapshot each inherited annotation before revising the parent, so a
+        // later change to either standing cannot implicitly change the other.
+        let Some(parent) = entity.provenance.clone() else {
+            return Ok(None);
+        };
+        let slot_annotations: Vec<_> = entity
+            .slots
+            .iter()
+            .map(|slot| slot.provenance.as_ref().unwrap_or(&parent).clone())
+            .collect();
+        if let Some(marker) = current_marker(&keys[0])?
             && let Some(annotation) = &mut entity.provenance
         {
-            annotation.marker = *marker;
+            annotation.marker = marker;
         }
-        Ok(Some(key))
+        for ((slot, mut annotation), key) in entity
+            .slots
+            .iter_mut()
+            .zip(slot_annotations)
+            .zip(&keys[1..])
+        {
+            if let Some(marker) = current_marker(key)? {
+                annotation.marker = marker;
+            }
+            if slot.provenance.is_some()
+                || entity
+                    .provenance
+                    .as_ref()
+                    .is_none_or(|parent| parent.marker != annotation.marker)
+            {
+                slot.provenance = Some(annotation);
+            }
+        }
+        Ok(Some(keys))
     }
 }
 
@@ -1253,12 +1294,13 @@ pub fn reconstruct_pack(
             // — by identity, in order, tolerating absences (commit-chain
             // dedup can elide an atom already present in an earlier commit).
             index += 1;
-            for expected in carried_atom_renders(&decl) {
+            for (position, expected) in carried_atom_renders(&decl).into_iter().enumerate() {
                 if fact_objects.get(index).is_some_and(|next| {
                     next.expert_body.is_none()
                         && next.atom.render() == expected
                         && cited_entity_identity
                             .as_ref()
+                            .and_then(|keys| keys.get(position))
                             .is_none_or(|(hash, claim_id)| {
                                 next.claim_id == *claim_id
                                     && next.content_hash().ok().as_ref() == Some(hash)
