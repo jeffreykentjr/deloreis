@@ -9,8 +9,7 @@ verdict: "The measurement DL-0088 §3 asked for, taken. It REFUTES the predictio
 DL-0088 §3 refused to slice the whole-world check battery on a guess and
 required instead that **"PR 3 instruments the check-battery cost so its slicing
 trigger fires on a measurement rather than a guess."** This note is that
-measurement, committed so the SubtleMemory instrumentation has a reproducible
-baseline to be read against.
+measurement, committed as a reproducible historical baseline.
 
 It is `status: reference` — **data, not a ruling.** It records what a run
 measured. Any change of course it suggests belongs in `decisions.md`, not here.
@@ -73,8 +72,8 @@ deliberate self-join, so derived rows grow quadratically in shared scenes and th
 fixpoint's dominance is partly a property of *this* rule set, not of the engine
 alone. A corpus with no self-join would shift the split — how far is unmeasured.
 The `same-as` per persona is likewise deliberate: DL-0088 §1 names identity
-assertions as the *worst* case for fixpoint reuse, and the SubtleMemory pilot is
-an identity workload, so this is the shape the campaign is actually aimed at.
+assertions as the *worst* case for fixpoint reuse, so this measurement
+uses an identity-heavy workload.
 
 ## 1 — The residual per-`author.merge` cost split
 
@@ -190,7 +189,7 @@ prediction, sharpened by measurement:
 
 So on the identity workload PR 2 buys nothing, honestly measured. Its win needs a
 delta high in the dependency order in a world that does *not* declare identity;
-that regime is not represented here and is not the SubtleMemory shape.
+that regime is not represented here.
 
 ## 5 — What this baseline says about the next lever
 

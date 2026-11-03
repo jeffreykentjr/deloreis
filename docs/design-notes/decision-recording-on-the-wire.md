@@ -1,5 +1,5 @@
 ---
-status: live
+status: reference
 verdict: "DL-0083"
 ---
 
@@ -12,6 +12,12 @@ DL-0054 authority boundary it does *not* move, fixes the semantics, and audits
 every certainty-gated check the feature makes reachable through the taught tool
 surface. The DL id in the frontmatter is minted by the implementer against
 `docs/decisions.md`.
+
+> **Historical design note.** The discussion below describes the contract before
+> decision recording shipped. Contract 2.0.0 is the only served version; `.dli`
+> is a supported authoring surface again. For current usage, see
+> [the authoring reference](../spec/11-agent-authoring.md) and
+> [the language tutorial](../cards/gentle-card.md).
 
 ## 1. The bootstrap gap
 
@@ -26,32 +32,12 @@ The provenance triad on the tool surface is lopsided:
 - **Nothing records the first, baseline, *supporting* decision.** No tool mints
   the ratified ruling that a fact can rest on to read certain.
 
-The one path that ever created a baseline ratified decision was `.dli`'s
-`ratify d-1`, and that surface is dead — text authoring is a measured fallback,
-not the taught way in (DL-0014/DL-0043). So the only route to certainty left to
-a wire caller runs entirely around the ledger: the `fixture-authority <store>
-main true` binary (it lives in the *benchmark* repo, `dli-benchmarks`), which
-force-flips **every** `h.*` proposal-gate variable in the reference's valuation
-overlay to true. It records no decision, cites nothing, and reaches around the
-whole known-decision set; it simply asserts "everything is certain now."
-
-The consequence is that **contradiction detection is unreachable through the
-taught surface.** Every world-internal contradiction class the engine computes —
-FD, derived-FD, fluent, fluent-order, inertia-capping, `same-as` identity merge,
-and the fact-checker's world-contradiction — is gated on *certain* facts. Two
-proposed conflicting values produce no finding: both read `possible`, and the
-engine correctly says nothing. The engine is *correct over a precondition no
-wire caller can establish.* An agent that only knows the `author.*` tools cannot
-reach a single one of these findings without the out-of-band `fixture-authority`
-hack.
-
-There is already standing proof the algebra itself works: the benchmark's
-`designed_usage.py:demo_cited_certainty` fires `continuity.fd-violation` with
-`used_fixture_authority: False` — but *only* because it writes `ratify d-1` into
-a `.dli` file on disk and points a `sources` corpus at it, so the facts can cite
-`d-1`. This feature moves that one `ratify` onto the wire. Nothing about the
-valuation algebra changes; a caller gains the one op that lets it record the
-baseline decision it was always expected to supply.
+At the time, the text form `ratify d-1` could create a baseline decision,
+but a wire caller could not. That left certainty-gated contradiction checks
+unreachable through wire authoring alone. Loading a `.dli` sources corpus with
+`ratify d-1` could establish that decision without a valuation override. The
+feature added a way for callers to record the supporting decision on the wire
+without changing the valuation algebra.
 
 ## 2. What this does NOT move — the DL-0054 restatement
 
@@ -132,7 +118,7 @@ them certain, never `materialize {decision}`. And a fact that already cites a
 decision keeps its own citation.
 
 This means "**accept this staged set's facts under decision D**," which is the
-honest replacement for `fixture-authority ... true`. It is emphatically *not*
+acceptance of a specific set. It is emphatically *not*
 "force every support variable true": it rests exactly the facts this materialize
 commits on a named, recorded, defeasible decision — not the whole valuation
 overlay — so two conflicting accepted facts fire `continuity.fd-violation` on the
@@ -153,9 +139,9 @@ byte-identical.
 
 ## 4. Deprecation audit
 
-Every certainty-gated check below is, on `origin/main` `9b28866` (contract
-1.8.0), reachable through the wire **only** by running `fixture-authority ...
-true` — force-flipping every proposal gate out-of-band. After this feature each
+At the historical baseline `9b28866` (contract 1.8.0), reaching the
+certainty-gated checks below without a `.dli` source required an out-of-band
+valuation override. After this feature each
 is reachable through the taught surface: record the supporting decision, then
 author/cite the claims to it (`record_decision` + `cited`/`set_standing`) — and,
 for the **facts** in the set, `materialize {decision}` accepts them under it in
@@ -165,16 +151,16 @@ their rows below reach certainty via `record_decision` + a cited declaration, no
 `materialize`. Certain-gate sites are cited against `crates/dli-world/src/check/`
 at `9b28866`.
 
-| Check (finding) | Certain-gate site (verified @ 9b28866) | Certain facts today only via | Reachable wire-only post-feature via |
+| Check (finding) | Certain-gate site (verified @ 9b28866) | Historical workaround | Reachable wire-only post-feature via |
 |---|---|---|---|
-| `continuity.fd-violation` | `continuity.rs` `fd_violations` → `certain_binary_slots` filter `atom_status == Status::Certain`; claim side `factcheck.rs` `certain_values` → `continuity.rs certain_values` (`atom_status == Certain`) | `fixture-authority true` | `record_decision d` + cite the two facts, or `materialize {decision: d}` |
-| `continuity.derived-fd-violation` | `continuity.rs` `derived_fd_violations` → `certain_derived_binary_slots` filter `derived.ann().status == Status::Certain` | `fixture-authority true` | `record_decision d` + cite the base facts and the rule — the rule is a carriage claim, so `materialize {decision}` (facts-only) cannot confer its certainty |
-| `continuity.fluent-contradiction` | `continuity.rs` `fluent_contradictions` → `fluent_clash` sweep over `state.certain_values()`; certain-span basis (`status == Certain`) | `fixture-authority true` | `record_decision d` + cite (or `materialize {decision: d}`) the competing fluent states |
-| `continuity.fluent-order-undeclared` | `continuity.rs` `fluent_order_gap` certain-span filter `span.ann.status == Status::Certain` | `fixture-authority true` | same as fluent-contradiction; the ordering edge is staged at check-only as today |
-| inertia capping (DL-0081) | `continuity.rs` `fluent_finding_data`/`state_at_inertial` `capping = inertial.status == Status::Certain`; `inertial_derived_until` competitor filter `status == Certain` | `fixture-authority true` (declaration **and** states must read certain) | `record_decision d` + cite the `declare_inertial` decl and the point states — the inertial decl is a carriage claim, so `materialize {decision}` stamps the states but not the decl; cite it |
-| `same-as` identity merge (WS-1) | `continuity.rs` `identity_canon` union-find over links with `link.ann.status == Status::Certain` | `fixture-authority true` | `record_decision d` + cite the `assert_same_as` link — a carriage claim `materialize {decision}` (facts-only) never stamps |
-| `continuity.world-contradiction` | `factcheck.rs` `Verdict::Contradicted` requires one certain value differing from the claim, via `certain_values` | `fixture-authority true` (a certain canon value) | `record_decision d` + cite (or `materialize {decision: d}`) the canon fact; the contradicting claim then reads contradicted |
-| `continuity.rejected-lore` | `continuity.rs` `certain_rejected_lore` filter `atom_status == Status::Certain` | `fixture-authority true` (a certain fact realizing a killed token) | `record_decision d` + cite (or `materialize {decision: d}`) the offending fact |
+| `continuity.fd-violation` | `continuity.rs` `fd_violations` → `certain_binary_slots` filter `atom_status == Status::Certain`; claim side `factcheck.rs` `certain_values` → `continuity.rs certain_values` (`atom_status == Certain`) | valuation override | `record_decision d` + cite the two facts, or `materialize {decision: d}` |
+| `continuity.derived-fd-violation` | `continuity.rs` `derived_fd_violations` → `certain_derived_binary_slots` filter `derived.ann().status == Status::Certain` | valuation override | `record_decision d` + cite the base facts and the rule — the rule is a carriage claim, so `materialize {decision}` (facts-only) cannot confer its certainty |
+| `continuity.fluent-contradiction` | `continuity.rs` `fluent_contradictions` → `fluent_clash` sweep over `state.certain_values()`; certain-span basis (`status == Certain`) | valuation override | `record_decision d` + cite (or `materialize {decision: d}`) the competing fluent states |
+| `continuity.fluent-order-undeclared` | `continuity.rs` `fluent_order_gap` certain-span filter `span.ann.status == Status::Certain` | valuation override | same as fluent-contradiction; the ordering edge is staged at check-only as today |
+| inertia capping (DL-0081) | `continuity.rs` `fluent_finding_data`/`state_at_inertial` `capping = inertial.status == Status::Certain`; `inertial_derived_until` competitor filter `status == Certain` | valuation override (declaration **and** states must read certain) | `record_decision d` + cite the `declare_inertial` decl and the point states — the inertial decl is a carriage claim, so `materialize {decision}` stamps the states but not the decl; cite it |
+| `same-as` identity merge (WS-1) | `continuity.rs` `identity_canon` union-find over links with `link.ann.status == Status::Certain` | valuation override | `record_decision d` + cite the `assert_same_as` link — a carriage claim `materialize {decision}` (facts-only) never stamps |
+| `continuity.world-contradiction` | `factcheck.rs` `Verdict::Contradicted` requires one certain value differing from the claim, via `certain_values` | valuation override (a certain canon value) | `record_decision d` + cite (or `materialize {decision: d}`) the canon fact; the contradicting claim then reads contradicted |
+| `continuity.rejected-lore` | `continuity.rs` `certain_rejected_lore` filter `atom_status == Status::Certain` | valuation override (a certain fact realizing a killed token) | `record_decision d` + cite (or `materialize {decision: d}`) the offending fact |
 | `continuity.identity-temporal-unsupported` | `continuity.rs` `identity_temporal_unsupported` — **NOT certainty-gated**; fires on any declared `same-as` naming an era/event *regardless of the link's standing* | already reachable via `assert_same_as` (proposed) — no flip needed | already wire-reachable today; **unchanged** by this feature |
 
 **One honest correction to the plan's A.3 list.** Eight of the nine rows are
@@ -186,17 +172,11 @@ events." It is therefore already reachable on the wire via `author.assert_same_a
 alone, and this feature neither blocks it nor is needed for it. It is listed here
 for completeness and to record that it is *not* part of what the bootstrap fills.
 
-### 4.1 The retired shortcuts and their wire replacements
+### 4.1 Recording decisions
 
-- **`fixture-authority` binary** (`dli-benchmarks`, `tools/fixture-authority/`) —
-  `... main true` force-flips every `h.*` gate. Replaced by
-  `author.materialize {decision}` (whole committed set certain under a named
-  decision) or `record_decision` + `cited`/`set_standing` (selective certainty).
-  Its `... main false h.X` mode (targeted supersession of one support variable)
-  is replaced by `author.defeat`. Once the benchmark migration converts every
-  call site (Part C), the binary is dead.
-- **`.dli` `ratify d-1`** — the dead text form that once introduced a baseline
-  ratified decision. Replaced directly by `author.record_decision`.
+The wire surface records decisions with `author.record_decision` and retracts
+their support with `author.defeat`. The `.dli` `ratify` form also records a
+baseline decision and remains supported.
 
 ## 5. v1 boundaries and their un-lift triggers
 

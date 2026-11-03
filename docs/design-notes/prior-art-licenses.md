@@ -104,19 +104,16 @@ The in-house SyntaxBudget probe is **not a basis.** It is a small, single-model
 experiment whose direction agrees with the published record — grammar regularity
 and canonical form as the reproducible levers, task complexity dominating failure
 variance. The load-bearing citations for the surface are Stefik & Siebert, Green
-& Petre, and Mernik et al.; SyntaxBudget informs the *benchmark's* design, not
+& Petre, and Mernik et al.; SyntaxBudget informed an earlier measurement design, not
 the grammar's defense. Its one honest residual value: nothing published measures
 *agent* emission of a novel grammar, so the probe remains the only data point on
 that specific question — a data point, not a basis.
 
 **What remains genuinely unvalidated.** No empirical study of *this* grammar
 exists, for humans or for agents. The regrounding narrows the bet; it does not
-discharge it. Two instruments discharge it: the authoring benchmark (the
-agent-side instrument, pass defined by the real gate) and a small human-writer
-probe before the surface freezes (the gentle subset, Stefik-style comprehension
-and transcription tasks, a cognitive-dimensions walkthrough as interview
-scaffold). Until both report, every approachability claim is a hypothesis with
-good priors, written as one.
+discharge it. The earlier plan proposed agent and human-writer studies; that measurement
+program is retired under DL-0101. Approachability claims remain hypotheses
+until supported by relevant evidence.
 
 ## Full citation list
 
