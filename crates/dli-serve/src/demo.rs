@@ -89,7 +89,7 @@ const WARDING_VOWS_SOURCE: &str = include_str!("../demos/warding-vows.source.dli
 /// so the `timeline.show`/`timeline.order` and dialect-scoped `name.check` reads
 /// have a resolvable, engine-owned world to run against. It is the neutral
 /// counterpart to a caller's own world; the worker embeds no production canon.
-const ROUND_TABLE_SOURCE: &str = include_str!("../../../examples/camelot.dli");
+const ROUND_TABLE_SOURCE: &str = include_str!("../demos/round-table.source.dli");
 
 const CAMELOT_FACTS: &str = include_str!("../demos/camelot.facts.json");
 const ROUND_TABLE_FACTS: &str = include_str!("../demos/round-table.facts.json");

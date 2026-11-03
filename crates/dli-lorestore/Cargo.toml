@@ -6,7 +6,7 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-publish = false
+publish = ["crates-io"]
 
 [features]
 # LS-7: the parser is opt-in. Off, the store is a v2-native reader — pure
@@ -41,7 +41,7 @@ dli-ledger.workspace = true
 # Tests build their v1 fixtures the honest way — parse `.dli` and lower — so the
 # front end is always present for a test build, feature or no feature.
 dli-syntax.workspace = true
-serde_yaml_ng.workspace = true
+serde_saphyr.workspace = true
 tempfile.workspace = true
 
 [lints]

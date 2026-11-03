@@ -47,12 +47,10 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: nextest,cargo-deny
+      - run: python3 scripts/test-publish-crates.py
       - run: cargo run -p xtask --locked -- gate --ci --receipt out/greengate/ci
 
-  # The LS-7 default-build oracle, standing alone. It is already inside the
-  # canonical gate (these are gate steps, verbatim); running it as its own job
-  # means "the shipped artifacts still link no parser" reads off the checks list
-  # without decoding a gate log.
+  # Check the default build and the optional parser-free configuration.
   default-build:
     runs-on: ubuntu-latest
     timeout-minutes: 15

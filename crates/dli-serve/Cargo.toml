@@ -6,7 +6,7 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-publish = false
+publish = ["crates-io"]
 
 [features]
 # Text projects and rendered authoring ship in the default build.
@@ -25,7 +25,7 @@ dli-syntax = { workspace = true, optional = true }
 dli-time.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-serde_yaml_ng.workspace = true
+serde_saphyr.workspace = true
 sha2.workspace = true
 fs2.workspace = true
 serde_json_canonicalizer.workspace = true

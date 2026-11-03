@@ -1,5 +1,5 @@
 ---
-source: crates/dli-ast/tests/smoke.rs
+source: crates/dli-syntax/tests/ast_golden.rs
 expression: document
 ---
 {

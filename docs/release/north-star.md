@@ -22,8 +22,8 @@ contradicts ruled canon, names the rulings involved, keeps every retcon
 inspectable, and gives the same answer every time from the same inputs. It
 calls no model.
 
-**Tagline:** *A series bible that remembers every ruling, catches every
-contradiction, and never forgets a retcon.*
+**Tagline:** *A series bible that keeps track of your rulings, catches
+continuity conflicts, and remembers what changed.*
 
 ## Who it is for
 

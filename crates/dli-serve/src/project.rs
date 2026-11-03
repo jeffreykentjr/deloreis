@@ -1174,7 +1174,7 @@ fn load_yaml<T: for<'de> Deserialize<'de>>(
         path: path.display().to_string(),
         message: error.to_string(),
     })?;
-    serde_yaml_ng::from_str(&text).map_err(|error| ProjectError::ParseAsset {
+    serde_saphyr::from_str(&text).map_err(|error| ProjectError::ParseAsset {
         path: resolved.display().to_string(),
         message: error.to_string(),
     })

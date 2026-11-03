@@ -17,8 +17,8 @@ pub fn run_fixtures(contract_dir: &Path, schemas_dir: &Path, update_digests: boo
     let registry_path = contract_dir.join("registry.yaml");
     let text = std::fs::read_to_string(&registry_path)
         .with_context(|| format!("reading {}", registry_path.display()))?;
-    let registry: serde_yaml_ng::Value =
-        serde_yaml_ng::from_str(&text).context("parsing registry.yaml")?;
+    let registry: serde_json::Value =
+        serde_saphyr::from_str(&text).context("parsing registry.yaml")?;
     if !update_digests {
         check_version_rides_digest_changes(contract_dir, &registry)?;
     }
@@ -26,16 +26,16 @@ pub fn run_fixtures(contract_dir: &Path, schemas_dir: &Path, update_digests: boo
 
     if let Some(project) = registry
         .get("replay_project")
-        .and_then(serde_yaml_ng::Value::as_sequence)
+        .and_then(serde_json::Value::as_array)
     {
         for entry in project {
             let path = entry
                 .get("path")
-                .and_then(serde_yaml_ng::Value::as_str)
+                .and_then(serde_json::Value::as_str)
                 .ok_or_else(|| anyhow!("a replay_project entry is missing `path`"))?;
             let want = entry
                 .get("sha256")
-                .and_then(serde_yaml_ng::Value::as_str)
+                .and_then(serde_json::Value::as_str)
                 .ok_or_else(|| anyhow!("replay_project {path} is missing `sha256`"))?;
             let bytes = std::fs::read(contract_dir.join(path))
                 .with_context(|| format!("reading replay_project {path}"))?;
@@ -52,14 +52,14 @@ pub fn run_fixtures(contract_dir: &Path, schemas_dir: &Path, update_digests: boo
 
     let entries = registry
         .get("fixtures")
-        .and_then(serde_yaml_ng::Value::as_sequence)
+        .and_then(serde_json::Value::as_array)
         .ok_or_else(|| anyhow!("registry.yaml is missing a `fixtures` list"))?;
 
     let mut registered: BTreeSet<String> = BTreeSet::new();
     for entry in entries {
         let path = entry
             .get("path")
-            .and_then(serde_yaml_ng::Value::as_str)
+            .and_then(serde_json::Value::as_str)
             .ok_or_else(|| anyhow!("a fixture entry is missing `path`"))?;
         registered.insert(path.to_owned());
     }
@@ -90,11 +90,11 @@ pub fn run_fixtures(contract_dir: &Path, schemas_dir: &Path, update_digests: boo
     for entry in entries {
         let path = entry
             .get("path")
-            .and_then(serde_yaml_ng::Value::as_str)
+            .and_then(serde_json::Value::as_str)
             .expect("path present (checked above)");
         let want = entry
             .get("sha256")
-            .and_then(serde_yaml_ng::Value::as_str)
+            .and_then(serde_json::Value::as_str)
             .ok_or_else(|| anyhow!("fixture {path} is missing `sha256`"))?;
         let bytes = std::fs::read(fixtures_dir.join(path))
             .with_context(|| format!("reading fixture {path}"))?;
@@ -531,28 +531,25 @@ fn load_schema(schemas_dir: &Path, name: &str) -> Result<serde_json::Value> {
 }
 
 fn update_registry_digests(registry_path: &Path, text: &str, fixtures_dir: &Path) -> Result<()> {
-    let mut registry: serde_yaml_ng::Value = serde_yaml_ng::from_str(text)?;
+    let mut registry: serde_json::Value = serde_saphyr::from_str(text)?;
     let entries = registry
         .get_mut("fixtures")
-        .and_then(serde_yaml_ng::Value::as_sequence_mut)
+        .and_then(serde_json::Value::as_array_mut)
         .ok_or_else(|| anyhow!("registry.yaml is missing a `fixtures` list"))?;
     for entry in entries.iter_mut() {
         let path = entry
             .get("path")
-            .and_then(serde_yaml_ng::Value::as_str)
+            .and_then(serde_json::Value::as_str)
             .ok_or_else(|| anyhow!("a fixture entry is missing `path`"))?
             .to_owned();
         let bytes = std::fs::read(fixtures_dir.join(&path))
             .with_context(|| format!("reading fixture {path}"))?;
         let digest = hex_digest(&bytes);
-        if let Some(map) = entry.as_mapping_mut() {
-            map.insert(
-                serde_yaml_ng::Value::String("sha256".to_owned()),
-                serde_yaml_ng::Value::String(digest),
-            );
+        if let Some(map) = entry.as_object_mut() {
+            map.insert("sha256".to_owned(), serde_json::Value::String(digest));
         }
     }
-    let serialized = serde_yaml_ng::to_string(&registry)?;
+    let serialized = serde_saphyr::to_string(&registry)?;
     std::fs::write(registry_path, serialized)?;
     Ok(())
 }
@@ -570,7 +567,7 @@ fn hex_digest(bytes: &[u8]) -> String {
 /// a runtime property).
 fn check_version_rides_digest_changes(
     contract_dir: &Path,
-    current: &serde_yaml_ng::Value,
+    current: &serde_json::Value,
 ) -> Result<()> {
     let Ok(output) = std::process::Command::new("git")
         .current_dir(contract_dir)
@@ -590,21 +587,21 @@ fn check_version_rides_digest_changes(
         return Ok(());
     }
     let Ok(head) =
-        serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&String::from_utf8_lossy(&output.stdout))
+        serde_saphyr::from_str::<serde_json::Value>(&String::from_utf8_lossy(&output.stdout))
     else {
         return Ok(());
     };
-    let version = |v: &serde_yaml_ng::Value| {
+    let version = |v: &serde_json::Value| {
         v.get("contract_version")
-            .and_then(serde_yaml_ng::Value::as_str)
+            .and_then(serde_json::Value::as_str)
             .map(str::to_owned)
     };
     if version(current) != version(&head) {
         return Ok(()); // the bump rode along — re-pinning is legitimate
     }
-    let digests = |v: &serde_yaml_ng::Value| -> std::collections::BTreeMap<String, String> {
+    let digests = |v: &serde_json::Value| -> std::collections::BTreeMap<String, String> {
         v.get("fixtures")
-            .and_then(serde_yaml_ng::Value::as_sequence)
+            .and_then(serde_json::Value::as_array)
             .into_iter()
             .flatten()
             .filter_map(|e| {

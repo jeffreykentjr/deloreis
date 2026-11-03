@@ -5,17 +5,19 @@ verdict: "Build a local world, connect an MCP client, and catch a continuity con
 
 # Quickstart
 
-You need Rust and Cargo, Git, and an MCP client such as Claude Code. Clone the
-repository, then build and install the local binary:
+Install De Lore Is with Cargo:
 
 ```sh
-git clone https://github.com/jeffreykentjr/deloreis.git
-cd deloreis
-cargo install --path crates/deloreis --locked
+cargo install deloreis --locked
 ```
 
-Make sure Cargo's binary directory is on your `PATH`. Create a new project and
-register the server from that directory:
+You can also download a macOS or Linux archive from the [releases page](https://github.com/jeffreykentjr/deloreis/releases). Unpack it and put `bin/deloreis` somewhere on your `PATH`. Each archive has a SHA-256 checksum alongside it.
+
+You'll also need an MCP client for this walkthrough; the example below uses
+Claude Code. If you installed with Cargo, make sure Cargo's binary directory
+is on your `PATH`.
+
+Create a new project and register the server from that directory:
 
 ```sh
 deloreis init my-story

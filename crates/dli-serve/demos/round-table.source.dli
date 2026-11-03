@@ -1,0 +1,130 @@
+scope camelot
+
+use language
+use chronology
+ratify d-0001
+ratify d-0002
+ratify d-0003
+ratify d-0004
+ratify d-0005
+ratify d-0006
+ratify d-0007
+ratify d-0008
+ratify d-0009
+ratify d-0010
+ratify d-0012
+era uthers-time < arthurs-reign < after-camlann decided d-0001
+event the-sword-drawn          during uthers-time decided d-0002
+event the-round-table-founded  during arthurs-reign decided d-0002
+event the-grail-quest          during arthurs-reign decided d-0003
+event the-battle-of-camlann    during arthurs-reign proposed
+before the-round-table-founded -> the-battle-of-camlann decided d-0003
+narration vantage after-camlann
+cycle moon(29) decided d-0009
+cycle season(4) = spring | summer | autumn | winter decided d-0009
+rule uthers-time-held-back over order decided d-0009
+  : listener-learns(during uthers-time _) requires act > 1
+place camelot        "Camelot"        decided d-0004
+place the-lake       "The Lake"       decided d-0004
+place avalon         "Avalon"         decided d-0004
+place camlann        "Camlann"        decided d-0005
+place tintagel       "Tintagel"       decided d-0005
+place the-waste-land "The Waste Land" decided d-0005
+adjacent(camelot, the-lake)       decided d-0004
+adjacent(camelot, camlann)        decided d-0004
+adjacent(camelot, tintagel)       decided d-0005
+adjacent(the-lake, avalon)        decided d-0005
+adjacent(camlann, the-waste-land) decided d-0005
+adjacent(the-waste-land, avalon)  decided d-0005
+adjacent(tintagel, the-lake)      proposed
+person arthur    "Arthur, the King" decided d-0006
+person merlin    "Merlin"           decided d-0006
+person guinevere "Guinevere"        decided d-0006
+person lancelot  "Lancelot"         decided d-0007
+person mordred   "Mordred"          decided d-0007
+person morgan    "Morgan"           decided d-0007
+thing excalibur "Excalibur" decided d-0008
+fact arthur rules camelot   decided d-0006
+fact merlin counsels arthur decided d-0006
+fact lancelot serves arthur decided d-0007
+standing(lancelot)          decided d-0012
+consent(arthur)             decided d-0012
+state excalibur.keeper = in-the-stone until the-sword-drawn decided d-0008
+state excalibur.keeper = the-king since the-sword-drawn decided d-0008
+dialect old-speech "the old speech" proposed {
+  basis attested "Old Welsh / Brythonic"
+  vowels a e i o u y
+  endings -a -oc -wen
+  cluster-max 2
+  stress penultimate
+  name-kind person.given = given-proto given-deutero
+  name-part myr "sea" role given-proto proposed
+  name-part din "fastness" role given-deutero proposed
+}
+name myrdin "Myrdin" person.given in old-speech
+  = given-proto myr + given-deutero din
+  bearer the-enchanter proposed
+banned cannon d-0010 "the Matter of Britain keeps to sword and spear — no gunpowder anachronism"
+term the-drawing "the freeing of Excalibur from the stone by the rightful king" decided d-0008
+hypothesis h-old-loan "the old speech took a hero-name from the tongue over the water"
+name-part tal "brow, high" role given-proto proposed agent:factory/naming-run-0714 assumes h-old-loan
+name taldin "Taldin" person.given in old-speech
+  = given-proto tal + given-deutero din
+  proposed agent:factory/naming-run-0714 assumes h-old-loan
+event the-speaking-day  during arthurs-reign proposed
+state knows.caster.myrdin = true since the-speaking-day proposed
+practice merlins-craft proposed {
+  use language.registers
+  resource breath(word) : graded monotone full > spent > silent
+  rule speak(bearer) requires
+  knows(caster, true-name(bearer)),
+  breath(true-name(bearer)) >= spent,
+  derivation(true-name(bearer)) checks in register-of(bearer)
+  effect speak degrades breath by 1
+  condition unheard requires no witness within earshot
+  error mis-spoken refines L4 bad-instantiation
+  error stale-name refines L2 where premise-outdated
+  error word-overheard refines L3 side-condition [unheard] signals degrade(+1)
+  cost vital | epistemic
+}
+practice oath-binding proposed {
+  use chronology.cycles
+  kind bond = fealty | troth | ransom
+  role oathgiver : person requires standing(oathgiver)
+  role oathholder : person requires consent(oathholder)
+  resource boon : linear conserved
+  resource strain : affine bounded body-limit
+  rule pledge(bond, oathgiver)
+  rule give-and-take
+  condition witnessed requires witness within earshot
+  error unowed refines L2 premise-not-available where absent
+  error forsworn refines L2 premise-not-available where contradicted signals dishonour
+  error wrong-moon refines L3 side-condition [timing] over cycle moon
+  error overpledged refines L6 resource-violation on strain signals collapse
+  error hollow-vow refines L2 where available-in(licensed-pool) and contradicted-in(certain)
+  cost social | bodily | material | epistemic
+}
+proof lancelots-oath speaker lancelot in oath-binding {
+  premise p1 standing(lancelot) cited d-0012 cue "Lancelot comes to court"
+  premise p2 consent(arthur) cited d-0012
+  premise p3 boon(1) drawn-against p1
+  step s1 instantiate pledge with bond = fealty, oathgiver = lancelot
+  step s2 chain from p1, s1 by give-and-take conclusion pledged(lancelot, fealty)
+  spend p3
+  close pledged(lancelot, fealty) expect holds
+}
+rule show-the-price over season proposed
+principle a-name-spends-breath proposed
+fork what-does-the-word-cost
+  option a-year-of-life
+  option a-truth-told
+hypothesis h-return "Excalibur was always the Lake's to reclaim, never the king's to keep"
+question who-holds-excalibur "Who holds Excalibur after Camlann?"
+  option arthur    implies keeps(arthur, excalibur)
+  option the-lake
+keeps(the-lake, excalibur) proposed assumes the-lake and h-return
+hypothesis h-merlin-foresaw "Merlin foresaw the fall at Camlann from the first"
+event the-warning  during arthurs-reign proposed assumes h-merlin-foresaw
+ratify d-0011 {
+  h-merlin-foresaw := true
+}

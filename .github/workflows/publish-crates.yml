@@ -1,0 +1,63 @@
+name: Publish crates
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release tag
+        required: true
+        type: string
+      commit:
+        description: Full commit SHA for the tag
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-crates-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      RELEASE_COMMIT: ${{ github.event_name == 'release' && github.sha || inputs.commit }}
+      GH_TOKEN: ${{ github.token }}
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_COMMIT }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check published release and commit
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess, tomllib
+          tag, commit = os.environ['RELEASE_TAG'], os.environ['RELEASE_COMMIT']
+          if not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+', tag) or not re.fullmatch(r'[0-9a-f]{40}', commit):
+              raise SystemExit('expected vVERSION and a full commit SHA')
+          version = tomllib.load(open('Cargo.toml', 'rb'))['workspace']['package']['version']
+          if tag != 'v' + version:
+              raise SystemExit('tag and workspace version differ')
+          def git(*args):
+              return subprocess.check_output(['git', *args], text=True).strip()
+          if git('rev-parse', 'HEAD') != commit or git('rev-parse', f'refs/tags/{tag}^{{commit}}') != commit:
+              raise SystemExit('checkout, tag and qualified commit differ')
+          subprocess.run(['git', 'merge-base', '--is-ancestor', commit, 'origin/main'], check=True)
+          release = json.loads(subprocess.check_output(['gh', 'release', 'view', tag, '--json', 'tagName,isDraft,publishedAt'], text=True))
+          if release.get('tagName') != tag or release.get('isDraft') or not release.get('publishedAt'):
+              raise SystemExit('crate publication requires the matching published release')
+          PY
+      - name: Check publication controls
+        run: python3 scripts/test-publish-crates.py
+      - name: Verify and publish the crates
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: python3 scripts/publish-crates.py --version "${RELEASE_TAG#v}"

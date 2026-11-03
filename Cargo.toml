@@ -6,22 +6,22 @@ members = ["crates/*", "xtask"]
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/jeffreyksmithjr/deloreis"
+repository = "https://github.com/jeffreykentjr/deloreis"
 rust-version = "1.96"
 publish = false
 
 [workspace.dependencies]
 # Internal path deps (library crates).
-dli-ast = { path = "crates/dli-ast" }
-dli-core = { path = "crates/dli-core" }
-dli-syntax = { path = "crates/dli-syntax" }
-dli-time = { path = "crates/dli-time" }
-dli-eval = { path = "crates/dli-eval" }
-dli-ledger = { path = "crates/dli-ledger" }
-dli-world = { path = "crates/dli-world" }
-dli-lorestore = { path = "crates/dli-lorestore" }
-dli-export = { path = "crates/dli-export" }
-dli-serve = { path = "crates/dli-serve" }
+dli-ast = { path = "crates/dli-ast", version = "0.1.0" }
+dli-core = { path = "crates/dli-core", version = "0.1.0" }
+dli-syntax = { path = "crates/dli-syntax", version = "0.1.0" }
+dli-time = { path = "crates/dli-time", version = "0.1.0" }
+dli-eval = { path = "crates/dli-eval", version = "0.1.0" }
+dli-ledger = { path = "crates/dli-ledger", version = "0.1.0" }
+dli-world = { path = "crates/dli-world", version = "0.1.0" }
+dli-lorestore = { path = "crates/dli-lorestore", version = "0.1.0" }
+dli-export = { path = "crates/dli-export", version = "0.1.0" }
+dli-serve = { path = "crates/dli-serve", version = "0.1.0" }
 deloreis = { path = "crates/deloreis" }
 
 # External deps.
@@ -35,7 +35,7 @@ clap = { version = "4", features = ["derive"] }
 proptest = "1"
 insta = { version = "1", features = ["json"] }
 anyhow = "1"
-serde_yaml_ng = "0.10"
+serde_saphyr = { package = "serde-saphyr", version = "2.0" }
 jsonschema = "0.30"
 sha2 = "0.10"
 walkdir = "2"

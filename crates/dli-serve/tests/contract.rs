@@ -265,7 +265,7 @@ fn contract_version_is_consistent_across_registry_and_handshake() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let registry =
         std::fs::read_to_string(root.join("contracts/dli-worker/registry.yaml")).unwrap();
-    let registry: serde_yaml_ng::Value = serde_yaml_ng::from_str(&registry).unwrap();
+    let registry: serde_json::Value = serde_saphyr::from_str(&registry).unwrap();
     assert_eq!(
         registry["contract_version"].as_str(),
         Some(CONTRACT_VERSION)
