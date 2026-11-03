@@ -375,3 +375,208 @@ fn an_independent_adjacent_slot_support_is_not_consumed() {
             .collect()
     );
 }
+
+#[test]
+fn mixed_cited_and_proposed_slots_keep_independent_support_and_standing() {
+    let (document, diagnostics) = dli_syntax::parse_document(
+        "scope story\nratify d-1\nratify d-2\nperson wren \"Wren\" decided d-1\n  wren.home = hollow decided d-1\n  wren.trade = baker proposed\n",
+    );
+    assert!(
+        diagnostics.iter().all(|item| !item.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let (mut objects, names) = lower_pack(&Pack {
+        name: "story".into(),
+        documents: vec![document],
+    });
+    let mut interner = Interner::from_names(names);
+    for object in objects.iter_mut().filter(|object| {
+        object.expert_body.is_none() && matches!(object.atom.pred.as_str(), "person" | "home")
+    }) {
+        object.provenance.as_mut().unwrap().marker = Some(ProvenanceMarker::Provisional);
+    }
+    let index = objects
+        .iter()
+        .position(|object| object.atom.pred == "home")
+        .unwrap();
+    let mut alternative = objects[index].clone();
+    alternative.support = PosBool::pos(interner.intern("d-2"));
+    alternative.provenance.as_mut().unwrap().marker = Some(ProvenanceMarker::Ratified);
+    objects.insert(index, alternative);
+    let restored = reconstruct_pack(
+        &objects,
+        &interner,
+        &["d-1".to_owned(), "d-2".to_owned()].into_iter().collect(),
+        "story",
+    )
+    .unwrap();
+    let entity = restored
+        .documents
+        .iter()
+        .flat_map(|doc| &doc.decls)
+        .find_map(|decl| match decl {
+            Decl::Entity(entity) => Some(entity),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(
+        entity.provenance.as_ref().unwrap().marker,
+        ProvenanceMarker::Provisional
+    );
+    assert_eq!(
+        entity.slots[0].provenance.as_ref().unwrap().marker,
+        ProvenanceMarker::Provisional
+    );
+    assert_eq!(
+        entity.slots[1].provenance.as_ref().unwrap().marker,
+        ProvenanceMarker::Proposed
+    );
+    let world = compile(&restored).unwrap();
+    let supports: BTreeSet<_> = world
+        .model
+        .atoms()
+        .iter()
+        .filter(|atom| atom.atom.pred.text == "home")
+        .map(|atom| render_polynomial(&atom.ann.support, world.model.interner()))
+        .collect();
+    assert_eq!(
+        supports,
+        ["{+d-1}".to_owned(), "{+d-2}".to_owned()]
+            .into_iter()
+            .collect()
+    );
+    let trade = world
+        .model
+        .atoms()
+        .iter()
+        .find(|atom| atom.atom.pred.text == "trade")
+        .unwrap();
+    assert_eq!(
+        render_polynomial(&trade.ann.support, world.model.interner()),
+        "{+h.story#0}"
+    );
+}
+
+#[test]
+fn mixed_slot_preserves_a_proposal_after_an_earlier_proposal() {
+    let (document, diagnostics) = dli_syntax::parse_document(
+        "scope story\nratify d-1\nperson reed \"Reed\" proposed\nperson wren \"Wren\" decided d-1\n  wren.trade = baker proposed\n",
+    );
+    assert!(
+        diagnostics.iter().all(|item| !item.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let original = Pack {
+        name: "story".into(),
+        documents: vec![document],
+    };
+    let (objects, names) = lower_pack(&original);
+    let restored = reconstruct_pack(
+        &objects,
+        &Interner::from_names(names),
+        &["d-1".to_owned()].into_iter().collect(),
+        "story",
+    )
+    .unwrap();
+    let world = compile(&restored).unwrap();
+    let supports: BTreeSet<_> = world
+        .model
+        .atoms()
+        .iter()
+        .filter(|atom| atom.atom.pred.text == "trade")
+        .map(|atom| render_polynomial(&atom.ann.support, world.model.interner()))
+        .collect();
+    assert_eq!(supports, ["{+h.story#1}".to_owned()].into_iter().collect());
+}
+
+#[test]
+fn mixed_slots_and_separate_support_survive_a_store_reopen() {
+    let root = tempfile::tempdir().unwrap();
+    let store = dli_lorestore::Lorestore::open(root.path().to_path_buf()).unwrap();
+    let (document, diagnostics) = dli_syntax::parse_document(
+        "scope story\nratify d-1\nratify d-2\nperson wren \"Wren\" decided d-1\n  wren.home = hollow decided d-1\n  wren.trade = baker proposed\n",
+    );
+    assert!(
+        diagnostics.iter().all(|item| !item.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let (mut objects, names) = lower_pack(&Pack {
+        name: "story".into(),
+        documents: vec![document],
+    });
+    let mut interner = Interner::from_names(names);
+    for object in objects.iter_mut().filter(|object| {
+        object.expert_body.is_none() && matches!(object.atom.pred.as_str(), "person" | "home")
+    }) {
+        object.provenance.as_mut().unwrap().marker = Some(ProvenanceMarker::Provisional);
+    }
+    let index = objects
+        .iter()
+        .position(|object| object.atom.pred == "home")
+        .unwrap();
+    let mut independent = objects[index].clone();
+    independent.support = PosBool::pos(interner.intern("d-2"));
+    independent.provenance.as_mut().unwrap().marker = Some(ProvenanceMarker::Ratified);
+    objects.insert(index, independent);
+    let hashes = objects
+        .iter()
+        .map(|object| store.write_object(object).unwrap())
+        .collect();
+    let head = store
+        .commit_on_branch(
+            "main",
+            interner.names().to_vec(),
+            hashes,
+            vec![],
+            vec![],
+            vec!["d-1".into(), "d-2".into()],
+            "story".into(),
+        )
+        .unwrap();
+    drop(store);
+    let reopened = dli_lorestore::Lorestore::open(root.path().to_path_buf()).unwrap();
+    let restored = reopened.reconstruct_at_uncached(&head).unwrap();
+    let world = compile(&restored).unwrap();
+    let home: BTreeSet<_> = world
+        .model
+        .atoms()
+        .iter()
+        .filter(|atom| atom.atom.pred.text == "home")
+        .map(|atom| render_polynomial(&atom.ann.support, world.model.interner()))
+        .collect();
+    assert_eq!(
+        home,
+        ["{+d-1}".to_owned(), "{+d-2}".to_owned()]
+            .into_iter()
+            .collect()
+    );
+    let trade = world
+        .model
+        .atoms()
+        .iter()
+        .find(|atom| atom.atom.pred.text == "trade")
+        .unwrap();
+    assert_eq!(
+        render_polynomial(&trade.ann.support, world.model.interner()),
+        "{+h.story#0}"
+    );
+    let text = dli_syntax::format_document(&restored.documents[0]);
+    let (reparsed, diagnostics) = dli_syntax::parse_document(&text);
+    assert!(
+        diagnostics.iter().all(|item| !item.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let roundtrip = compile(&Pack {
+        name: "story".into(),
+        documents: vec![reparsed],
+    })
+    .unwrap();
+    let roundtrip_home: BTreeSet<_> = roundtrip
+        .model
+        .atoms()
+        .iter()
+        .filter(|atom| atom.atom.pred.text == "home")
+        .map(|atom| render_polynomial(&atom.ann.support, roundtrip.model.interner()))
+        .collect();
+    assert_eq!(home, roundtrip_home);
+}
