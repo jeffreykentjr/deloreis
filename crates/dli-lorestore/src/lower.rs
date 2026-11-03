@@ -21,7 +21,7 @@
 //! reconstructed documents via `dli_world::compile`, reproduces an identical
 //! fixpoint, findings, and digests.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
 use dli_ast::decl::{Decl, Document, EntityDecl, EntityKind, FactDecl, RatifyDecl, ScopeHeader};
@@ -1074,29 +1074,97 @@ pub enum ReconstructError {
     },
 }
 
-/// Reconstruct a [`Pack`] from a set of [`FactObject`]s, ready for
-/// recompilation.
-///
-/// Carried declarations (`expert_body` present) decode back to their exact
-/// source `Decl` and **skip** the atom objects they regenerate on recompile
-/// ([`carried_atom_renders`]). Plain atom objects reconstruct as
-/// `Entity`/`Fact` declarations with the `Annotation` derived from the stored
-/// support polynomial — citations, tags, and `assumes` conditions included.
-/// Anything that cannot be reconstructed faithfully is a
-/// [`ReconstructError`], never a silently different world.
-///
-/// Streams lowered from `LoadedAtom`s alone (no carriage objects — the
-/// compile-side oracle path) get a `Ratify` prelude from `known_decisions`,
-/// preserving the historical interner growth order.
-///
-/// The `pack_name` seeds the proposal-bundle variable naming — it must match
-/// the original pack's scope header.
-pub fn reconstruct_pack(
+type CarriedFactKey = (crate::identity::ContentHash, ClaimId);
+type MarkerIndex = BTreeMap<CarriedFactKey, (Option<ProvenanceMarker>, bool)>;
+
+/// Preserve current metadata for the cited entities whose generated fact has
+/// a stable identity independent of positional proposal numbering.
+struct CitedEntityReplay<'a> {
+    objects: &'a [FactObject],
+    interner: &'a Interner,
+    pack_name: &'a str,
+    replay_interner: Option<Interner>,
+    markers: Option<MarkerIndex>,
+}
+
+impl CitedEntityReplay<'_> {
+    fn prepare(
+        &mut self,
+        decl: &mut Decl,
+        name: &str,
+    ) -> Result<Option<CarriedFactKey>, ReconstructError> {
+        let eligible = matches!(decl, Decl::Entity(entity)
+            if entity.slots.is_empty() && entity.provenance.as_ref()
+                .is_some_and(|ann| ann.marker.requires_citation()));
+        if !eligible {
+            return Ok(None);
+        }
+        let replay = self
+            .replay_interner
+            .get_or_insert_with(|| self.interner.clone());
+        let initial_names = replay.names().len();
+        let generated = lower_decl(decl, self.pack_name, replay, &mut 0);
+        if replay.names().len() != initial_names {
+            return Err(ReconstructError::Carriage {
+                name: name.to_owned(),
+                reason: "entity provenance is absent from the committed interner".to_owned(),
+            });
+        }
+        let atom = generated
+            .iter()
+            .find(|object| object.expert_body.is_none())
+            .ok_or_else(|| ReconstructError::Carriage {
+                name: name.to_owned(),
+                reason: "entity did not regenerate an atom".to_owned(),
+            })?;
+        let key = (
+            atom.content_hash()
+                .map_err(|error| ReconstructError::Carriage {
+                    name: name.to_owned(),
+                    reason: error.to_string(),
+                })?,
+            atom.claim_id.clone(),
+        );
+        let markers = self
+            .markers
+            .get_or_insert_with(|| marker_index(self.objects));
+        if let Some((_, true)) = markers.get(&key) {
+            return Err(ReconstructError::Carriage {
+                name: name.to_owned(),
+                reason: "conflicting standing metadata for the same entity fact".to_owned(),
+            });
+        }
+        if let Some((Some(marker), false)) = markers.get(&key)
+            && marker.requires_citation()
+            && let Decl::Entity(entity) = decl
+            && let Some(annotation) = &mut entity.provenance
+        {
+            annotation.marker = *marker;
+        }
+        Ok(Some(key))
+    }
+}
+
+fn marker_index(objects: &[FactObject]) -> MarkerIndex {
+    let mut markers: MarkerIndex = BTreeMap::new();
+    for object in objects.iter().filter(|object| object.expert_body.is_none()) {
+        let Ok(hash) = object.content_hash() else {
+            continue;
+        };
+        let marker = object.provenance.as_ref().and_then(|p| p.marker);
+        markers
+            .entry((hash, object.claim_id.clone()))
+            .and_modify(|(prior, conflict)| *conflict |= *prior != marker)
+            .or_insert((marker, false));
+    }
+    markers
+}
+
+/// Re-emit known decisions not already present as carried ratifications.
+fn missing_ratify_decls(
     fact_objects: &[FactObject],
-    interner: &Interner,
     known_decisions: &BTreeSet<String>,
-    pack_name: &str,
-) -> Result<Pack, ReconstructError> {
+) -> Vec<Decl> {
     let mut decls: Vec<Decl> = Vec::new();
 
     // Ratify prelude — one synthesized `ratify` per known decision that no
@@ -1127,6 +1195,41 @@ pub fn reconstruct_pack(
         }
     }
 
+    decls
+}
+
+/// Reconstruct a [`Pack`] from a set of [`FactObject`]s, ready for
+/// recompilation.
+///
+/// Carried declarations (`expert_body` present) decode back to their exact
+/// source `Decl` and **skip** the atom objects they regenerate on recompile
+/// ([`carried_atom_renders`]). Plain atom objects reconstruct as
+/// `Entity`/`Fact` declarations with the `Annotation` derived from the stored
+/// support polynomial — citations, tags, and `assumes` conditions included.
+/// Anything that cannot be reconstructed faithfully is a
+/// [`ReconstructError`], never a silently different world.
+///
+/// Streams lowered from `LoadedAtom`s alone (no carriage objects — the
+/// compile-side oracle path) get a `Ratify` prelude from `known_decisions`,
+/// preserving the historical interner growth order.
+///
+/// The `pack_name` seeds the proposal-bundle variable naming — it must match
+/// the original pack's scope header.
+pub fn reconstruct_pack(
+    fact_objects: &[FactObject],
+    interner: &Interner,
+    known_decisions: &BTreeSet<String>,
+    pack_name: &str,
+) -> Result<Pack, ReconstructError> {
+    let mut decls = missing_ratify_decls(fact_objects, known_decisions);
+
+    let mut cited_entities = CitedEntityReplay {
+        objects: fact_objects,
+        interner,
+        pack_name,
+        replay_interner: None,
+        markers: None,
+    };
     let mut index = 0;
     while index < fact_objects.len() {
         let fo = &fact_objects[index];
@@ -1140,18 +1243,26 @@ pub fn reconstruct_pack(
                     name: body.name.clone(),
                     reason: "carriage body is empty".to_owned(),
                 })?;
-            let decl: Decl =
+            let mut decl: Decl =
                 serde_json::from_str(json).map_err(|e| ReconstructError::Carriage {
                     name: body.name.clone(),
                     reason: e.to_string(),
                 })?;
+            let cited_entity_identity = cited_entities.prepare(&mut decl, &body.name)?;
             // Skip the atom objects this declaration regenerates on recompile
             // — by identity, in order, tolerating absences (commit-chain
             // dedup can elide an atom already present in an earlier commit).
             index += 1;
             for expected in carried_atom_renders(&decl) {
                 if fact_objects.get(index).is_some_and(|next| {
-                    next.expert_body.is_none() && next.atom.render() == expected
+                    next.expert_body.is_none()
+                        && next.atom.render() == expected
+                        && cited_entity_identity
+                            .as_ref()
+                            .is_none_or(|(hash, claim_id)| {
+                                next.claim_id == *claim_id
+                                    && next.content_hash().ok().as_ref() == Some(hash)
+                            })
                 }) {
                     index += 1;
                 }
