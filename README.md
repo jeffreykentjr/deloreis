@@ -9,9 +9,21 @@ Wren lives in Thornfield. Three chapters later, someone says she lives in
 Ashby. If both are meant to be true at the same time, De Lore Is can catch the
 conflict before it becomes part of your story.
 
-For example, a check reports `continuity.fd-violation` and names both homes
-and the rulings behind them. The [Hollow walkthrough](examples/hollow/transcript.md)
-shows the actual finding and the refused commit.
+For example, here's part of a finding from the
+[Hollow walkthrough](examples/hollow/transcript.md):
+
+```json
+{
+  "citations": ["d-0001", "d-0002"],
+  "code": "continuity.fd-violation",
+  "data": {"pred": "home", "slot_key": "home/wren", "subject": "wren", "values": ["ashby", "thornfield"]},
+  "grade": "checked",
+  "message": "canon breaks the functional dependency on 'home': wren carries 2 distinct certain values [ashby, thornfield]",
+  "severity": "error"
+}
+```
+
+The commit is refused until the conflict is resolved or discarded.
 
 De Lore Is keeps track of the people, places, events, and rules you give it.
 It can tell you which claims are settled, which are still in dispute, and why.
