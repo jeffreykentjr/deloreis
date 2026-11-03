@@ -229,6 +229,11 @@ fn locate(source: &str, offset: usize) -> (usize, usize, &str) {
         if offset < line_end || line_end == source.len() {
             let text = line.strip_suffix('\n').unwrap_or(line);
             let col = offset.saturating_sub(line_start).min(text.len());
+            if index == 0
+                && let Some(visible) = text.strip_prefix('\u{feff}')
+            {
+                return (index + 1, col.saturating_sub(3), visible);
+            }
             return (index + 1, col, text);
         }
         line_start = line_end;

@@ -40,10 +40,7 @@ pub(crate) fn run(args: &CheckArgs) -> CmdResult {
             out!(
                 "{}:\n{}",
                 file.path.display(),
-                ladder::render(
-                    file.source.strip_prefix('\u{feff}').unwrap_or(&file.source),
-                    &file.diagnostics
-                )
+                ladder::render(&file.source, &file.diagnostics)
             );
         }
     }
@@ -93,11 +90,7 @@ fn redundant_provenance_finding(finding: &check::WorldFinding, files: &[cmd::Cor
     let Some(file) = files.get(span.file.0 as usize) else {
         return false;
     };
-    let source = file
-        .source
-        .strip_prefix('\u{feff}')
-        .unwrap_or(&file.source)
-        .as_bytes();
+    let source = file.source.as_bytes();
     file.diagnostics.iter().any(|diagnostic| {
         let first = (diagnostic.span.start as usize).min(source.len());
         let second = (span.start as usize).min(source.len());
@@ -182,7 +175,7 @@ pub(super) fn render_semantic_finding(
         && span.end > span.start
         && let Some(file) = files.get(span.file.0 as usize)
     {
-        let offset = span.start as usize + usize::from(file.source.starts_with('\u{feff}')) * 3;
+        let offset = span.start as usize;
         if let Some(prefix) = file.source.get(..offset) {
             let prefix = prefix.strip_prefix('\u{feff}').unwrap_or(prefix);
             let row = prefix.bytes().filter(|&byte| byte == b'\n').count() + 1;
