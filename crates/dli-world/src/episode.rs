@@ -17,10 +17,8 @@
 //! when the listener learns) and its *facts* at its story anchor (that is when
 //! the world was so): two dimensions over one fold.
 //!
-//! This is the kernel spine only. The craft objects — promises with kinds,
-//! beats with threads and magnitudes, sliders — hang on this spine in a later
-//! wave (`06-craft-and-payloads.md` §1); the fold carries the raw knowledge,
-//! fact-introduction, and open-loop events those rules join over.
+//! The fold carries knowledge, fact-introduction, and open-loop events without
+//! imposing a story-planning method.
 //!
 //! ```
 //! use dli_world::episode::{
@@ -416,8 +414,7 @@ impl EpisodeFold {
         self.open_loops_at(max.unwrap_or(0))
     }
 
-    /// Every knowledge event, in production order — the raw ledger later waves
-    /// (order-rules, craft) join over.
+    /// Every knowledge event, in production order.
     #[must_use]
     pub fn knowledge_records(&self) -> &[KnowledgeRecord] {
         &self.knowledge
@@ -440,9 +437,7 @@ impl EpisodeFold {
 /// placed at the earlier story-time even though the listener meets them at the
 /// episode's production slot.
 ///
-/// The fold carries the kernel spine only — knowledge, fact-introductions, and
-/// open-loop events. Craft objects (promises, beats, sliders) hang on these in a
-/// later wave; no craft rule runs here.
+/// The fold carries knowledge, fact introductions, and open-loop events.
 #[must_use]
 pub fn fold(episodes: &[Episode]) -> EpisodeFold {
     let mut order: Vec<usize> = (0..episodes.len()).collect();

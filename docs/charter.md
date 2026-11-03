@@ -142,7 +142,7 @@ formatter-defined and gate-enforced; non-canonical text legal as input, never as
 repo state.
 
 **Why here.** Koan 7 governs the text; its cousin, koan 11, governs the paths
-in. Seven keeps the writing predictable; eleven keeps the way in single.
+in. Seven keeps the writing predictable; eleven keeps the agent interface coherent.
 
 ### 8. The wheel refuses rank.
 
@@ -201,22 +201,19 @@ is that lesson as law: divergence is prevented by having nothing to diverge.
 
 ### 11. One way in.
 
-**Meaning.** Every author — human or agent — enters the fabric through the one
-declarative interface: the semantic tools against the server. Callers may
-declare attribution and decision state; the consuming application determines
-what that declaration authorizes. Interfaces stay few; clients multiply freely
-— a nicer keyboard is not a new interface.
+**Meaning.** Agents author lore through the semantic tools against the server;
+people may also write and import `.dli` text. Both use the same underlying lore
+model and shared kernel checks. Callers may declare attribution and decision state; the
+consuming application determines what that declaration authorizes.
 
-**It settles.** The tool surface is the only supported way in; `.dli` text is
-an opt-in rendering, not a second way in (DL-0041); textual editing is a
-measured fallback, not an interface; and **raw AST emission is a mechanism
-inside the tools, not an interface**.
+**It settles.** The semantic tools are the supported agent interface, and
+`.dli` is a supported text authoring and reading surface (DL-0101). Stored fact
+objects remain canonical. Raw AST emission is an internal mechanism, not a
+taught agent interface.
 
-**A novel decision it makes — the form-editor question.** An authoring interface will
-someday want click-to-edit forms over lore entities. A new interface? No: any
-UI is a *client* of the tool surface — its output is tool calls entering as
-`proposed`, reviewed like everything else; it may not emit past review as a
-second path for a population that already has one.
+**A novel decision it makes — the form-editor question.** A click-to-edit lore
+interface can be a client of the semantic tools. It supplies attribution and
+standing as data; the consuming application owns its review policy.
 
 **Why here.** The sibling projects paid for it — path count predicted failure
 surface better than path quality.
@@ -291,12 +288,9 @@ The charter names its costs; a charter that names none has not been used.
   The kernel, the timeline module, and any future searcher
   are separate small parts sharing the judgment boundary (koan 12). A monolith is
   not what one fabric means; satellite *semantics* is not what small parts means.
-- **One way in versus nothing silently dropped.** Bounding the interface must
-  not create silent drops. Input arriving outside it — an agent's textual edit —
-  is neither refused nor ignored; it meets the same full pipeline and graded
-  errors as everything else. The interface bounds what is *supported* (taught,
-  tooled, measured); the gate remains total. An unsupported path is a support
-  decision, never a data-loss decision.
+- **One way in versus nothing silently dropped.** The semantic tools and the
+  supported text surface must not silently discard input. Both use shared
+  kernel checks and report findings; agents use the semantic tool interface.
 
 ## The trials
 

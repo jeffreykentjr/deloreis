@@ -422,9 +422,7 @@ pub fn sweep(store: &AttestationStore, model: &WorldModel) -> Vec<Attestation> {
 /// names, and returns one merged list of defects (supported claims are silent). A
 /// contradicted or unsupported claim, a claim on an unknown entity, a claim that
 /// states shadow lore as settled, a claim set that sets one slot two ways, and an
-/// introduced name that revives a killed token each surface here. The deeper
-/// season battery (outline-conformance, craft rules, proof checks) lands in
-/// `PAY-2`.
+/// introduced name that revives a killed token each surface here.
 #[must_use]
 pub fn check_draft(world: &CompiledWorld, draft: &DraftPayload) -> Vec<DraftFinding> {
     let mut out = Vec::new();

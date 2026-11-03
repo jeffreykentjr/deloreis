@@ -2,8 +2,8 @@
 //!
 //! A [`WorldModel`] is what the loader produces from a set of source
 //! [`Document`](dli_ast::decl::Document)s: the evaluable [`World`] plus the
-//! authoring tables (registers, lexicon, craft rules, the season ledger) *and*
-//! the compiled provenance container — every source atom lifted with its
+//! authoring tables (such as registers and lexicon) *and* the compiled
+//! provenance container — every source atom lifted with its
 //! [`Ann`], the shared world interner its support polynomials index into, the
 //! sort/entity registry, the pack-provenance map, and the load-time
 //! [`LoadFinding`]s. Nothing that entered is silently dropped (charter koan 4);

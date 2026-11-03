@@ -165,11 +165,8 @@ pub fn vet_candidate(model: &LanguageModel, candidate: &str) -> Vec<LangFinding>
 /// Vet a candidate for aural distinctness within a declared **set** — a scene
 /// cast, a family, a region (05 §3, set distinctness).
 ///
-/// This is the scene-scoped sibling of [`vet_candidate`]'s whole-name-space aural
-/// check, and the primitive the craft layer's `scene-name-clash` rule joins
-/// against (06-craft-and-payloads §3) — a join possible only where naming data
-/// and cast lists share a kernel. Pure over the given set; it needs no model,
-/// only the phonetic key.
+/// This is the scene-scoped sibling of [`vet_candidate`]'s whole-name-space
+/// aural check. It is pure over the given set and needs only the phonetic key.
 ///
 /// ```
 /// use dli_world::language::vet_in_set;

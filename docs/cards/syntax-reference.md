@@ -1,25 +1,20 @@
 ---
 status: live
 title: "Syntax reference — the complete .dli rendering grammar"
-verdict: "Every keyword and line form the .dli rendering uses, in one sheet: what the renderer emits and what the optional parser accepts. It is a reading surface, not an authoring one — lore is authored through the author.* tools."
+verdict: "A reference to the .dli text surface for reading and writing fictional lore."
 ---
 
 # Syntax reference — the complete `.dli` rendering grammar
 
-This sheet documents **the rendering**. `.dli` is one way of printing a world
-for human eyes; it is not how lore is authored and not what the system stores.
-Authoring happens through the `author.*` tool surface (`authoring-loop.md`), the
-canonical form is the stored fact objects and their JCS byte serialization
-(DL-0041), and a `.dli` rendering is an explicit opt-in on the way out
-(`rendered: true`, DL-0046). Reach for this sheet when you are *reading* a
-rendered diff or a bundled example and want to know exactly what a line means.
+This sheet documents the `.dli` text surface for writing and reading lore.
+The default build includes its parser and formatter, so people can check,
+format, import, and query `.dli` documents. Agents use the `author.*` tools
+(`authoring-loop.md`). Stored fact objects and their JCS serialization remain
+the canonical form; `author.materialize` returns committed objects by default
+and can also return `.dli` rendering on request.
 
-Hand-compiled from `crates/dli-syntax/src/parser.rs`, which is the round trip's
-other half — the reader for the same grammar the renderer writes. That crate is
-**feature-gated out of the default build** (roadmap LS-7): a default `deloreis`
-binary links no parser and no formatter, serves fact objects, and returns an
-empty `rendered` array. Everything on this sheet describes what a
-`syntax`-enabled build prints and reads.
+The syntax implementation lives in `crates/dli-syntax`. Builds made with
+`--no-default-features` omit the text parser and formatter.
 
 The grammar is **v0 and will not be frozen** — the freeze milestone (SURF-4) is
 retired, not deferred (DL-0041), because a rendering has no surface contract to
@@ -140,7 +135,7 @@ holds|fails-at <error>`.
 
 | Keyword | Line form(s) |
 |---|---|
-| `draft` | `draft <id> …` (payload anchor; fat payloads ride as data) |
+| `draft` | `draft <id> …` (draft declaration) |
 | `attest` | `attest <id> …` (attestation reference) |
 | `export` | `export <target> …` (profile reference) |
 | `ratify` | `ratify <id> { … }` (ruling record block) |
@@ -159,15 +154,12 @@ rendering round-trips byte-identically.
 
 The practical consequence: no subsystem re-parses a stored declaration body to
 check it. A proof is validated structurally, not by formatting and re-reading.
-One surface-parse coupling remains at the load/check boundary
-(`parse_clause_atom` over payload-claim and runtime-fact atoms in `dli-world`),
-and retiring it is LS-7 work.
+The text parser structures these declarations before the world loader reads them.
 
 ## 5. Not rendered yet
 
-**Episodes** (production order, scenes, knowledge deltas) ride as data payloads
-(a world's episodes YAML) and have no line form on this sheet until their
-rendering lands with the `rule … over order` work (TIME-3).
+**Episodes** (production order, scenes, and knowledge deltas) have no `.dli`
+line form on this sheet.
 
 ## 6. Where to look deeper
 

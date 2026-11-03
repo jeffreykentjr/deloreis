@@ -75,9 +75,9 @@ pub fn scope_name(document: &str) -> Option<&'static str> {
 const CAMELOT_SOURCE: &str = include_str!("../demos/camelot.source.json");
 
 /// The `warding-vows` demo's committed source: a linear-conserved proof
-/// discipline with one worked casting that checks. It gives the `check-proof` and
-/// `simulate.*` ops a hermetic document carrying both a practice and a proof —
-/// the neutral `camelot` demo world carries neither. It lives beside its bundle
+/// discipline with one worked casting that checks. It gives `check-proof` a
+/// hermetic document carrying both a practice and a proof; the neutral
+/// `camelot` demo world carries neither. It lives beside its bundle
 /// (not under `examples/`) because its bytes are the frozen preimage of its
 /// source anchor, so the formatter must not rewrite them.
 const WARDING_VOWS_SOURCE: &str = include_str!("../demos/warding-vows.source.dli");
