@@ -85,11 +85,7 @@ pub(crate) fn workspace_language(
 /// `?` or `?name` is a query variable that enumerates matches; a bare symbol is a
 /// ground constant. An unknown predicate over the staged world is not a fault — it
 /// is "asked and answered, nothing matched" (spec 10 §2.1), returned as no rows.
-pub(super) fn query(
-    store: &Store,
-    params: &AuthorQueryParams,
-    v2: bool,
-) -> Result<Value, ErrorBody> {
+pub(super) fn query(store: &Store, params: &AuthorQueryParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     ws.note_query();
     // The 0.6.3 typed successor wins when the caller sent it; the rendered string
@@ -114,17 +110,11 @@ pub(super) fn query(
     // 0.6.0: the replay context. The staged world is workspace state, so its
     // anchor is the workspace digest (jcs regime); the valuation is the full
     // ruled map — explicit falses included.
-    let (root_hash, valuation) = if v2 {
-        (
-            Some(ws.digest.clone()),
-            Some(valuation_entries(
-                &world.model.world.valuation,
-                world.model.interner(),
-            )),
-        )
-    } else {
-        (None, None)
-    };
+    let root_hash = Some(ws.digest.clone());
+    let valuation = Some(valuation_entries(
+        &world.model.world.valuation,
+        world.model.interner(),
+    ));
     let claim_ids = if !answer.rows.is_empty()
         && let (Some(ls), Some(root)) = (store.workspace_lorestore(&ws.id), &ws.base_root_hash)
     {
@@ -194,16 +184,12 @@ pub(super) fn query(
 /// continuity check's `continuity.fluent-contradiction`/`continuity.fluent-
 /// order-undeclared` findings already derive their boundary from, so this
 /// read and those findings can never disagree.
-pub(super) fn as_of(
-    store: &Store,
-    params: &AuthorAsOfParams,
-    v2: bool,
-) -> Result<Value, ErrorBody> {
+pub(super) fn as_of(store: &Store, params: &AuthorAsOfParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let world = staged_world(store, ws).map_err(|err| staged_error(&err))?;
     let at = resolve_time_point(&world, &params.at)?;
     let projected = check::slot_state_at(&world, &params.pred, &params.subject, at);
-    let root_hash = v2.then(|| ws.digest.clone());
+    let root_hash = Some(ws.digest.clone());
     Ok(value(&AuthorAsOfResult {
         pred: projected.pred,
         subject: projected.subject,
@@ -287,7 +273,6 @@ fn point_name(world: &CompiledWorld, point: TimePoint) -> String {
 pub(super) fn predicates(
     store: &Store,
     params: &AuthorPredicatesParams,
-    v2: bool,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let world = staged_world(store, ws).map_err(|err| staged_error(&err))?;
@@ -312,7 +297,7 @@ pub(super) fn predicates(
             arity,
         })
         .collect();
-    let root_hash = v2.then(|| ws.digest.clone());
+    let root_hash = Some(ws.digest.clone());
     Ok(value(&AuthorPredicatesResult {
         predicates,
         root_hash,
@@ -328,19 +313,15 @@ pub(super) fn predicates(
 const ENTITY_CANDIDATE_CEILING: usize = 100;
 
 /// Entities near a surface form, nearest first, bounded by the caller's `limit`
-/// (capped at [`ENTITY_CANDIDATE_CEILING`]). Contract 1.11.0 and later filter
-/// fact-only symbols before ranking (GH #88); the released 1.10.0 path retains
-/// its original all-symbol result semantics for replay compatibility. The
-/// selected universe is then folded through the SAME identity canon the
-/// FD/continuity check uses ([`check::identity_canon`]) BEFORE scoring, so an
+/// (capped at [`ENTITY_CANDIDATE_CEILING`]). Fact-only symbols are filtered
+/// before ranking. The selected universe is then folded through the same identity
+/// canon the FD/continuity check uses ([`check::identity_canon`]) BEFORE scoring, so an
 /// aliased class collapses to its one canonical representative — the budget is
 /// never spent twice on one class, and a surfaced candidate keys the way
 /// `continuity.fd-violation` would.
 pub(super) fn entity_candidates(
     store: &Store,
     params: &AuthorEntityCandidatesParams,
-    v2: bool,
-    declared_only: bool,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let world = staged_world(store, ws).map_err(|err| staged_error(&err))?;
@@ -353,7 +334,7 @@ pub(super) fn entity_candidates(
         .model
         .entities()
         .iter()
-        .filter(|entity| !declared_only || entity.sort.is_some())
+        .filter(|entity| entity.sort.is_some())
     {
         sort_of.insert(entity.name.clone(), entity.sort.clone());
         reps.insert(dli_core::alias::canon(&canon, &entity.name).to_owned());
@@ -370,7 +351,7 @@ pub(super) fn entity_candidates(
             }
         })
         .collect();
-    let root_hash = v2.then(|| ws.digest.clone());
+    let root_hash = Some(ws.digest.clone());
     Ok(value(&AuthorEntityCandidatesResult {
         candidates,
         root_hash,
@@ -1305,9 +1286,9 @@ mod cache_tests {
             goal_atom: Some(missing_goal()),
         };
 
-        query(&store, &query_params, true).expect("first query");
+        query(&store, &query_params).expect("first query");
         why(&store, &why_params, true, true).expect("why hit");
-        query(&store, &query_params, true).expect("second query hit");
+        query(&store, &query_params).expect("second query hit");
         why(&store, &why_params, true, true).expect("second why hit");
 
         assert_eq!(
@@ -1426,7 +1407,7 @@ mod cache_tests {
                 atom: String::new(),
                 goal_atom: Some(missing_goal()),
             };
-            let enabled_query = query(&store, &query_params, true).expect("enabled query");
+            let enabled_query = query(&store, &query_params).expect("enabled query");
             let enabled_why = why(&store, &why_params, true, true).expect("enabled why");
 
             ws.set_compile_cache_enabled(false);
@@ -1434,7 +1415,7 @@ mod cache_tests {
             assert_eq!(enabled, disabled, "{mode:?}");
             assert_eq!(
                 enabled_query,
-                query(&store, &query_params, true).expect("disabled query"),
+                query(&store, &query_params).expect("disabled query"),
                 "{mode:?} query"
             );
             assert_eq!(
@@ -1696,7 +1677,7 @@ mod cache_tests {
                         ws.base_unassigned = unassigned.clone();
                         for _ in 0..logical_queries {
                             let started = Instant::now();
-                            query(&store, &query_params, true).expect("profile query");
+                            query(&store, &query_params).expect("profile query");
                             query_time += started.elapsed();
                             let started = Instant::now();
                             why(&store, &why_params, true, true).expect("profile why");

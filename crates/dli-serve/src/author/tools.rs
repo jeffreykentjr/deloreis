@@ -118,20 +118,15 @@ fn open_error(err: &super::store::OpenError) -> ErrorBody {
 
 // -- author.status / author.diff (read-only) ---------------------------------
 
-/// The workspace's staged canonical surface and current digest. On a 0.6.0
-/// request the result also carries the pinned base commit and the structured
-/// diff rows (the review surface).
-pub(super) fn status(
-    store: &Store,
-    params: &AuthorStatusParams,
-    v2: bool,
-) -> Result<Value, ErrorBody> {
+/// The workspace's staged canonical surface, pinned base commit, structured
+/// diff rows, and current digest.
+pub(super) fn status(store: &Store, params: &AuthorStatusParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let report = reads::workspace_report(store, ws, true);
     Ok(value(&AuthorStatusResult {
         rendered: render_decls(&ws.decls),
-        root_hash: if v2 { ws.base_root_hash.clone() } else { None },
-        diff_rows: v2.then_some(report.diff_rows),
+        root_hash: ws.base_root_hash.clone(),
+        diff_rows: Some(report.diff_rows),
         staged: Some(ws.decls.iter().map(staged_decl).collect()),
         findings: report.findings,
         workspace_digest: ws.digest.clone(),
@@ -187,13 +182,13 @@ fn decl_kind(decl: &Decl) -> &'static str {
 
 /// The rendered canonical block, findings, and consequences of the staged change.
 /// The result also carries the pinned base commit and structured per-fact rows.
-pub(super) fn diff(store: &Store, params: &AuthorDiffParams, v2: bool) -> Result<Value, ErrorBody> {
+pub(super) fn diff(store: &Store, params: &AuthorDiffParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let report = reads::workspace_report(store, ws, true);
     Ok(value(&AuthorDiffResult {
         rendered: render_decls(&ws.decls),
-        root_hash: if v2 { ws.base_root_hash.clone() } else { None },
-        rows: v2.then_some(report.diff_rows),
+        root_hash: ws.base_root_hash.clone(),
+        rows: Some(report.diff_rows),
         findings: report.findings,
         consequences: report.consequences,
         workspace_digest: ws.digest.clone(),

@@ -70,14 +70,12 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorStatus => read(request, store, |store, request| {
             let params: AuthorStatusParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = true;
-            Ok((params.workspace.clone(), tools::status(store, &params, v2)))
+            Ok((params.workspace.clone(), tools::status(store, &params)))
         }),
         Op::AuthorDiff => read(request, store, |store, request| {
             let params: AuthorDiffParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = true;
-            Ok((params.workspace.clone(), tools::diff(store, &params, v2)))
+            Ok((params.workspace.clone(), tools::diff(store, &params)))
         }),
         // materialize advances the lorestore ref: a mutation, dispatched
         // through the mutating wrapper so idempotency-key replay works
@@ -276,8 +274,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorQuery => read(request, store, |store, request| {
             let params: AuthorQueryParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = true;
-            Ok((params.workspace.clone(), reads::query(store, &params, v2)))
+            Ok((params.workspace.clone(), reads::query(store, &params)))
         }),
         // The one inertia-aware read (contract 1.9.0, DL-0082): a workspace
         // read like `author.query`, never a mutation — it stages nothing, so
@@ -286,8 +283,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorAsOf => read(request, store, |store, request| {
             let params: AuthorAsOfParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = true;
-            Ok((params.workspace.clone(), reads::as_of(store, &params, v2)))
+            Ok((params.workspace.clone(), reads::as_of(store, &params)))
         }),
         Op::AuthorCheck => read(request, store, |store, request| {
             let params: AuthorCheckParams = parse(request)?;
@@ -317,19 +313,14 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorPredicates => read(request, store, |store, request| {
             let params: AuthorPredicatesParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = true;
-            Ok((
-                params.workspace.clone(),
-                reads::predicates(store, &params, v2),
-            ))
+            Ok((params.workspace.clone(), reads::predicates(store, &params)))
         }),
         Op::AuthorEntityCandidates => read(request, store, |store, request| {
             let params: AuthorEntityCandidatesParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = true;
             Ok((
                 params.workspace.clone(),
-                reads::entity_candidates(store, &params, v2, true),
+                reads::entity_candidates(store, &params),
             ))
         }),
         // Branch/merge operate on the workspace's durable lorestore (LS-6/WS-3).
