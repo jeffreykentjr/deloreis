@@ -33,6 +33,7 @@ impl Server {
         }
     }
 
+    #[allow(clippy::needless_pass_by_value)]
     fn call(&mut self, name: &str, arguments: Value) -> Value {
         self.next_id += 1;
         writeln!(
