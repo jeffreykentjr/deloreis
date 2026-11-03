@@ -1822,6 +1822,30 @@ fn conflicting_canon_names_a_source_and_a_repair() {
 }
 
 #[test]
+fn cross_scope_collision_names_a_contributing_declaration() {
+    let dir = tmp("cross-scope-collision-location");
+    let first = dir.join("a.dli");
+    let second = dir.join("b.dli");
+    fs::write(&first, "scope north\nperson wren proposed session\n").unwrap();
+    fs::write(&second, "scope south\nperson wren proposed session\n").unwrap();
+    let output = bin().arg("check").arg(&dir).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("load.cross-pack-collision"))
+        .expect(&text);
+    assert!(
+        line.contains(&format!("{}:2:", first.display()))
+            || line.contains(&format!("{}:2:", second.display())),
+        "{text}"
+    );
+    assert!(
+        text.contains("help: rename or remove a declaration shared by multiple scopes"),
+        "{text}"
+    );
+}
+
+#[test]
 fn conflicting_values_with_identity_aliases_keep_a_source_location() {
     let dir = tmp("continuity-alias-location");
     let corpus = dir.join("world.dli");

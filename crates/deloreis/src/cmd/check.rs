@@ -167,6 +167,9 @@ fn render_semantic_finding(finding: &check::WorldFinding, files: &[cmd::CorpusFi
             Some("declare the referenced era or event, or correct its name")
         }
         "load.duplicate-declaration" => Some("rename or remove one of the duplicate declarations"),
+        "load.cross-pack-collision" => {
+            Some("rename or remove a declaration shared by multiple scopes")
+        }
         "load.inert-declaration" => Some("give the state a subject or a value"),
         "predicate-identity.arity-mismatch" => {
             Some("use matching argument counts for the identified predicates")
