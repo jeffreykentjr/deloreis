@@ -269,3 +269,116 @@ fn differently_revised_era_member_refuses_instead_of_losing_standing() {
     .unwrap_err();
     assert!(error.to_string().contains("standing differs"), "{error}");
 }
+
+#[test]
+fn raw_ref_updates_refuse_unreplayable_era_chain_targets() {
+    let root = tempfile::tempdir().unwrap();
+    let store = dli_lorestore::Lorestore::open(root.path().to_path_buf()).unwrap();
+    let (document, diagnostics) =
+        dli_syntax::parse_document("scope story\nratify d-1\nera dawn < noon provisional d-1\n");
+    assert!(
+        diagnostics.iter().all(|d| !d.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let head = store
+        .import_pack(&Pack {
+            name: "story".into(),
+            documents: vec![document],
+        })
+        .unwrap();
+    store.create_branch("other", "main").unwrap();
+    let mut member = store
+        .fact_hashes_from(&head)
+        .unwrap()
+        .iter()
+        .filter_map(|hash| {
+            store
+                .read_object::<dli_lorestore::FactObject>(hash)
+                .unwrap()
+        })
+        .find(|object| object.atom.pred == "era" && object.atom.args == ["noon"])
+        .unwrap();
+    member.provenance.as_mut().unwrap().marker = Some(dli_ast::annot::ProvenanceMarker::Ratified);
+    let object = store.write_object(&member).unwrap();
+    let candidate = dli_lorestore::Commit::child(
+        head.clone(),
+        store.interner_at(&head).unwrap(),
+        vec![object],
+        vec![],
+        vec![],
+        vec!["d-1".into()],
+        "story".into(),
+    );
+    let candidate_hash = store.write_object(&candidate).unwrap();
+    for branch in ["main", "other"] {
+        let old = store.branch_ref(branch).unwrap().unwrap();
+        let digest = old.digest().unwrap();
+        let next = dli_lorestore::Ref::with_valuation(
+            old.name.clone(),
+            candidate_hash.clone(),
+            old.valuation.clone(),
+        );
+        let result = if branch == "main" {
+            store.cas_main_ref(Some(digest.as_str()), &next)
+        } else {
+            store.cas_branch_ref(branch, Some(digest.as_str()), &next)
+        };
+        assert!(
+            result.is_err(),
+            "{branch} advanced to an unreplayable chain: {result:?}"
+        );
+        assert_eq!(store.branch_head(branch).unwrap().unwrap(), head);
+    }
+}
+
+#[test]
+fn merge_refuses_incompatible_chain_standing_without_advancing() {
+    let root = tempfile::tempdir().unwrap();
+    let store = dli_lorestore::Lorestore::open(root.path().to_path_buf()).unwrap();
+    let (document, diagnostics) = dli_syntax::parse_document("scope story\nratify d-1\n");
+    assert!(
+        diagnostics.iter().all(|d| !d.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let head = store
+        .import_pack(&Pack {
+            name: "story".into(),
+            documents: vec![document],
+        })
+        .unwrap();
+    store.create_branch("a", "main").unwrap();
+    store.create_branch("b", "main").unwrap();
+    let names = store.interner_at(&head).unwrap();
+    for (branch, source) in [
+        ("a", "scope story\nera dawn < noon provisional d-1\n"),
+        ("b", "scope story\nera noon ratified d-1\n"),
+    ] {
+        let (document, diagnostics) = dli_syntax::parse_document(source);
+        assert!(
+            diagnostics.iter().all(|d| !d.class.is_error()),
+            "{diagnostics:?}"
+        );
+        let mut interner = dli_core::Interner::from_names(names.clone());
+        let objects =
+            dli_lorestore::lower::lower_decl(&document.decls[0], "story", &mut interner, &mut 0);
+        let hashes = objects
+            .iter()
+            .map(|object| store.write_object(object).unwrap())
+            .collect();
+        let commit = store
+            .commit_on_branch(
+                branch,
+                interner.names().to_vec(),
+                hashes,
+                vec![],
+                vec![],
+                vec!["d-1".into()],
+                "story".into(),
+            )
+            .unwrap();
+        store.compile_at(&commit).unwrap();
+    }
+    let previous = store.branch_head("a").unwrap().unwrap();
+    assert!(store.merge("a", "b").is_err());
+    assert_eq!(store.branch_head("a").unwrap().unwrap(), previous);
+}

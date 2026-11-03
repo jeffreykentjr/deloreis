@@ -643,6 +643,10 @@ fn reset_wire_fixture_correction(old: &[u8], new: &[u8]) -> bool {
         // Neutral names and accurate descriptions for the existing 2.0 cases.
         || (old == "017811af869f61efdd224f5f8d8a12a548d6fdf7e1712c75c1ed2fd01138adb4"
             && new == "fb8f7ea9f47de40dbd3f849d47fc53edf23a487d7ea2c87956419985bcb273a3")
+        // The pre-release entity-sort correction changes the affected query
+        // and author fixtures while keeping the single fiction contract.
+        || (old == "fb8f7ea9f47de40dbd3f849d47fc53edf23a487d7ea2c87956419985bcb273a3"
+            && new == "942e8cbcc0ac3124c783eed54b9088cdc04c999092b256cee307f780fabb894a")
 }
 
 #[cfg(test)]

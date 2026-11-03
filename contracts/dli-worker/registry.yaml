@@ -142,7 +142,7 @@ fixtures:
 - path: golden/author-scrub-cited-recorded-v1.json
   sha256: 5175d5dc4df76aa25924bd51b775cd1fb8924f592b25936f645d177cbdb09997
 - path: golden/author-session-v1.json
-  sha256: 894f44010ca8b444d82b57e4431825745555dde349364e7f926604971c0375ce
+  sha256: df0bead4cf0a2f442408fcbf61a1e666954f4da7d3fc31103b895d9362411b5f
 - path: golden/author-status-v1.json
   sha256: 73f9b79fd72e50cd70553373a3c0629a0b55d36fd83c560b25c2f281fafcce2a
 - path: golden/author-structural-key-v1.json
@@ -150,7 +150,7 @@ fixtures:
 - path: golden/author-suppose-v1.json
   sha256: cd58e45400630d0ff1411c8e61788e94a534c4eabf74ba1f29678fcc9015fb80
 - path: golden/author-thalia-v1.json
-  sha256: 827f649e141cf692d295d26e66fbd0c28a7b1024e0817810ed17f54c2bdf7584
+  sha256: 2dc803017096cdc219a4cbd0243e10d7764e12f2897c2e65dbf40dba864d686d
 - path: golden/author-why-v1.json
   sha256: 309ac98b0e61e59a30319aa68ed020dc71aa17c6d2effdf911b2f128dbfdeb72
 - path: golden/check-basic-v1.json
@@ -184,11 +184,11 @@ fixtures:
 - path: golden/name-check-v1.json
   sha256: f828f74c593b1c90ef092ac89b7ba8a0f1bb4501e1c2893e33a4cf6620b7c206
 - path: golden/query-modifiers-v1.json
-  sha256: 6b1a91fca4fa5d88239f71c3e170d296a0493b7bdbd3b68f353c8c0b47352472
+  sha256: 34c22ddcf1b7bc051a9dbc3b6631056da40becd692d989b6992269e6982c4ed9
 - path: golden/query-support-v1.json
-  sha256: 699d6b43d66e88f3c836ae08bb0932ddbb51bfbb99a93fe6f41311e6c5fbd4cd
+  sha256: ab757410cd752a3213ac737ab7f518d2830fd78a9fcfeb150002f4910e15eabb
 - path: golden/query-typed-goal-v1.json
-  sha256: 02d7df296e2216b12b011f60101f798699da16ac19306f42b62d180a0e4d30bc
+  sha256: 7aceebce1d607d4162e534836cb092fdd2deb0581d047a2675f8d86b8319cce6
 - path: golden/timeline-episodes-v1.json
   sha256: fe977986647b22cbb7bee4390afc38112ffb9c77c6eb91bc0e94ada541c8b5c4
 - path: golden/timeline-knows-v1.json
