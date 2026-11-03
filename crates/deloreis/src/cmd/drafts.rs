@@ -92,10 +92,7 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
                     ));
                 }
                 _ => {
-                    return Err(format!(
-                        "proof '{name}' is declared more than once in {}",
-                        args.proof.display()
-                    ));
+                    return Err(duplicate_proof_error(name, &matches, &args.proof, &text));
                 }
             }
         }
@@ -108,6 +105,14 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
                 ));
             }
             _ => {
+                let mut by_name = std::collections::BTreeMap::<&str, Vec<&ProofDecl>>::new();
+                for proof in &proofs {
+                    by_name.entry(&proof.name.text).or_default().push(proof);
+                }
+                if let Some((name, matches)) = by_name.iter().find(|(_, matches)| matches.len() > 1)
+                {
+                    return Err(duplicate_proof_error(name, matches, &args.proof, &text));
+                }
                 let names = proofs
                     .iter()
                     .map(|proof| proof.name.text.as_str())
@@ -121,15 +126,21 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
         },
     };
 
+    let proof_location = proof_source_position(&text, proof.name.span).map_or_else(
+        || args.proof.display().to_string(),
+        |(line, column)| format!("{}:{line}:{column}", args.proof.display()),
+    );
     let practice_name = proof.practice().ok_or_else(|| {
-        "the proof names no practice — write `in <practice>` in its header".to_owned()
+        format!(
+            "the proof at {proof_location} names no practice — write `in <practice>` in its header"
+        )
     })?;
     let practice = practices
         .iter()
         .find(|practice| practice.name.text == practice_name)
         .ok_or_else(|| {
             format!(
-                "the corpus declares no practice named '{practice_name}' — check the proof's \
+                "the corpus declares no practice named '{practice_name}' (proof {proof_location}) — check the proof's \
                  `in <practice>` against the corpus"
             )
         })?;
@@ -146,6 +157,18 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
     } else {
         Ok(EXIT_FINDINGS)
     }
+}
+
+fn duplicate_proof_error(name: &str, proofs: &[&ProofDecl], path: &Path, source: &str) -> String {
+    let locations = proofs
+        .iter()
+        .filter_map(|proof| proof_source_position(source, proof.name.span))
+        .map(|(line, column)| format!("{}:{line}:{column}", path.display()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "proof '{name}' is declared more than once ({locations}) — rename the proofs so each has a distinct name"
+    )
 }
 
 /// Hand-render a checked proof: its header, per-step verdicts, structural

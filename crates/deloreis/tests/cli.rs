@@ -789,6 +789,43 @@ fn check_proof_requires_selection_when_a_file_declares_multiple_proofs() {
 }
 
 #[test]
+fn duplicate_proof_names_have_locations_and_a_working_repair() {
+    let dir = tmp("proof-duplicate-names");
+    let path = dir.join("proofs.dli");
+    let original = fs::read_to_string(repo().join("examples/norse/seidr.dli")).unwrap();
+    let proof = original[original.find("proof the-seeress-answers").unwrap()..].to_owned();
+    let text = format!("{original}\n{proof}");
+    let lines: Vec<_> = text
+        .lines()
+        .enumerate()
+        .filter(|(_, line)| line.starts_with("proof the-seeress-answers"))
+        .map(|(i, _)| i + 1)
+        .collect();
+    fs::write(&path, text).unwrap();
+    for selected in [false, true] {
+        let mut command = bin();
+        command
+            .arg("check-proof")
+            .arg(&path)
+            .arg("--corpus")
+            .arg(repo().join("examples/norse"));
+        if selected {
+            command.args(["--proof", "the-seeress-answers"]);
+        }
+        let output = command.output().unwrap();
+        let text = stderr(&output);
+        assert_eq!(output.status.code(), Some(2), "{text}");
+        for line in &lines {
+            assert!(
+                text.contains(&format!("{}:{line}:", path.display())),
+                "{text}"
+            );
+        }
+        assert!(text.contains("rename the proofs"), "{text}");
+    }
+}
+
+#[test]
 fn check_proof_findings_and_errors_have_distinct_exit_codes() {
     let dir = tmp("proof-verdicts");
     let bad_expectation = dir.join("bad-expectation.dli");
@@ -861,6 +898,38 @@ fn check_proof_distinguishes_invalid_shape_from_unmet_expectation() {
         "{out}"
     );
     assert!(!out.contains("expectation was not met"), "{out}");
+}
+
+#[test]
+fn missing_proof_practice_names_the_source_and_repair() {
+    let dir = tmp("proof-practice-source");
+    let path = dir.join("proof.dli");
+    let proof = fs::read_to_string(repo().join("examples/norse/seidr.dli"))
+        .unwrap()
+        .replace(
+            "speaker the-seeress in seidr {",
+            "speaker the-seeress in missing-practice {",
+        );
+    let line = proof
+        .lines()
+        .position(|line| line.contains("in missing-practice"))
+        .unwrap()
+        + 1;
+    fs::write(&path, format!("\u{feff}{proof}")).unwrap();
+    let output = bin()
+        .arg("check-proof")
+        .arg(&path)
+        .arg("--corpus")
+        .arg(repo().join("examples/norse"))
+        .output()
+        .unwrap();
+    let text = stderr(&output);
+    assert_eq!(output.status.code(), Some(2), "{text}");
+    assert!(
+        text.contains(&format!("{}:{line}:", path.display())),
+        "{text}"
+    );
+    assert!(text.contains("check the proof's `in <practice>`"), "{text}");
 }
 
 #[test]
