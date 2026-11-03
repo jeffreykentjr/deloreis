@@ -2134,8 +2134,8 @@ fn direct_rule_witness(
         else {
             continue;
         };
-        if !rule.body.iter().any(|literal| !literal.negated)
-            || rule.ann.status(valuation, theory) != Status::Certain
+        if rule.ann.status(valuation, theory) != Status::Certain
+            || dli_eval::world::unbound_variable(&rule.head, &rule.body).is_some()
         {
             continue;
         }
@@ -2283,8 +2283,8 @@ fn chained_rule_witness(
             .flat_map(|(atom, paths)| paths.iter().map(|path| (atom.clone(), path.clone())))
             .collect();
         for (index, rule) in model.world.rules.iter().enumerate() {
-            if !rule.body.iter().any(|literal| !literal.negated)
-                || rule.ann.status(valuation, theory) != Status::Certain
+            if rule.ann.status(valuation, theory) != Status::Certain
+                || dli_eval::world::unbound_variable(&rule.head, &rule.body).is_some()
             {
                 continue;
             }

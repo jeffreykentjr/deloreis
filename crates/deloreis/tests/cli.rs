@@ -2012,6 +2012,24 @@ fn a_chained_rule_with_a_possible_negative_premise_has_a_witness() {
 }
 
 #[test]
+fn pure_negative_rules_can_name_a_conflicting_source() {
+    let dir = tmp("pure-negative-rule-witness");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nratify d-1\nfunctional home ratified d-1\nflooded(wren) proposed report\nrule shore ratified d-1\n  home(wren, shore) :- not flooded(wren)\nrule marsh ratified d-1\n  home(wren, marsh) :- not flooded(wren)\n").unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.derived-fd-violation"))
+        .expect(&text);
+    assert!(
+        line.contains(&format!("{}:6:", corpus.display()))
+            || line.contains(&format!("{}:8:", corpus.display())),
+        "{text}"
+    );
+}
+
+#[test]
 fn a_blocked_chained_rule_does_not_claim_the_conflict() {
     let dir = tmp("blocked-chained-rule-witness");
     let corpus = dir.join("world.dli");
