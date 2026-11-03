@@ -27,15 +27,12 @@ dli-syntax = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 serde_saphyr.workspace = true
-toml.workspace = true
 schemars.workspace = true
-sha2.workspace = true
 
 [dev-dependencies]
 # Tests and doc examples still build `.dli` source through the front end, so the
 # parser is present for a test build whether or not the feature is on.
 dli-syntax.workspace = true
-tempfile.workspace = true
 
 [lints]
 workspace = true

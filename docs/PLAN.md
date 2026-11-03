@@ -217,14 +217,6 @@ BENCH-*, SURF-4 and former-consumer-bound nodes.
   in production order; a flashback scene carries its own anchor and folds
   correctly.
 
-### `craft`
-
-- **CRAFT-1** — Retired under the fiction-release reset; no release deliverable.
-
-- **CRAFT-2** — Retired under the fiction-release reset; no release deliverable.
-
-- **CRAFT-3** — Retired under the fiction-release reset; no release deliverable.
-
 ### `attestation`
 
 - **ATT-1** — The attestation store + `attestation-missing` findings + the
@@ -461,19 +453,12 @@ graph LR
 
   LANG-1 --> LANG-2
 
-  EPI-1 --> CRAFT-1
-  CRAFT-1 --> CRAFT-2
-  TIME-3 --> CRAFT-2
-  CRAFT-2 --> CRAFT-3
-  ATT-1 --> CRAFT-3
 
   EPI-1 --> PAY-1
   PAY-1 --> PAY-2
   CHECK-1 --> PAY-2
   PRAC-2 --> PAY-2
-  CRAFT-2 --> PAY-2
   PAY-2 --> PAY-3
-  CRAFT-1 --> PAY-3
 
   ENG-2 --> CON-1
   CON-1 --> SERVE-1
@@ -587,9 +572,6 @@ author or consumer artifact that this repository does not own.
 | LANG-1 | done | `cargo test -p dli-world` language suites |
 | LANG-2 | done | `cargo test -p dli-world` name-vet suites |
 | EPI-1 | done | `cargo test -p dli-world` episode suites |
-| CRAFT-1 | deferred | Retired under DL-0101; no release deliverable. |
-| CRAFT-2 | deferred | Retired under DL-0101; no release deliverable. |
-| CRAFT-3 | deferred | Retired under DL-0101; no release deliverable. |
 | ATT-1 | done | `cargo test -p dli-world` attestation suites |
 | PAY-1 | deferred | Retired under DL-0101; no release deliverable. |
 | PAY-2 | deferred | Retired under DL-0101; no release deliverable. |
