@@ -228,7 +228,9 @@ pub(crate) fn compile_corpus(files: &[CorpusFile], name: &str) -> Result<Compile
         name: name.to_owned(),
         documents: documents(files),
     };
-    compile(&pack).map_err(|err| format!("the corpus will not compile: {err}"))
+    compile(&pack).map_err(|err| {
+        check::render_compile_failure(format!("the corpus will not compile: {err}"), files)
+    })
 }
 
 /// Parse a goal atom off the command line — `pred(a, b)`, the `fact s r o`

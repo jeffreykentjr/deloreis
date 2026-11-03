@@ -5,9 +5,11 @@ use std::path::{Path, PathBuf};
 
 use clap::{Args, ValueEnum};
 use dli_ast::decl::{Decl, ProofDecl};
+use dli_ast::proof::{ProofOp, ProofStep};
+use dli_ast::span::Span;
 use dli_export::profile::{ExportTarget, Registry};
 use dli_export::{ExportOpts, export_with, source_fingerprint};
-use dli_ledger::ledger_check::{ProofReport, ProofVerdict, check_proof};
+use dli_ledger::ledger_check::{ProofFinding, ProofReport, ProofVerdict, check_proof};
 use dli_ledger::practice::{PracticeDef, compile_practices};
 use dli_syntax::{ladder, parse_document};
 use dli_world::scene_projection::project_scene;
@@ -52,7 +54,11 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
         .filter(|diag| diag.class.is_error())
         .collect::<Vec<_>>();
     if !errors.is_empty() {
-        out!("{}", ladder::render(&text, &errors));
+        out!(
+            "{}:\n{}",
+            args.proof.display(),
+            ladder::render(text.strip_prefix('\u{feff}').unwrap_or(&text), &errors)
+        );
         outln!(
             "proof: {} syntax finding(s); replay refused because malformed proof text \
              cannot be discarded",
@@ -131,7 +137,7 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
     let scene = project_scene(&world, speaker.as_deref());
     let report = check_proof(practice, proof, &scene);
 
-    render_proof_report(&report);
+    render_proof_report(&report, proof, &args.proof, &text);
 
     if report.checks {
         Ok(EXIT_CLEAN)
@@ -142,7 +148,7 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
 
 /// Hand-render a checked proof: its header, per-step verdicts, structural
 /// findings, the reached verdict, and its weakest-link grade.
-fn render_proof_report(report: &ProofReport) {
+fn render_proof_report(report: &ProofReport, proof: &ProofDecl, path: &Path, source: &str) {
     let speaker = report
         .speaker
         .as_deref()
@@ -161,10 +167,16 @@ fn render_proof_report(report: &ProofReport) {
         );
     }
     for finding in &report.findings {
+        let location = proof_finding_span(proof, finding)
+            .and_then(|span| proof_source_position(source, span))
+            .map_or_else(String::new, |(line, column)| {
+                format!(" ({}:{line}:{column})", path.display())
+            });
         outln!(
-            "finding  {code} — {message}",
+            "finding  {code} — {message}{location}\n  help: {help}",
             code = finding.code(),
             message = finding.message(),
+            help = proof_finding_help(finding),
         );
     }
     outln!("verdict: {}", describe_verdict(&report.verdict));
@@ -181,6 +193,84 @@ fn render_proof_report(report: &ProofReport) {
             "proof: {} finding(s); the declared expectation was not met",
             report.findings.len()
         );
+    }
+}
+
+fn proof_source_position(source: &str, span: Span) -> Option<(usize, usize)> {
+    if span.end <= span.start {
+        return None;
+    }
+    let source = source.strip_prefix('\u{feff}').unwrap_or(source);
+    let prefix = source.get(..span.start as usize)?;
+    let line = prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
+    let column = prefix.rsplit('\n').next().unwrap_or("").chars().count() + 1;
+    Some((line, column))
+}
+
+fn proof_finding_span(proof: &ProofDecl, finding: &ProofFinding) -> Option<Span> {
+    use ProofFinding as F;
+    let matches = |op: &ProofOp| match (finding, op) {
+        (
+            F::UnknownForm { at, .. } | F::BadInstantiation { at, .. } | F::InvalidChain { at, .. },
+            ProofOp::Step(
+                ProofStep::Instantiate { label, .. }
+                | ProofStep::Chain { label, .. }
+                | ProofStep::Custom { label, .. },
+            ),
+        ) => at == label,
+        (
+            F::PremiseAbsent { label, .. }
+            | F::PremiseContradicted { label, .. }
+            | F::WrongPhase { label, .. }
+            | F::UnknownSpoke { label, .. },
+            ProofOp::Premise(premise),
+        ) => label == &premise.label,
+        (F::InvalidSpend { keyword, label }, ProofOp::Resource(resource)) => {
+            keyword == resource.keyword.keyword() && label == &resource.label
+        }
+        (F::ResourceViolation { at, .. }, ProofOp::Resource(resource)) => at == &resource.label,
+        (
+            F::CloseMismatch { .. } | F::ExpectationUnmet { .. } | F::UnknownExpectation { .. },
+            ProofOp::Close(_),
+        ) => true,
+        _ => false,
+    };
+    let mut spans = proof.body.items.iter().filter_map(|item| {
+        item.op
+            .as_ref()
+            .filter(|op| matches(op))
+            .map(|_| item.clause.span)
+    });
+    match (spans.next(), spans.next()) {
+        (Some(span), None) if span.end > span.start => Some(span),
+        _ if proof.name.span.end > proof.name.span.start => Some(proof.name.span),
+        _ => None,
+    }
+}
+
+fn proof_finding_help(finding: &ProofFinding) -> &'static str {
+    use ProofFinding as F;
+    match finding {
+        F::UnknownForm { .. } => "use a form declared by the practice or declare it",
+        F::PremiseAbsent { .. } => "establish the premise in the scene or revise the proof",
+        F::PremiseContradicted { .. } => {
+            "resolve the conflicting scene claim or revise the premise"
+        }
+        F::WrongPhase { .. } => "use the required phase or revise the timing premise",
+        F::BadInstantiation { .. } => "use bindings accepted by the declared form",
+        F::UnknownRole { .. } => "use a role declared by the practice",
+        F::InvalidChain { .. } => "use established premises and a law declared by the practice",
+        F::ResourceViolation { .. } => "revise the resource operations to satisfy the declared law",
+        F::CloseMismatch { .. } => "derive the close from established proof steps",
+        F::ExpectationUnmet { .. } => "revise the proof or its declared expectation",
+        F::InvalidSpend { .. } => "use a declared resource premise for the operation",
+        F::UnknownSpoke { .. } => "use a phase declared by the cycle",
+        F::UnknownExpectation { .. } => "use holds, blocked, or fails-at followed by an error",
+        F::MissingClose => "add a final close to the proof",
+        F::PracticeMismatch { .. } => "select the practice named by the proof",
+        F::InvalidHeaderLayout => "write the proof header as role, actor, and practice",
+        F::MalformedBody { .. } => "correct the malformed proof body",
+        F::InvalidCloseLayout { .. } => "write exactly one final close",
     }
 }
 

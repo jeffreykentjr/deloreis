@@ -793,11 +793,13 @@ fn check_proof_findings_and_errors_have_distinct_exit_codes() {
     let dir = tmp("proof-verdicts");
     let bad_expectation = dir.join("bad-expectation.dli");
     let proof = fs::read_to_string(repo().join("examples/norse/seidr.dli")).unwrap();
-    fs::write(
-        &bad_expectation,
-        proof.replace("expect holds", "expect fails"),
-    )
-    .unwrap();
+    let broken_proof = format!("\u{feff}{}", proof.replace("expect holds", "expect fails"));
+    let close_line = broken_proof
+        .lines()
+        .position(|line| line.contains("expect fails"))
+        .unwrap()
+        + 1;
+    fs::write(&bad_expectation, broken_proof).unwrap();
     let findings = bin()
         .arg("check-proof")
         .arg(&bad_expectation)
@@ -806,7 +808,19 @@ fn check_proof_findings_and_errors_have_distinct_exit_codes() {
         .output()
         .unwrap();
     assert_eq!(findings.status.code(), Some(1), "{}", stderr(&findings));
-    assert!(stdout(&findings).contains("proof.unknown-expectation"));
+    let text = stdout(&findings);
+    let finding = text
+        .lines()
+        .find(|line| line.contains("proof.unknown-expectation"))
+        .expect(&text);
+    assert!(
+        finding.contains(&format!("{}:{close_line}:", bad_expectation.display())),
+        "{text}"
+    );
+    assert!(
+        text.contains("help: use holds, blocked, or fails-at"),
+        "{text}"
+    );
 
     let missing = bin()
         .arg("check-proof")
@@ -873,6 +887,8 @@ fn malformed_proof_child_blocks_check_replay_and_formatting() {
     assert_eq!(checked_proof.status.code(), Some(1));
     assert!(stdout(&checked_proof).contains("syntax finding"));
     assert!(stdout(&checked_proof).contains("proof line cannot begin"));
+    assert!(stdout(&checked_proof).contains(&proof_path.display().to_string()));
+    assert!(stdout(&checked_proof).contains("fix:"));
 
     let checked_document = bin().arg("check").arg(&proof_path).output().unwrap();
     assert_eq!(checked_document.status.code(), Some(1));
@@ -1136,6 +1152,24 @@ fn query_unknown_as_of_exits_two() {
 }
 
 #[test]
+fn bom_syntax_locations_and_repairs_are_consistent_across_commands() {
+    let dir = tmp("bom-syntax-locations");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "\u{feff}scope storybook\nfluent wren\n").unwrap();
+    for args in [
+        vec!["check"],
+        vec!["fmt", "--check"],
+        vec!["report", "--corpus"],
+    ] {
+        let output = bin().args(args).arg(&corpus).output().unwrap();
+        let text = stdout(&output);
+        assert!(text.contains(&corpus.display().to_string()), "{text}");
+        assert!(text.contains("line 2:1"), "{text}");
+        assert!(text.contains("fix:"), "{text}");
+    }
+}
+
+#[test]
 fn negative_rule_cycle_names_a_real_contributing_clause() {
     let dir = tmp("rule-cycle-source");
     let first = dir.join("a.dli");
@@ -1157,6 +1191,26 @@ fn negative_rule_cycle_names_a_real_contributing_clause() {
         text.contains("help: remove or revise a negative dependency in the reported cycle"),
         "{text}"
     );
+}
+
+#[test]
+fn corpus_commands_report_negative_cycle_source_and_repair() {
+    let dir = tmp("rule-cycle-corpus-commands");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nratify d-1\nrule first ratified d-1\n  a($x) :- base($x), not b($x)\nrule second ratified d-1\n  b($x) :- base($x), a($x)\n").unwrap();
+    for args in [
+        vec!["query", "a(wren)", "--corpus"],
+        vec!["timeline", "order", "--corpus"],
+        vec!["report", "--corpus"],
+    ] {
+        let output = bin().args(args).arg(&corpus).output().unwrap();
+        let text = stderr(&output);
+        assert!(text.contains(&format!("{}:4:", corpus.display())), "{text}");
+        assert!(
+            text.contains("help: remove or revise a negative dependency in the reported cycle"),
+            "{text}"
+        );
+    }
 }
 
 /// M7 regression: a real chronology point is still accepted.
