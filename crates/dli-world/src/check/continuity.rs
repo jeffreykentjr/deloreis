@@ -2106,7 +2106,8 @@ fn derived_fd_violations(
                 violation.values.iter().find_map(|value| {
                     sources.get(&dli_core::fd::fd_value_key(value)).copied()
                 })
-            }).or_else(|| direct_rule_witness(world, canon, &violation));
+            }).or_else(|| direct_rule_witness(world, canon, &violation))
+                .or_else(|| chained_rule_witness(world, canon, &violation));
             if let Some(span) = span { finding.with_span(span) } else { finding }
         })
         .collect()
@@ -2242,6 +2243,124 @@ fn unify_witness(
         }
     }
     true
+}
+
+/// Find an authored positive rule application backed by a finite chain of
+/// certain facts and positive rules. Constructing the chain from facts avoids
+/// treating a circular restatement as evidence. The independent search budget
+/// may leave a finding unlocated rather than guessing.
+#[allow(clippy::too_many_lines)]
+fn chained_rule_witness(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+    violation: &dli_core::fd::FdViolation,
+) -> Option<dli_ast::span::Span> {
+    use dli_eval::world::{GroundAtom, conjoin_annotations};
+    let model = &world.model;
+    let valuation = &model.world.valuation;
+    let theory = &model.world.theory;
+    let mut budget = 25_000usize;
+    let mut known: BTreeMap<GroundAtom, Vec<Ann>> = BTreeMap::new();
+    for fact in &model.world.facts {
+        if fact.ann.status(valuation, theory) == Status::Certain {
+            let paths = known.entry(fact.atom.clone()).or_default();
+            if !paths.contains(&fact.ann) {
+                paths.push(fact.ann.clone());
+            }
+        }
+    }
+    let certain_rows: BTreeSet<GroundAtom> = model
+        .world
+        .derived
+        .iter()
+        .filter(|row| row.ann().status(valuation, theory) == Status::Certain)
+        .map(|row| row.atom.clone())
+        .collect();
+    loop {
+        let mut changed = false;
+        let snapshot: Vec<(GroundAtom, Ann)> = known
+            .iter()
+            .flat_map(|(atom, paths)| paths.iter().map(|path| (atom.clone(), path.clone())))
+            .collect();
+        for (index, rule) in model.world.rules.iter().enumerate() {
+            if rule.body.is_empty()
+                || rule.body.iter().any(|literal| literal.negated)
+                || rule.ann.status(valuation, theory) != Status::Certain
+            {
+                continue;
+            }
+            let mut states = vec![(BTreeMap::new(), rule.ann.clone())];
+            for literal in &rule.body {
+                let mut next = Vec::new();
+                for (state, support) in states {
+                    for (atom, annotation) in &snapshot {
+                        budget = budget.checked_sub(1)?;
+                        let mut bindings = state.clone();
+                        if unify_witness(&literal.atom, atom, &mut bindings) {
+                            let joined = conjoin_annotations(&support, annotation);
+                            if joined.status(valuation, theory) == Status::Certain {
+                                next.push((bindings, joined));
+                            }
+                        }
+                    }
+                }
+                if next.is_empty() {
+                    states = Vec::new();
+                    break;
+                }
+                states = next;
+            }
+            for (bindings, support) in states {
+                let mut args = Vec::with_capacity(rule.head.args.len());
+                for term in &rule.head.args {
+                    let value = match term {
+                        Term::Var(id) => bindings.get(&id.text).cloned(),
+                        _ => GroundAtom::from_pattern(&AtomExpr {
+                            pred: rule.head.pred.clone(),
+                            args: vec![term.clone()],
+                        })
+                        .and_then(|atom| atom.args.into_iter().next()),
+                    };
+                    let Some(value) = value else {
+                        args.clear();
+                        break;
+                    };
+                    args.push(value);
+                }
+                if args.len() != rule.head.args.len() {
+                    continue;
+                }
+                let atom = GroundAtom {
+                    pred: rule.head.pred.text.clone(),
+                    args,
+                };
+                if let Some(span) = model
+                    .rule_spans
+                    .get(&index)
+                    .copied()
+                    .filter(|span| span.end > span.start)
+                    && let Some((raw_slot, value)) = ground_binary_slot(&atom)
+                    && canon_slot(world, canon, &raw_slot)
+                        == (violation.pred.clone(), violation.subject.clone())
+                    && violation.values.iter().any(|candidate| {
+                        dli_core::fd::fd_value_key(candidate)
+                            == dli_core::fd::fd_value_key(dli_core::alias::canon(canon, &value))
+                    })
+                    && certain_rows.contains(&atom)
+                {
+                    return Some(span);
+                }
+                let paths = known.entry(atom).or_default();
+                if !paths.contains(&support) {
+                    paths.push(support);
+                    changed = true;
+                }
+            }
+        }
+        if !changed {
+            return None;
+        }
+    }
 }
 
 /// Every certain binary source slot `(pred, subject, value)` in the compiled

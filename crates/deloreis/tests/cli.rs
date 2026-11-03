@@ -1972,7 +1972,7 @@ fn a_possible_negative_premise_is_not_guessed_as_absent() {
 }
 
 #[test]
-fn a_recursive_rule_witness_is_not_guessed() {
+fn a_chained_rule_witness_is_grounded_in_a_fact() {
     let dir = tmp("derived-continuity-unproven-rule");
     let corpus = dir.join("world.dli");
     fs::write(&corpus, "scope storybook\nratify d-0001\nfunctional home ratified d-0001\nseed(wren) ratified d-0001\nrule present ratified d-0001\n  present($who) :- seed($who)\nrule shore ratified d-0001\n  home($who, shore) :- present($who)\nrule marsh ratified d-0001\n  home($who, marsh) :- present($who)\n").unwrap();
@@ -1982,7 +1982,29 @@ fn a_recursive_rule_witness_is_not_guessed() {
         .lines()
         .find(|line| line.contains("continuity.derived-fd-violation"))
         .expect(&text);
-    assert!(!line.contains(&corpus.display().to_string()), "{text}");
+    assert!(
+        line.contains(&format!("{}:8:", corpus.display()))
+            || line.contains(&format!("{}:10:", corpus.display())),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_grounded_recursive_chain_can_locate_the_conflicting_rule() {
+    let dir = tmp("recursive-rule-witness");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nratify d-1\nfunctional home ratified d-1\nedge(wren, bank) ratified d-1\nedge(bank, island) ratified d-1\nrule reach ratified d-1\n  reachable($a, $b) :- edge($a, $b)\nrule recurse ratified d-1\n  reachable($a, $c) :- reachable($a, $b), edge($b, $c)\nrule shore ratified d-1\n  home($who, shore) :- reachable($who, island)\nrule marsh ratified d-1\n  home($who, marsh) :- reachable($who, island)\n").unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.derived-fd-violation"))
+        .expect(&text);
+    assert!(
+        line.contains(&format!("{}:11:", corpus.display()))
+            || line.contains(&format!("{}:13:", corpus.display())),
+        "{text}"
+    );
 }
 
 #[test]
