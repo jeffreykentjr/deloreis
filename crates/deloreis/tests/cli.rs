@@ -1782,3 +1782,23 @@ fn conflicting_values_with_identity_aliases_keep_a_source_location() {
         "{text}"
     );
 }
+
+#[test]
+fn fluent_overlap_names_an_actual_witnessing_state() {
+    let dir = tmp("fluent-witness-location");
+    let first = dir.join("a.dli");
+    let second = dir.join("b.dli");
+    fs::write(&first, "scope storybook\nratify d-0001\nevent turn ratified d-0001\nstate wren.home = shore until turn ratified d-0001\n").unwrap();
+    fs::write(&second, "scope storybook\nstate wren.home = hill since turn ratified d-0001\nstate wren.home = shore since turn ratified d-0001\n").unwrap();
+    let output = bin().arg("check").arg(&dir).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.fluent-contradiction"))
+        .expect(&text);
+    assert!(
+        line.contains(&format!("{}:2:", second.display()))
+            || line.contains(&format!("{}:3:", second.display())),
+        "{text}"
+    );
+}

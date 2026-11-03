@@ -815,9 +815,19 @@ fn fluent_contradictions(
     let mut out = Vec::new();
     for (slot, members) in by_canon {
         let mut scratch: FluentTimeline<String> = FluentTimeline::new();
+        let mut source_facts = Vec::new();
         for member in &members {
-            for span in &world.model.fluents[*member].spans {
+            let timeline = &world.model.fluents[*member];
+            let indices = world
+                .model
+                .fluent_fact_indices
+                .get(*member)
+                .filter(|indices| {
+                    world.model.temporal_sources_complete && indices.len() == timeline.spans.len()
+                });
+            for (index, span) in timeline.spans.iter().enumerate() {
                 scratch.push(span.clone());
+                source_facts.push(indices.and_then(|indices| indices.get(index)).copied());
             }
         }
         // A canon slot is inertial iff its (canon) predicate carries an
@@ -828,8 +838,7 @@ fn fluent_contradictions(
         let inertial_predicates = effective_inertial_predicates(world);
         let inertial = inertial_predicates.get(&slot.0);
         if let Some((witness, values)) = fluent_clash(world, &scratch, inertial) {
-            out.push(
-                WorldFinding::error(
+            let finding = WorldFinding::error(
                     "continuity.fluent-contradiction",
                     format!(
                         "the fluent {}.{} holds distinct values [{}] at once over overlapping spans; one interval must give",
@@ -846,8 +855,41 @@ fn fluent_contradictions(
                     &values,
                     &[witness],
                     inertial,
-                )),
-            );
+                ));
+            // Only a state that actually holds at the witness can locate this
+            // finding. Matching the value alone could point to an unrelated,
+            // disjoint interval with the same value.
+            let chronology = world.model.chronology_with_era_membership();
+            let valuation = &world.model.world.valuation;
+            let theory = &world.model.world.theory;
+            let holdings = match inertial {
+                Some(ann) => {
+                    scratch.state_at_inertial_indexed(&chronology, valuation, theory, witness, ann)
+                }
+                None => scratch.state_at_indexed(&chronology, valuation, theory, witness),
+            };
+            let source = holdings
+                .into_iter()
+                .filter(|(_, holding)| holding.projection() == Projection::HoldsCertainly)
+                .filter_map(|(index, _)| source_facts.get(index).copied().flatten())
+                .find_map(|fact_index| {
+                    world
+                        .model
+                        .temporal_atom_facts
+                        .iter()
+                        .find_map(|(atom_index, &mapped)| {
+                            (mapped == fact_index).then_some(*atom_index)
+                        })
+                        .and_then(|index| world.model.atoms().get(index))
+                        .map(|atom| atom.span)
+                        .filter(|span| span.end > span.start)
+                });
+            let finding = if let Some(span) = source {
+                finding.with_span(span)
+            } else {
+                finding
+            };
+            out.push(finding);
         } else if let Some(finding) = fluent_order_gap(world, canon, &slot, &scratch, inertial) {
             out.push(finding);
         }

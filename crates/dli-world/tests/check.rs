@@ -1211,6 +1211,10 @@ fn overlapping_span_states_raise_exactly_one_fluent_contradiction() {
         "names the clashing values: {}",
         clashes[0].message
     );
+    assert!(
+        clashes[0].span.is_none(),
+        "synthetic states have no source location"
+    );
     assert_eq!(findings.len(), 1, "and nothing spurious: {findings:?}");
 }
 
