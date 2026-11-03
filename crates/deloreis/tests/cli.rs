@@ -1822,6 +1822,44 @@ fn conflicting_canon_names_a_source_and_a_repair() {
 }
 
 #[test]
+fn rule_derived_conflict_names_an_authored_value() {
+    let dir = tmp("derived-continuity-source-location");
+    let first = dir.join("a.dli");
+    let second = dir.join("b.dli");
+    fs::write(&first, "scope storybook\nratify d-0001\nfunctional home ratified d-0001\nfact wren home shore ratified d-0001\n").unwrap();
+    fs::write(&second, "scope storybook\nrule another-home ratified d-0001\n  home($who, hill) :- home($who, shore)\n").unwrap();
+    let output = bin().arg("check").arg(&dir).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.derived-fd-violation"))
+        .expect(&text);
+    assert!(line.contains(&format!("{}:4:", first.display())), "{text}");
+    assert!(
+        text.contains("help: revise a conflicting source claim or derivation rule"),
+        "{text}"
+    );
+}
+
+#[test]
+fn rule_only_conflict_does_not_blame_an_unrelated_fact() {
+    let dir = tmp("derived-continuity-no-false-location");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nratify d-0001\nfunctional home ratified d-0001\nfact lark home hill ratified d-0001\npresent(wren) ratified d-0001\nrule shore ratified d-0001\n  home($who, shore) :- present($who)\nrule marsh ratified d-0001\n  home($who, marsh) :- present($who)\n").unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.derived-fd-violation"))
+        .expect(&text);
+    assert!(!line.contains(&corpus.display().to_string()), "{text}");
+    assert!(
+        text.contains("help: revise a conflicting source claim or derivation rule"),
+        "{text}"
+    );
+}
+
+#[test]
 fn conflicting_values_with_identity_aliases_keep_a_source_location() {
     let dir = tmp("continuity-alias-location");
     let corpus = dir.join("world.dli");
