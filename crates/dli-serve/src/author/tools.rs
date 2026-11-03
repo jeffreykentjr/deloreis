@@ -123,12 +123,15 @@ fn open_error(err: &super::store::OpenError) -> ErrorBody {
 pub(super) fn status(store: &Store, params: &AuthorStatusParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let report = reads::workspace_report(store, ws, true);
+    let (rendered, render_findings) = render_workspace(&ws.decls);
+    let mut findings = report.findings;
+    findings.extend(render_findings);
     Ok(value(&AuthorStatusResult {
-        rendered: render_decls(&ws.decls),
+        rendered,
         root_hash: ws.base_root_hash.clone(),
         diff_rows: Some(report.diff_rows),
         staged: Some(ws.decls.iter().map(staged_decl).collect()),
-        findings: report.findings,
+        findings,
         workspace_digest: ws.digest.clone(),
     }))
 }
@@ -185,11 +188,14 @@ fn decl_kind(decl: &Decl) -> &'static str {
 pub(super) fn diff(store: &Store, params: &AuthorDiffParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let report = reads::workspace_report(store, ws, true);
+    let (rendered, render_findings) = render_workspace(&ws.decls);
+    let mut findings = report.findings;
+    findings.extend(render_findings);
     Ok(value(&AuthorDiffResult {
-        rendered: render_decls(&ws.decls),
+        rendered,
         root_hash: ws.base_root_hash.clone(),
         rows: Some(report.diff_rows),
-        findings: report.findings,
+        findings,
         consequences: report.consequences,
         workspace_digest: ws.digest.clone(),
     }))
@@ -323,6 +329,13 @@ pub(super) fn materialize(
                 data: None,
             });
         }
+        super::render::validate_provenance(&ws.decls).map_err(|error| ErrorBody {
+            code: ErrorCode::SchemaViolation,
+            message: format!(
+                "cannot render this workspace faithfully: {error}; use simple origin tokens"
+            ),
+            data: None,
+        })?;
         return Ok(value(&AuthorMutationResult {
             findings: Vec::new(),
             rendered: render_scoped(&ws.base_name, &ws.decls),
@@ -360,6 +373,13 @@ pub(super) fn materialize(
 
     // Rendered lines are opt-in; fact objects are the default.
     let rendered = if params.rendered {
+        super::render::validate_provenance(&staged_decls).map_err(|error| ErrorBody {
+            code: ErrorCode::SchemaViolation,
+            message: format!(
+                "cannot render this workspace faithfully: {error}; request fact objects instead"
+            ),
+            data: None,
+        })?;
         render_scoped(&base_name, &staged_decls)
     } else {
         Vec::new()
@@ -1626,9 +1646,10 @@ fn composition_text(steps: &[CompositionStep]) -> String {
 /// workspace for `materialize` to commit.
 #[allow(clippy::needless_pass_by_value)]
 fn stage(store: &mut Store, ws_id: &str, decl: Decl) -> Result<Value, ErrorBody> {
+    let render_issue = display_render_issue(&decl);
     // Findings read the workspace's derived base-plus-staged resolution index;
     // no historical declaration or base-atom census belongs on this hot path.
-    let findings = {
+    let mut findings = {
         let (base, ws) = parts_mut(store, ws_id)?;
         decl_findings(&decl, ws, base)
     };
@@ -1643,7 +1664,12 @@ fn stage(store: &mut Store, ws_id: &str, decl: Decl) -> Result<Value, ErrorBody>
         data: None,
     })?;
 
-    let rendered = render_decls(std::slice::from_ref(&decl));
+    let rendered = if let Some(error) = render_issue {
+        findings.push(render_warning(&error));
+        Vec::new()
+    } else {
+        render_decls(std::slice::from_ref(&decl))
+    };
     let (_, ws) = parts_mut(store, ws_id)?;
     ws.push_decl(decl);
     Ok(mutation(findings, rendered, &ws.digest))
@@ -2456,12 +2482,55 @@ pub(super) fn decl_key(decl: &Decl) -> String {
 /// that links no formatter (LS-7) — the pre-1.3.0 `author.discard` key, kept
 /// because that is what every wire below 1.3.0 accepts.
 fn rendered_key(decl: &Decl) -> Option<String> {
-    super::render::renders_dli().then(|| {
-        render_decls(std::slice::from_ref(decl))
-            .into_iter()
-            .next()
-            .unwrap_or_default()
-    })
+    if display_render_issue(decl).is_some() {
+        return None;
+    }
+    if !super::render::renders_dli() {
+        return None;
+    }
+    render_decls(std::slice::from_ref(decl)).into_iter().next()
+}
+
+fn render_warning(error: &str) -> Finding {
+    Finding {
+        severity: Severity::Warn,
+        code: "render.provenance-unrepresentable".to_owned(),
+        message: format!(
+            "The declaration is staged, but its text was omitted: {error}. Use fact objects, or revise the declaration if text is required."
+        ),
+        grade: Grade::Checked,
+        repair: None,
+        citations: Vec::new(),
+        data: None,
+    }
+}
+
+fn render_workspace(decls: &[Decl]) -> (Vec<String>, Vec<Finding>) {
+    let mut safe = Vec::new();
+    let mut findings = Vec::new();
+    for decl in decls {
+        match display_render_issue(decl) {
+            None => safe.push(decl.clone()),
+            Some(error) => findings.push(render_warning(&error)),
+        }
+    }
+    (render_decls(&safe), findings)
+}
+
+fn display_render_issue(decl: &Decl) -> Option<String> {
+    // Predicate identity is intentionally wire-only and already renders no line.
+    // A warning about a lossy line would misdescribe the existing surface.
+    if matches!(decl, Decl::PredicateSameAs(_)) {
+        return None;
+    }
+    // Display escaping happens after formatting and can itself change a token.
+    if control_char_findings(decl)
+        .iter()
+        .any(|finding| finding.code == "field.control-char" && finding.severity == Severity::Error)
+    {
+        return Some("the declaration contains a forbidden control character".to_owned());
+    }
+    super::render::validate_provenance(std::slice::from_ref(decl)).err()
 }
 
 // -- finding constructors ----------------------------------------------------

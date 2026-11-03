@@ -304,3 +304,22 @@ never recorded the distinction cannot recover it without the original source.
 
 **Rationale.** A caller's origin is data. A named origin that happens to look
 like a proposal bundle must not be silently rewritten into a different form.
+
+## DL-0116 — Refuse lossy provenance renderings
+
+*Date: 2026-11-03*
+
+**Attribution:** machine.
+
+**Ruling.** A requested `.dli` rendering is checked by parsing it again and
+comparing the provenance annotations with the typed source. A rendered corpus
+export or explicit rendered materialization refuses when provenance would
+change. A staging mutation may still store the declaration: it omits the lossy
+rendered line and returns a warning, so fact objects remain usable. This does
+not reserve new text keywords or change the meaning of existing documents.
+Status and diff use the same check, retain structural declaration keys, and
+omit unsafe rendered lines with the warning.
+
+**Rationale.** Some valid typed origins cannot be expressed as one token in the
+current text grammar. A successful export must not silently attach a claim to a
+different origin.

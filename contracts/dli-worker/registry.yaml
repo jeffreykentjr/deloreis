@@ -104,7 +104,7 @@ fixtures:
 - path: golden/author-discard-v1.json
   sha256: bbda11f8da9e90220b18f39d01526e35baff010cff7078d59c46a0f081077e0c
 - path: golden/author-expert-session-v1.json
-  sha256: dc7a2e38afc5b4707e9b45405fd1f9e42787d5d86b20c0a952211c05a9204201
+  sha256: 690d360c23e94641c0068ea377120fa2682b42de3d855f19a863b6a40876fc63
 - path: golden/author-findings-v1.json
   sha256: 77a8dc0ffdab478325cc99645c58ae105b27c25cee073e3230bdd85775a19db7
 - path: golden/author-list-workspaces-v1.json

@@ -848,7 +848,7 @@ fn thalia_scenario_replays_migration_section_10() {
 
 /// C1: a newline smuggled into a provenance origin cannot forge a second
 /// declaration line in the review diff. It raises an error-severity finding, the
-/// rendered surface stays one line, and materialize is barred.
+/// rendered surface cannot forge a line, and materialize is barred.
 #[test]
 fn control_char_in_origin_cannot_forge_and_bars_materialize() {
     let mut store = Store::default();
@@ -872,17 +872,16 @@ fn control_char_in_origin_cannot_forge_and_bars_materialize() {
         .expect("a field.control-char finding");
     assert_eq!(finding["severity"], json!("error"));
 
-    // One line out, no raw newline — the forgery cannot split the surface.
+    // Unparseable provenance is omitted, so the forgery cannot split the surface.
     let rendered = added["rendered"].as_array().expect("rendered");
-    assert_eq!(rendered.len(), 1);
-    assert!(!rendered[0].as_str().unwrap_or_default().contains('\n'));
+    assert!(rendered.is_empty());
 
-    // The human's supervision surface (author.diff) is one line too.
+    // The supervision surface omits the same unsafe line.
     let diff = send(
         &mut store,
         &req("3", Op::AuthorDiff, json!({ "workspace": ws })),
     );
-    assert_eq!(result(&diff)["rendered"].as_array().map(Vec::len), Some(1));
+    assert_eq!(result(&diff)["rendered"].as_array().map(Vec::len), Some(0));
     assert!(
         result(&diff)["findings"]
             .as_array()
@@ -1122,9 +1121,9 @@ fn malformed_params_are_schema_violations() {
 
 // -- R3 verify-attacker hardening --------------------------------------------
 
-/// Bidi and zero-width characters are caught, escaped, and bar materialization.
+/// Bidi and zero-width characters are caught, omitted, and bar materialization.
 #[test]
-fn bidi_and_zero_width_chars_are_caught_and_escaped() {
+fn bidi_and_zero_width_chars_are_caught_and_omitted() {
     let mut store = Store::default();
     let ws = open_scope(&mut store, "storybook");
     let rlo = send(
@@ -1138,9 +1137,8 @@ fn bidi_and_zero_width_chars_are_caught_and_escaped() {
     );
     let added = result(&rlo);
     assert!(codes(added).contains(&"field.control-char".to_owned()));
-    let line = added["rendered"][0].as_str().unwrap_or_default();
-    assert!(!line.contains('\u{202e}'), "the bidi override is escaped");
-    assert!(line.contains("\\u{202e}"));
+    assert_eq!(added["rendered"], json!([]));
+    assert!(codes(added).contains(&"render.provenance-unrepresentable".to_owned()));
 
     let blocked = send(
         &mut store,
@@ -1498,4 +1496,148 @@ fn option_and_hypothesis_names_cannot_alias_in_either_order() {
         ),
     );
     assert!(!collision.ok, "{collision:?}");
+}
+
+#[test]
+fn an_unrenderable_origin_remains_storable_but_is_not_returned_as_lossy_text() {
+    let (document, findings) = dli_syntax::parse_document("scope storybook\n");
+    assert!(findings.is_empty());
+    let pack = dli_world::pack::Pack {
+        name: "storybook".into(),
+        documents: vec![document],
+    };
+    let root = tempfile::tempdir().expect("temporary store");
+    let mut store = Store::with_pack(pack).expect("base compiles");
+    store
+        .attach_lorestore(root.path().join("store"))
+        .expect("attach store");
+    let ws = open_scope(&mut store, "storybook");
+    let response = send(
+        &mut store,
+        &req(
+            "add",
+            Op::AuthorAddEntity,
+            json!({
+                "workspace": ws, "kind":"person", "id":"wren", "name":"Wren",
+                "provenance":{"kind":"proposed", "origin":"group#draft"}
+            }),
+        ),
+    );
+    let added = result(&response);
+    assert!(
+        codes(added)
+            .iter()
+            .any(|code| code == "render.provenance-unrepresentable"),
+        "{added}"
+    );
+    assert_eq!(added["rendered"], json!([]));
+    let status = send(
+        &mut store,
+        &req("status", Op::AuthorStatus, json!({"workspace":ws})),
+    );
+    let status = result(&status);
+    assert_eq!(status["rendered"], json!([]));
+    assert!(status["staged"][0]["rendered"].is_null(), "{status}");
+    assert!(status["staged"][0]["key"].as_str().is_some(), "{status}");
+    assert!(
+        codes(status)
+            .iter()
+            .any(|code| code == "render.provenance-unrepresentable"),
+        "{status}"
+    );
+    let diff = send(
+        &mut store,
+        &req("diff", Op::AuthorDiff, json!({"workspace":ws})),
+    );
+    let diff = result(&diff);
+    assert_eq!(diff["rendered"], json!([]));
+    assert!(
+        codes(diff)
+            .iter()
+            .any(|code| code == "render.provenance-unrepresentable"),
+        "{diff}"
+    );
+    let rejected_text = send(
+        &mut store,
+        &req(
+            "text",
+            Op::AuthorMaterialize,
+            json!({"workspace":ws,"rendered":true}),
+        ),
+    );
+    assert!(!rejected_text.ok, "{rejected_text:?}");
+    let committed = send(
+        &mut store,
+        &req("objects", Op::AuthorMaterialize, json!({"workspace":ws})),
+    );
+    assert!(committed.ok, "{committed:?}");
+    assert!(
+        result(&committed)["facts"]
+            .as_array()
+            .is_some_and(|facts| !facts.is_empty())
+    );
+}
+
+#[cfg(feature = "syntax")]
+#[test]
+fn control_error_does_not_hide_an_unrenderable_origin() {
+    let mut store = Store::default();
+    let ws = open_scope(&mut store, "storybook");
+    let added = send(
+        &mut store,
+        &req(
+            "add",
+            Op::AuthorAddEntity,
+            json!({
+                "workspace":ws, "kind":"person", "id":"wren", "name":"Wren\nOther",
+                "provenance":{"kind":"proposed", "origin":"group#draft"}
+            }),
+        ),
+    );
+    let added = result(&added);
+    assert!(
+        codes(added).contains(&"field.control-char".to_owned()),
+        "{added}"
+    );
+    assert!(
+        codes(added).contains(&"render.provenance-unrepresentable".to_owned()),
+        "{added}"
+    );
+    assert_eq!(added["rendered"], json!([]));
+    for op in [Op::AuthorStatus, Op::AuthorDiff] {
+        let response = send(&mut store, &req("view", op, json!({"workspace":ws})));
+        let view = result(&response);
+        assert_eq!(view["rendered"], json!([]), "{view}");
+        assert!(
+            codes(view).contains(&"render.provenance-unrepresentable".to_owned()),
+            "{view}"
+        );
+    }
+}
+
+#[cfg(feature = "syntax")]
+#[test]
+fn escaped_control_in_origin_never_appears_as_faithful_text() {
+    let mut store = Store::default();
+    let ws = open_scope(&mut store, "storybook");
+    let added = send(
+        &mut store,
+        &req(
+            "add",
+            Op::AuthorAddEntity,
+            json!({
+                "workspace":ws, "kind":"person", "id":"wren", "name":"Wren",
+                "provenance":{"kind":"proposed", "origin":"group\u{202e}draft"}
+            }),
+        ),
+    );
+    let added = result(&added);
+    assert_eq!(added["rendered"], json!([]));
+    assert!(codes(added).contains(&"render.provenance-unrepresentable".to_owned()));
+    for op in [Op::AuthorStatus, Op::AuthorDiff] {
+        let response = send(&mut store, &req("view", op, json!({"workspace":ws})));
+        let view = result(&response);
+        assert_eq!(view["rendered"], json!([]), "{view}");
+        assert!(codes(view).contains(&"render.provenance-unrepresentable".to_owned()));
+    }
 }
