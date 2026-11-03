@@ -369,3 +369,45 @@ proptest! {
         }
     }
 }
+
+#[test]
+fn every_example_round_trips_through_the_formatter() {
+    let examples = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
+    let mut paths: Vec<_> = walkdir::WalkDir::new(examples)
+        .into_iter()
+        .map(|entry| entry.expect("walk examples"))
+        .filter(|entry| entry.file_type().is_file())
+        .map(walkdir::DirEntry::into_path)
+        .filter(|path| path.extension().is_some_and(|extension| extension == "dli"))
+        .collect();
+    paths.sort();
+    assert!(!paths.is_empty(), "the example corpus must not be empty");
+    for path in paths {
+        let source = std::fs::read_to_string(&path).expect("read example");
+        let (original, diagnostics) = parse_document(&source);
+        assert!(
+            diagnostics.iter().all(|d| !d.class.is_error()),
+            "{}: {diagnostics:?}",
+            path.display()
+        );
+        let rendered = format_document(&original);
+        let (reparsed, diagnostics) = parse_document(&rendered);
+        assert!(
+            diagnostics.iter().all(|d| !d.class.is_error()),
+            "{} after formatting: {diagnostics:?}",
+            path.display()
+        );
+        assert_eq!(
+            span_blind(&original),
+            span_blind(&reparsed),
+            "{} changed after formatting",
+            path.display()
+        );
+        assert_eq!(
+            rendered,
+            format_document(&reparsed),
+            "{} formatting is not idempotent",
+            path.display()
+        );
+    }
+}
