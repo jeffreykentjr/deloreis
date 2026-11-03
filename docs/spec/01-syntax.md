@@ -50,6 +50,9 @@ elsewhere in this suite:
   names an existing anonymous proposal hypothesis. The renderer uses this form
   when reconstructing positional proposals; it cannot be combined with
   provenance tags or `assumes` (DL-0113).
+- **Origins remain origins.** When an origin token resembles a positional
+  bundle or cannot be recovered from a support expression, its declaration is
+  stored alongside the fact so replay retains the caller's origin (DL-0115).
 - **Agent tools lower to fact objects.** A client may request rendering, but
   structured diff rows and fact objects are the review and storage surface.
 - **The reference card and the schema are the same object at two altitudes.**
