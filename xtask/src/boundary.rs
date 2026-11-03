@@ -7,6 +7,11 @@ use anyhow::{Context, Result, bail};
 
 /// Retired world tokens, matched case-insensitively at ASCII word boundaries.
 pub const WORLD_TOKENS: &[&str] = &[
+    "compile_lore_dli.py",
+    "rigged_variant_of",
+    "frankpledge",
+    "doom-wight",
+    "doomwight",
     "tpth",
     "enfys",
     "aalto",
