@@ -1,20 +1,16 @@
 ---
-status: accepted
-verdict: "The canonical staged roadmap for the lorestore cutover: facts become content-addressed JSON objects in an embedded deterministic store; .dli is demoted from canonical surface to optional rendering. Consolidates lorestore-vision, dli-deprecation-plan, lorestore-indexing-strategy, and multi-authority-knowledge-evolution into one dependency-ordered plan with oracles, a theory appendix, and a risk register. Ratified by DL-0041; this note is the worked plan behind it. Implementation state lives in the PLAN store lane."
+status: reference
+verdict: "Historical roadmap for the lorestore cutover; DL-0101 supersedes the text-surface deprecation and benchmark-era priorities. The current release direction is in docs/release/north-star.md and the decision ledger."
 ---
 
 # The lorestore roadmap
 
-This is the working plan for the storage pivot: deloreis stops being a language
-with a text surface and becomes a database with an algebra. The four notes that
-argued the direction — `lorestore-vision.md`, `dli-deprecation-plan.md`,
-`lorestore-indexing-strategy.md`, `multi-authority-knowledge-evolution.md` —
-remain the reasoning; this note is the sequence. Where they disagree with each
-other or with this note, this note wins; where this note disagrees with the
-ledger, the ledger wins (DL-0041 is the ratifying entry). The later peer/service
-distribution boundary is ruled by DL-0062 and specified in
-`scale-and-distribution.md`; it extends this store plan rather than
-reopening the completed lorestore cutover.
+This is a historical plan for the storage pivot. Its discussion of demoting or
+removing `.dli`, former integrations, contract versions, and archive-scale
+priorities records the earlier direction; it is not the current release plan.
+DL-0101 restores `.dli` as a first-class surface and establishes the fiction
+scope. The [decision ledger](../decisions.md) and
+[release north star](../release/north-star.md) govern current work.
 
 Stages are written in the `PLAN.md` idiom: a deliverable, its needs, what it
 produces, and a falsifiable oracle. No dates. The stage ids (`LS-0` … `LS-8`)
@@ -661,15 +657,14 @@ Parked work, PLAN idiom — named, owned by a trigger, not built before it:
 | Track | Trigger |
 |---|---|
 | Compaction / packfiles | Store size or object count degrades clone/load measurably |
-| Peer/service loopback, then remote backends | A benchmark trace or archive deployment needs bounded remote retrieval (DL-0062) |
+| Peer/service loopback, then remote backends | A measured workload or archive deployment needs bounded remote retrieval (DL-0062) |
 | `.dli` full removal (deprecation phase 4) | The pretty-printer crate's maintenance cost exceeds its use |
 | Review rendering | None — consumer-owned by design (LS-5); deloreis ships the JSON contract, never a UI |
 | Worker cancellation + bounded diagnostic | A second captured trace shows any handler exceed an interactive budget for a reason other than an accidental-complexity bug (DL-0086). The `serve` worker is synchronous with no cancellation and the gate law bars the kernel from reading a clock, so a client-side deadline against a slow handler presents as an undiagnosed stall; a genuine slow path (not a fixable blunder) is the trigger to design a bounded/streaming answer |
 | Multi-authority valuations (DEF-4) | The first real second-authority corpus; the archive tier's authority model builds on the `authority` field and per-authority valuations |
 | Argumentation / uncertainty / fuzzy-ER (indexing note Phases 5–7) | Exploring, not committed; a ledger entry is the only way in |
 
-**Logged data points toward the triggers.** GH **#75** (SubtleMemory
-incremental-canonicalization pilot, a DL-0062 evidence trace) surfaced an
+**Logged data points toward the triggers.** GH **#75** (an incremental-canonicalization pilot and DL-0062 evidence trace) surfaced an
 `author.merge` dry-run stalling past the client's deadline on a growing identity
 world. Its dominant cause was an **accidental** O(M³) merge base, fixed in place
 to O(M+E) and orthogonal to this track (DL-0086) — a bug, not a threshold. But it
@@ -682,10 +677,10 @@ and merge-consequence/ancestry work over the commit DAG (**Phase 4** cross-branc
 computes by hand). #75 does not trip a *size* trigger — but it does satisfy the
 *continuous-ingestion* condition, which is what moves Phase 3.
 
-**Phase 3 is now entered — ahead of Phase 2 (DL-0087).** The SubtleMemory pilot is
-continuous ingestion by construction (recompiles scale with mentions, not facts),
+**Phase 3 is now entered — ahead of Phase 2 (DL-0087).** The historical pilot used
+continuous ingestion (recompiles scale with mentions, not facts),
 so incremental compilation is the one archive-track item with a live trigger and a
-near-term benchmarking payoff; secondary indexes (Phase 2) wait. The v1 scope is an
+near-term performance payoff; secondary indexes (Phase 2) wait. The v1 scope is an
 in-process, rebuildable compiled-world cache (a bounded LRU; `state ≡ fold(log)`
 makes eviction safe) plus an incremental fixpoint that reuses the prior saturation
 and recomputes above the affected stratum — **not** the persistent on-disk indexes
@@ -699,10 +694,10 @@ recommendation for the continuous-ingestion trigger.
 dependency-closed stratum (atom-level reuse is unsound under the defeater-conjoining
 `or_`), so the fixpoint win is delta-position dependent and **~1.0× for `same-as`
 deltas** — identity assertions synthesize alias rules over every predicate, marking
-the whole world affected. The fixpoint was never the SubtleMemory cost driver,
+the whole world affected. The fixpoint was never the pilot workload’s cost driver,
 though: the dominant term is `merge::scan`'s 3–8× whole-world recompiles per
 `author.merge` (× ~7 harness workers per mention), which the compiled-world cache and
-incremental loader attack directly. So Phase 3's SubtleMemory payoff is a
+incremental loader attack directly. So Phase 3's payoff for that workload is a
 **several-fold constant factor, not O(delta)**; beating ~1.0× for `same-as` needs
 per-derivation provenance (its own research lever), and the whole-world check battery
 is the predicted next bottleneck (instrumented in PR 3, sliced later).

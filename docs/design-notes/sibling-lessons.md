@@ -11,6 +11,10 @@ from first principles here — they were paid for in the author's other projects
 This note is the receipt for each, condensed. It is `status: reference`: the
 lessons are settled, not up for re-argument. The earlier private research is preserved in git history.
 
+> This note records historical reasoning. DL-0101 sets the current fiction
+> scope and restores `.dli`; the retired measurement program is not a release
+> requirement. See the [release north star](../release/north-star.md).
+
 ## The path-count lesson → koan 11, DL-0004
 
 **Chelis** ran a dual-syntax design whose syntax-redesign budget was consumed by
@@ -22,9 +26,8 @@ better than any path's individual quality.** Every additional supported path is 
 support surface (docs, examples, skill guidance, CI checks), a drift surface
 (parallel artifacts kept equivalent), and a bust-rate multiplier (each path fails
 its own way, and paths interact). The remedy is a law: **one door per author
-population** (koan 11, DL-0004). Two populations exist — humans and agents — so
-two doors are supported, and the benchmark exists to *close* doors, never to open
-them.
+population** (koan 11, DL-0004). The earlier plan separated human and agent authoring paths; the current release
+supports `.dli` and the agent tool surface under DL-0101.
 
 ## The agent-syntax history → DL-0004
 
@@ -33,9 +36,8 @@ The honest residue of the sibling agent-authoring work is what is still
 the local-model evidence is one model class. What the record does establish is
 which levers are reproducible: **grammar regularity and canonical form** reduce
 agent failure, and **task complexity dominates failure variance**. Those levers,
-not faith, justify the AST-first design (DL-0003) and the demotion of raw AST
-emission to a benchmark arm. The benchmark's job is a verdict about which door to
-keep shut, defined by the real gate's pass — not a menu of channels.
+not faith, motivated the earlier AST-first design (DL-0003). The later schema-first
+lorestore and `.dli` revival decisions govern the current surface.
 
 ## The hull pattern → DL-0012, migration
 
@@ -79,9 +81,8 @@ agents at once.
 
 Letting model calls, live baselines, or benchmarks into the gate makes the gate
 non-reproducible and lets its flakiness block unrelated merges. The remedy:
-**the language gate is deterministic offline lanes only**, and anything flaky or
-live — models, the Ludii baseline, the authoring benchmark, the clingo oracle —
-runs in **non-gating** lanes (DL-0013). The verdict that blocks a merge must
+**the language gate is deterministic offline lanes only**, and any optional live or flaky evaluation must stay outside the gating lanes
+(DL-0013). The verdict that blocks a merge must
 reproduce with no network and no model in the loop.
 
 ## Salsa-readiness as law → DL-0009

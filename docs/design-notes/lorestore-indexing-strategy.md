@@ -283,10 +283,8 @@ Despite evolving the indexing strategy, three principles remain:
 ## Recommendation: Start with Phase 2
 
 > **Superseded for the continuous-ingestion trigger (DL-0087).** This recommendation
-> assumed a full-scan-query pressure (Phase 2's trigger) would arrive first. The
-> SubtleMemory pilot's continuous ingestion made Phase 3's trigger live *first* — the
-> real-world usage pattern this section asked to wait for — so **Phase 3 is entered
-> ahead of Phase 2**. Phase 2 remains the next item after it. The rest of this
+> assumed a full-scan-query pressure (Phase 2's trigger) would arrive first. A historical continuous-ingestion workload made Phase 3's trigger live
+> first, so **Phase 3 was entered ahead of Phase 2**. Phase 2 remains the next item after it. The rest of this
 > section stands for the general case.
 
 Phase 2 (essential secondary indexes) delivers the most value for the least
