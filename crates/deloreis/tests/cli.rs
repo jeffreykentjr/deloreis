@@ -473,6 +473,37 @@ fn fork_suppose_rejects_unknown_target() {
 }
 
 #[test]
+fn legacy_yaml_fork_store_survives_an_update() {
+    let workspace = tmp("legacy-yaml-fork");
+    let cache = workspace.join(".dli-cache");
+    fs::create_dir_all(&cache).unwrap();
+    let source = format!(
+        "corpus:\n- {}\nnext: 1\nforks:\n- id: 0\n  name: legacy\n  suppositions:\n  - target: d-0006\n    value: false\n  additions:\n  - keeps(merlin, excalibur)\n  keep_stamps: []\n",
+        camelot().display()
+    );
+    let store = cache.join("forks.yaml");
+    fs::write(&store, source).unwrap();
+    let output = bin()
+        .args(["fork", "-w"])
+        .arg(&workspace)
+        .args(["add", "legacy", "visits(merlin, camelot)"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let parsed: serde_json::Value =
+        serde_saphyr::from_str(&fs::read_to_string(store).unwrap()).unwrap();
+    assert_eq!(parsed["next"], 1);
+    assert_eq!(parsed["forks"][0]["name"], "legacy");
+    assert_eq!(parsed["forks"][0]["suppositions"][0]["target"], "d-0006");
+    assert_eq!(parsed["forks"][0]["suppositions"][0]["value"], false);
+    assert_eq!(parsed["forks"][0]["additions"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        parsed["forks"][0]["additions"][0],
+        "keeps(merlin, excalibur)"
+    );
+}
+
+#[test]
 fn fork_management_commands_round_trip_and_alias_preflight() {
     let workspace = tmp("fork-management");
 

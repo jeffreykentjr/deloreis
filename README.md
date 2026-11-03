@@ -26,7 +26,7 @@ With Rust installed:
 cargo install deloreis --locked
 ```
 
-Or download a macOS or Linux archive from the [releases page](https://github.com/jeffreykentjr/deloreis/releases). Each archive includes a checksum.
+Or download a macOS or Linux archive from the [releases page](https://github.com/jeffreykentjr/deloreis/releases). Each archive has a checksum alongside it.
 
 ## Get started
 

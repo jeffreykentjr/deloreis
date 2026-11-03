@@ -51,6 +51,9 @@ jobs:
           ref: ${{ inputs.commit }}
           fetch-depth: 0
           persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Check release, tag and version
         run: |
           python3 - <<'PY'
