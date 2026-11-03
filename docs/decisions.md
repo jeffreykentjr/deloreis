@@ -288,3 +288,19 @@ fact cannot be recreated from the declaration alone.
 
 **Rationale.** A decision must not make a valid authored entity uncommittable or
 leave a carried declaration describing different evidence from its fact.
+
+## DL-0115 — Preserve origin tags that overlap proposal identities
+
+*Date: 2026-11-03*
+
+**Attribution:** machine.
+
+**Ruling.** A declaration is carried alongside its fact when its provenance
+contains origin tags that the fact's support polynomial cannot recover exactly.
+This includes an origin resembling a positional bundle, a joined or multi-token
+origin, and tags ignored by the claim's support semantics. Reconstruction reads
+the authored tags from that content-addressed carriage. Existing facts that
+never recorded the distinction cannot recover it without the original source.
+
+**Rationale.** A caller's origin is data. A named origin that happens to look
+like a proposal bundle must not be silently rewritten into a different form.
