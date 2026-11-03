@@ -523,7 +523,7 @@ states).
 
 ## 10. Predicate identity on the wire (DL-0092)
 
-Contract `1.12.0` adds `author.assert_predicate_same_as`, a typed declaration
+`author.assert_predicate_same_as` is a typed declaration
 that two predicate names denote one property. This is the predicate analogue of
 entity `same-as`, not a name-normalization facility: the caller supplies the
 claim and its provenance, while the engine records it, evaluates its

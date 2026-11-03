@@ -52,13 +52,9 @@ pub struct Finding {
     /// Supporting citations.
     #[serde(default)]
     pub citations: Vec<String>,
-    /// A structured payload a consumer can reconstruct the verdict from,
-    /// without parsing [`message`](Finding::message) (WS-2's rider, contract
-    /// `1.7.0`). Additive: absent serializes to nothing, so every frozen
-    /// fixture byte holds. Populated only on a `≥1.7.0` negotiation, and only
-    /// for the specific finding classes documented to carry one — every
-    /// other finding, on every version, keeps answering with no `data` key
-    /// at all, exactly as before this field existed.
+    /// Structured details for finding classes that provide them. Consumers can
+    /// use these fields without parsing [`message`](Finding::message). Omitted
+    /// when the finding has no structured payload.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub data: Option<serde_json::Value>,
 }

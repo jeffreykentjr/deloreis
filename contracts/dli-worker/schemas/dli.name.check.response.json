@@ -38,7 +38,7 @@
           "type": "string"
         },
         "data": {
-          "description": "A structured payload a consumer can reconstruct the verdict from,\nwithout parsing [`message`](Finding::message) (WS-2's rider, contract\n`1.7.0`). Additive: absent serializes to nothing, so every frozen\nfixture byte holds. Populated only on a `≥1.7.0` negotiation, and only\nfor the specific finding classes documented to carry one — every\nother finding, on every version, keeps answering with no `data` key\nat all, exactly as before this field existed."
+          "description": "Structured details for finding classes that provide them. Consumers can\nuse these fields without parsing [`message`](Finding::message). Omitted\nwhen the finding has no structured payload."
         },
         "grade": {
           "description": "The grade at which the finding is asserted.",

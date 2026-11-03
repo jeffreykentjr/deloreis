@@ -14,10 +14,9 @@ supervises by rendering the structured diff for its reviewers. This is **the
 tool surface**, ruled in `DL-0014` and seated in the charter as koan 11 ("one
 way in").
 
-This document specifies the semantics of the authoring tools. Contract
-`2.0.0` is the only served version; historical version notes below describe
-when features were introduced, not additional supported contracts. The wire
-schemas and replay fixtures are in `contracts/dli-worker/`.
+This document specifies the authoring tools. Contract `2.0.0` is the only
+served version. The wire schemas and replay fixtures are in
+`contracts/dli-worker/`.
 
 ## 1. The interface
 
@@ -42,8 +41,8 @@ workspace authoring namespace is `author.*`.
 All authoring happens through a **workspace**: an in-memory staged layer over
 the compiled world with a pinned lorestore commit and ref. Add calls may write
 immutable fact objects, but they do not advance the serving ref.
-`author.materialize` commits the accepted staged delta; Contract 1.5 standing
-operations commit metadata revisions and valuation changes directly. The
+`author.materialize` commits the accepted staged delta; standing operations
+commit metadata revisions and valuation changes directly. The
 workspace digest remains the fence over staged declarations and suppositions;
 durable commit identity travels separately as `root_hash`.
 
@@ -430,7 +429,7 @@ question is not implemented at v0 — only minted hypotheses.)
 }
 ```
 
-The **language-layer** tools (names, words, dialects, crafts) and the
+The **language-layer** tools (names, words, and dialects) and the
 **ledger** tools follow their own spec documents' nodes and the same envelope and
 feedback contract. They are invoked in the `author.*` (authoring) and `dli.*`
 (worker-protocol, e.g. `dli.name.check`) namespaces; this document does not
@@ -438,7 +437,7 @@ invent their parameters.
 
 ### 3.10 Standing transitions
 
-Contract `1.5.0` adds two durable operations over stored claims:
+Two operations change the standing of stored claims:
 
 - `author.set_standing {workspace, claim_id, decision}` promotes a provisional
   claim to ratified only when `decision` is declared and occurs in every
@@ -452,7 +451,7 @@ Contract `1.5.0` adds two durable operations over stored claims:
   object remains reachable.
 
 `author.record_decision {workspace, decision, rationale?, provenance?}` records
-one baseline decision. Contract `1.13.0` adds
+one baseline decision. Use
 `author.record_decisions {workspace, records:[…]}` for an all-or-nothing ordered
 batch. The full batch is checked against one immutable pre-image, including
 per-record provenance rules; forward and cyclic same-batch citations are legal,
@@ -469,7 +468,7 @@ from stored `Ratify` carriage objects.
 
 ### 3.11 Constraint declarations
 
-Contract `1.6.0` adds one declaration over predicates:
+Declare a constraint on a predicate:
 
 - `author.declare_functional {workspace, pred, provenance}` declares `pred` a
   functional dependency — each subject holds at most one certain value for it,
@@ -485,7 +484,7 @@ query — and its provenance is stored but does not gate the structural constrai
 
 ### 3.12 Coreference declarations
 
-Contract `1.7.0` adds one declaration merging identity:
+Declare that two entity names refer to the same entity:
 
 - `author.assert_same_as {workspace, left, right, provenance}` asserts that
   `left` and `right` name the same bearer. The evaluable world closes the
@@ -507,7 +506,7 @@ the same as it would for any other write — no separate mechanism.
 
 ### 3.13 Rule authoring
 
-Contract `1.7.0` adds one declaration over derivation rules:
+Add a derivation rule:
 
 - `author.add_rule {workspace, name, head, body, provenance}` declares one
   datalog derivation rule — a typed `head :- body` clause. `head` is the
@@ -544,7 +543,7 @@ Contract `1.7.0` adds one declaration over derivation rules:
 
 ### 3.14 Inertial persistence declarations
 
-Contract `1.8.0` adds one declaration over fluent predicates:
+Declare persistence for a fluent predicate:
 
 - `author.declare_inertial {workspace, pred, provenance}` declares `pred`
   inertial: a fluent value asserted `since t` with no authored `until` is
@@ -568,7 +567,7 @@ Contract `1.8.0` adds one declaration over fluent predicates:
 
 ### 3.15 Predicate identity declarations
 
-Contract `1.12.0` adds one typed declaration over predicate names:
+Declare that two predicate names refer to the same property:
 
 - `author.assert_predicate_same_as {workspace, left, right, provenance}` records
   that `left` and `right` name the same property. It closes symmetrically and
@@ -621,12 +620,12 @@ are pure queries with no side effects.
 |---|---|
 | `author.query` | Query the compiled world — pattern-match over derived atoms. Returns matching atoms and their support. A row's `claim_ids`, when present, names committed source claims with that exact atom at the workspace base; derived or only-staged rows can have none. IDs do not themselves explain support. |
 | `author.check` | Run the full check battery against the workspace and return graded findings (the same findings a mutating call would surface, but on demand). |
-| `author.why` | Explain a derivation: the why-not provenance trace for a given atom or finding, showing the support chain or the reason a derivation failed. It also returns `supporting_decisions` (the recorded decisions anywhere in the symbolic antichain). At contract `1.13.0`, `active_supporting_decision_paths` preserves the boundaries of each currently admissible minimal support path; `blocking_defeats` names the active direct decision attacks when no path remains live; and `blocked_supports` keeps each otherwise-admissible path beside the minimal direct attacks disabling it. All three are explicit arrays, including empty arrays for live, dead-without-a-decision-attack, or unknown atoms. The atom may be given rendered (`atom`, parsed by the `.dli` front end) or as a typed `goal_atom` (the same shape `author.query` takes, `{"pred": …, "args": [{"Sym": …}, {"Var": …}]}`); the typed form is what makes decision provenance reachable in a syntax-free build. |
+| `author.why` | Explain a derivation: the why-not provenance trace for a given atom or finding, showing the support chain or the reason a derivation failed. It also returns `supporting_decisions` (the recorded decisions anywhere in the symbolic antichain). `active_supporting_decision_paths` preserves the boundaries of each currently admissible minimal support path; `blocking_defeats` names the active direct decision attacks when no path remains live; and `blocked_supports` keeps each otherwise-admissible path beside the minimal direct attacks disabling it. All three are explicit arrays, including empty arrays for live, dead-without-a-decision-attack, or unknown atoms. The atom may be given rendered (`atom`, parsed by the `.dli` front end) or as a typed `goal_atom` (the same shape `author.query` takes, `{"pred": …, "args": [{"Sym": …}, {"Var": …}]}`); the typed form is what makes decision provenance reachable in a syntax-free build. |
 | `author.findings` | Retrieve the current findings for the workspace — the accumulated error and warning surface without triggering a new check pass. |
-| `author.predicates` | Contract `1.10.0`. List staged predicates with arity plus functional/inertial declarations so callers can reuse an existing slot. |
-| `author.entity_candidates` | Contract `1.10.0`; declared-only from `1.11.0`. Return the bounded nearest declared entity ids, canonicalized and deterministically ordered. |
+| `author.predicates` | List staged predicates with arity plus functional/inertial declarations so callers can reuse an existing slot. |
+| `author.entity_candidates` | Return the bounded nearest declared entity ids, canonicalized and deterministically ordered. |
 | `author.list_workspaces` | Enumerate available workspaces (id, scope/fork, staged-declaration count, digest). |
-| `author.as_of {workspace, pred, subject, at}` | Contract `1.9.0`. Project the inertially-current fluent value(s) of `pred(subject)` at a query point — a direct fluent read: `check::slot_state_at` kernel-side. `dli.query` with `as_of` also projects fluents; `author.query` remains unprojected. Returns each holding's projection, temporal cover, support, `since`/`until` (a capped inertial value's `until` is the DERIVED boundary), citations, and — when capped — the certain defeater that bounds it. |
+| `author.as_of {workspace, pred, subject, at}` | Project the inertially-current fluent value(s) of `pred(subject)` at a query point — a direct fluent read: `check::slot_state_at` kernel-side. `dli.query` with `as_of` also projects fluents; `author.query` remains unprojected. Returns each holding's projection, temporal cover, support, `since`/`until` (a capped inertial value's `until` is the DERIVED boundary), citations, and — when capped — the certain defeater that bounds it. |
 
 Read tools share the standard request envelope (`dli`, `id`, `op`, `params`
 with `workspace` where applicable) and return typed JSON responses. They do not
@@ -644,12 +643,13 @@ atom has no paths, `[]`. A conclusion with one live independent path reports an
 empty top-level `blocking_defeats` even when `blocked_supports` records a
 defeated redundant alternative.
 
-### 3.17 Expert authoring tools (contract 1.3.0)
+### 3.17 Expert authoring tools
 
 Seven tools add the language lane and the continuity/ledger pair the expert
 card (`docs/cards/expert-card.md`) describes; each stages like any other add,
 returns the standard mutation envelope (§4), and requires provenance. All
-seven are available in the extended MCP profile (`--tools all`).
+are available in the extended MCP profile (`--tools all`); `author.add_state`
+is also in the default profile.
 
 | Tool | Purpose |
 |---|---|
@@ -661,11 +661,11 @@ seven are available in the extended MCP profile (`--tools all`).
 | `author.add_state {id, value?, time?}` | Assert a time-varying state fluent — a value that holds over an interval, not forever; `time` is `{kind: after\|during\|since\|until, point}`. |
 | `author.add_attest {question}` | Request an attestation for an open question already in the workspace. |
 
-### 3.18 Branch and merge tools (contract 0.6.1)
+### 3.18 Branch and merge tools
 
-`author.branch {workspace, action: create|list, name?, from?}` creates a
+`author.branch {workspace, action: create|list|delete, name?, from?}` creates a
 persistent, named ref into the workspace's lorestore at the source branch's
-head (`from`, default `main`), or lists every branch that exists.
+head (`from`, default `main`), lists branches, or deletes a branch pointer.
 `author.merge {workspace, source, target?}` merges a branch into the target
 branch (default `main`) and reports valuation, exclusivity, and
 functional-dependency conflicts (`AuthorMergeResult`). The operation can also

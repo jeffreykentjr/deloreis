@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorAddRuleParams",
-  "description": "`author.add_rule` params: declare one datalog derivation rule (WS-2,\ncontract 1.7.0).\n\n`head`/`body` are the already-typed wire forms `author.query`'s\n`goal_atom` and `author.add_rule` share — never a text field. One clause\nper call; an N-clause rule is N calls under distinct names, which is also\nfiner-grained for `author.defeat` (DL-0058's rule-authoring trigger,\nsatisfied here). Provenance is required, exactly as `author.add_before`'s\nis: a rule is a ruling like any other, and every fact it derives carries\nthis claim's own provenance into its support (`fire_rules` multiplies it\nin already; `author.add_rule` is what gives that multiplication something\nreal to work with).",
+  "description": "`author.add_rule` params: declare one datalog derivation rule.\n\n`head`/`body` are the already-typed wire forms `author.query`'s\n`goal_atom` and `author.add_rule` share — never a text field. One clause\nper call; an N-clause rule is N calls under distinct names, which is also\nfiner-grained for `author.defeat` (DL-0058's rule-authoring trigger,\nsatisfied here). Provenance is required, exactly as `author.add_before`'s\nis: a rule is a ruling like any other, and every fact it derives carries\nthis claim's own provenance into its support (`fire_rules` multiplies it\nin already; `author.add_rule` is what gives that multiplication something\nreal to work with).",
   "type": "object",
   "properties": {
     "body": {

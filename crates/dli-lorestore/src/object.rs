@@ -94,8 +94,7 @@ pub enum ExpertDeclKind {
     /// whole; it regenerates no atom (issue 49).
     Functional,
     /// `inertial <pred>` — a predicate fluent-persistence declaration. Carried
-    /// whole; it regenerates no atom, mirroring `Functional` exactly
-    /// (contract 1.8.0).
+    /// whole; it regenerates no atom, mirroring `Functional` exactly.
     Inertial,
     /// `cycle <name> …` — a cycle declaration.
     Cycle,

@@ -19,7 +19,7 @@
       ]
     },
     "heads": {
-      "description": "Every branch's head commit and ref digest (WS-3, ≥ contract 1.7.0) —\n`expected_ref`'s source material for a subsequent `author.merge` or\n`author.branch` `delete`/`create` fence.",
+      "description": "Every branch's head commit and ref digest —\n`expected_ref`'s source material for a subsequent `author.merge` or\n`author.branch` `delete`/`create` fence.",
       "type": [
         "array",
         "null"
@@ -34,7 +34,7 @@
   ],
   "$defs": {
     "BranchHead": {
-      "description": "One branch's head, in an `author.branch` result (WS-3, ≥ contract 1.7.0).",
+      "description": "One branch's head, in an `author.branch` result.",
       "type": "object",
       "properties": {
         "commit": {

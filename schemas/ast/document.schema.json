@@ -641,7 +641,7 @@
           ]
         },
         {
-          "description": "`inertial <pred>` — declare a predicate's fluent values persistent: a\nvalue asserted `since t` holds forward until a later, distinct, live\nvalue defeats it (contract 1.8.0).",
+          "description": "`inertial <pred>` — declare a predicate's fluent values persistent: a\nvalue asserted `since t` holds forward until a later, distinct, live\nvalue defeats it.",
           "type": "object",
           "properties": {
             "Inertial": {

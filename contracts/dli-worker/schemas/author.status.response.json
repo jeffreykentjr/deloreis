@@ -152,7 +152,7 @@
           "type": "string"
         },
         "data": {
-          "description": "A structured payload a consumer can reconstruct the verdict from,\nwithout parsing [`message`](Finding::message) (WS-2's rider, contract\n`1.7.0`). Additive: absent serializes to nothing, so every frozen\nfixture byte holds. Populated only on a `≥1.7.0` negotiation, and only\nfor the specific finding classes documented to carry one — every\nother finding, on every version, keeps answering with no `data` key\nat all, exactly as before this field existed."
+          "description": "Structured details for finding classes that provide them. Consumers can\nuse these fields without parsing [`message`](Finding::message). Omitted\nwhen the finding has no structured payload."
         },
         "grade": {
           "description": "The grade at which the finding is asserted.",
@@ -222,7 +222,7 @@
       "type": "object",
       "properties": {
         "key": {
-          "description": "The structural key: `jcs:sha256:<hex>` over the declaration's canonical\nJCS bytes — what `author.discard`'s `decl` accepts from contract 1.3.0.\n\n**What it is stable against**, and what it is not, because a consumer\nreading this decides how long to hold one. JCS fixes the *encoding*: keys\nsort and the number/string forms are specified, so the key does not\ndepend on the order this build's structs happen to declare their fields,\non which serializer produced the bytes, or on which build is running —\na default build and a `syntax` build compute the same key for the same\ndeclaration, and it is recomputable by anyone holding the declaration.\n\nIt is **not** stable across a schema change that adds a field which\nserializes. A new field is content, and content is what the key hashes —\nincluding a field that serializes as `null`, which is what an `Option`\nwithout `skip_serializing_if` does when absent, and none of the\ndeclaration types carry that attribute on their optional fields today.\nOnly a field elided entirely from the bytes leaves the key unmoved.\n\nSo: a key is valid **within a contract version**. Hold it across a call,\nnot across an upgrade — re-read `author.status` after negotiating a new\nversion rather than persisting keys through one.",
+          "description": "The structural key: `jcs:sha256:<hex>` over the declaration's canonical\nJCS bytes. Pass this key as `decl` to discard one staged declaration.\n\nThe canonical encoding makes the key independent of serializer and\nfield order. A schema change can change the encoded content and thus\nthe key, including when a new field serializes as `null`. Fetch the\nstaged declarations again after upgrading instead of storing keys\nacross contract versions.",
           "type": "string"
         },
         "kind": {
@@ -230,7 +230,7 @@
           "type": "string"
         },
         "rendered": {
-          "description": "The canonical `.dli` line, when this build links a formatter. Absent on a\ndefault build, where [`Self::key`] is the only name a declaration has.",
+          "description": "The canonical `.dli` line, when this build links a formatter. Absent on a\nformatter-free build, where [`Self::key`] is the only name a declaration has.",
           "type": [
             "string",
             "null"

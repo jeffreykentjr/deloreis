@@ -75,8 +75,8 @@ authorization, review, and policy.
 
 **It settles.** The auto-fill trial still cannot turn a model completion into a
 verdict by itself. But the engine does not refuse a citation because of the
-caller's identity: at contract 1.3.0 and above, it records supplied attribution
-and resolved decision state as data (DL-0054, DL-0058).
+caller's identity: it records supplied attribution and resolved decision state
+as data (DL-0054, DL-0058).
 
 **Why here.** The honest deck is a tool for the mind, never a hidden governor of
 the people using it. Its boundary is epistemic: it verifies what it can observe

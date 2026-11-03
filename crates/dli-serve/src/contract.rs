@@ -39,20 +39,20 @@ use crate::finding::{Finding, Provenance};
 pub struct AuthorMutationResult {
     /// Findings raised by the mutation (data, never instructions).
     pub findings: Vec<Finding>,
-    /// The rendered lines the mutation produced. On a 0.6.0 `materialize`
-    /// this is empty unless the request opted in with `rendered: true` —
-    /// the JSON-first return carries `facts` instead.
+    /// The rendered lines the mutation produced. For `materialize`, this is
+    /// empty unless the request opts in with `rendered: true`. The committed
+    /// objects are returned in `facts`.
     pub rendered: Vec<String>,
     /// The workspace digest after the mutation — always in the fence-valid
     /// `jcs:sha256:` regime, so fencing the next call with this value works.
     pub workspace_digest: String,
     /// The lorestore commit hash a `materialize` advanced the workspace's
     /// branch to. A separate field from `workspace_digest` — the two digest
-    /// regimes never share a field. 0.6.0 materialize only.
+    /// regimes never share a field. Present for `materialize`.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub root_hash: Option<String>,
-    /// The committed fact objects as JSON — the 0.6.0 materialize JSON-first
-    /// return (`.dli` rendering is the opt-in, DL-0045 ruling 1).
+    /// The committed fact objects as JSON, returned by `materialize`.
+    /// `.dli` rendering is optional.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub facts: Option<Vec<serde_json::Value>>,
 }
@@ -1112,32 +1112,19 @@ pub struct AuthorStatusResult {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct StagedDecl {
     /// The structural key: `jcs:sha256:<hex>` over the declaration's canonical
-    /// JCS bytes — what `author.discard`'s `decl` accepts from contract 1.3.0.
+    /// JCS bytes. Pass this key as `decl` to discard one staged declaration.
     ///
-    /// **What it is stable against**, and what it is not, because a consumer
-    /// reading this decides how long to hold one. JCS fixes the *encoding*: keys
-    /// sort and the number/string forms are specified, so the key does not
-    /// depend on the order this build's structs happen to declare their fields,
-    /// on which serializer produced the bytes, or on which build is running —
-    /// a default build and a `syntax` build compute the same key for the same
-    /// declaration, and it is recomputable by anyone holding the declaration.
-    ///
-    /// It is **not** stable across a schema change that adds a field which
-    /// serializes. A new field is content, and content is what the key hashes —
-    /// including a field that serializes as `null`, which is what an `Option`
-    /// without `skip_serializing_if` does when absent, and none of the
-    /// declaration types carry that attribute on their optional fields today.
-    /// Only a field elided entirely from the bytes leaves the key unmoved.
-    ///
-    /// So: a key is valid **within a contract version**. Hold it across a call,
-    /// not across an upgrade — re-read `author.status` after negotiating a new
-    /// version rather than persisting keys through one.
+    /// The canonical encoding makes the key independent of serializer and
+    /// field order. A schema change can change the encoded content and thus
+    /// the key, including when a new field serializes as `null`. Fetch the
+    /// staged declarations again after upgrading instead of storing keys
+    /// across contract versions.
     pub key: String,
     /// The declaration's kind (`entity`, `fact`, `dialect`, …) — enough to read
     /// the list without a formatter.
     pub kind: String,
     /// The canonical `.dli` line, when this build links a formatter. Absent on a
-    /// default build, where [`Self::key`] is the only name a declaration has.
+    /// formatter-free build, where [`Self::key`] is the only name a declaration has.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub rendered: Option<String>,
 }
@@ -1534,7 +1521,7 @@ pub struct AuthorAddBannedParams {
 /// each subject may carry at most one certain value for it, so two distinct
 /// certain values are a contradiction (`continuity.fd-violation`). It lets an
 /// author judge a *first-seen* predicate single-valued, which canon precedent
-/// alone cannot (issue 49, sub-claim 4; contract 1.6.0).
+/// alone cannot.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorDeclareFunctionalParams {
@@ -1553,8 +1540,7 @@ pub struct AuthorDeclareFunctionalParams {
 /// asserted `since t` with no authored `until` persists forward until a
 /// later, distinct, certain value on the same slot defeats it. The continuity
 /// check reads the staged declaration to reshape the fluent projection,
-/// bounding that persistence at the next distinct certain value (contract
-/// 1.8.0, DL-0081).
+/// bounding that persistence at the next distinct certain value.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorDeclareInertialParams {
@@ -1566,8 +1552,7 @@ pub struct AuthorDeclareInertialParams {
     pub provenance: Provenance,
 }
 
-/// `author.assert_same_as` params: assert two entity ids name the same bearer
-/// (WS-1, contract 1.7.0).
+/// `author.assert_same_as` params: assert two entity ids name the same bearer.
 ///
 /// This stages a `Decl::SameAs`, closed symmetric-transitively by the
 /// compiled world (`dli_eval::world::synthesize_alias_rules`): every other
@@ -1590,7 +1575,7 @@ pub struct AuthorAssertSameAsParams {
 }
 
 /// `author.assert_predicate_same_as` params: assert two predicate names denote
-/// one property (contract 1.12.0).
+/// one property.
 ///
 /// This is deliberately a typed wire carriage only. No `.dli` spelling is
 /// added; the evaluator receives the dedicated `Decl::PredicateSameAs`
@@ -1608,8 +1593,7 @@ pub struct AuthorAssertPredicateSameAsParams {
     pub provenance: Provenance,
 }
 
-/// `author.add_rule` params: declare one datalog derivation rule (WS-2,
-/// contract 1.7.0).
+/// `author.add_rule` params: declare one datalog derivation rule.
 ///
 /// `head`/`body` are the already-typed wire forms `author.query`'s
 /// `goal_atom` and `author.add_rule` share — never a text field. One clause
@@ -1709,18 +1693,12 @@ pub struct AuthorSetStandingParams {
 }
 
 /// `author.record_decision` records a baseline ratified (supporting) decision
-/// on the workspace's branch (contract 1.9.0, DL-0083).
+/// on the workspace's branch.
 ///
-/// It writes a `ratify` carriage object for `decision` and grows the commit's
-/// known-decision list, so a fact that cites `decision` reads `certain` on the
-/// next compile — the wire way to reach certainty and make contradiction checks
-/// (`continuity.fd-violation` and its kin) fire, closing the bootstrap gap the
-/// out-of-band `fixture-authority` binary used to fill. The id is
-/// caller-supplied and matched by exact equality (re-recording a known id is
-/// idempotent), the recorded decision is defeasible by `author.defeat`, and
-/// this does NOT move the DL-0054 boundary: it records the caller's claim that a
-/// ruling was made, exactly as `cited`/`set_standing`/`defeat` already record
-/// caller-supplied decision state as data — it never decides *who* may rule.
+/// A fact citing this decision can read `certain` and participate in canon
+/// checks. The caller supplies the exact decision id; recording it again is
+/// idempotent. A later `author.defeat` can defeat it. The engine records the
+/// ruling but does not decide who is allowed to make one.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorRecordDecisionParams {
@@ -1759,7 +1737,7 @@ pub struct AuthorDecisionRecord {
 }
 
 /// `author.record_decisions` atomically records several supporting decisions
-/// on one workspace branch (contract 1.13.0).
+/// on one workspace branch.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorRecordDecisionsParams {
@@ -2128,10 +2106,9 @@ pub struct AuthorWhyResult {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub why: Option<Why>,
     /// The recorded decisions in the atom's support antichain — the support
-    /// monomials' claim ids filtered to the known-decision set (contract 1.9.0,
-    /// DL-0083). The auditability affordance: it lets a caller confirm a fact
-    /// reached certainty through recorded decisions. The field is omitted when
-    /// there are no supporting decisions.
+    /// monomials' claim ids filtered to the known-decision set. This lets a
+    /// caller see which recorded decisions support a fact. The field is
+    /// omitted when there are no supporting decisions.
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub supporting_decisions: Vec<String>,
     /// Currently admissible minimal support monomials, with exact recorded
@@ -2226,8 +2203,7 @@ pub struct WorkspaceDigest {
     pub staged: usize,
     /// The current workspace digest.
     pub workspace_digest: String,
-    /// The branch this workspace targets, if any (WS-3). Emitted only on a
-    /// ≥ 1.7.0 request.
+    /// The branch this workspace targets, if any.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub branch: Option<String>,
 }
@@ -2243,7 +2219,7 @@ pub struct AuthorListWorkspacesResult {
 // -- author.branch (LS-6, contract 0.6.1) ------------------------------------
 
 /// The branch action: create a new branch, list the existing ones, or delete
-/// one (`delete`, WS-3, ≥ contract 1.7.0).
+/// one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum BranchAction {
@@ -2251,7 +2227,7 @@ pub enum BranchAction {
     Create,
     /// List every branch.
     List,
-    /// Delete a branch (WS-3, ≥ contract 1.7.0): pointer removal only, no
+    /// Delete a branch: pointer removal only, no
     /// object GC. Refuses `main`, and refuses while any open workspace still
     /// targets the branch.
     Delete,
@@ -2274,13 +2250,13 @@ pub struct AuthorBranchParams {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub from: Option<String>,
     /// Fence `create`'s FROM branch, or `delete`'s target branch, on its
-    /// current whole-ref digest (WS-3, ≥ contract 1.7.0). A mismatch is
+    /// current whole-ref digest. A mismatch is
     /// `stale-fence`.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub expected_ref: Option<String>,
 }
 
-/// One branch's head, in an `author.branch` result (WS-3, ≥ contract 1.7.0).
+/// One branch's head, in an `author.branch` result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct BranchHead {
     /// The branch name.
@@ -2300,7 +2276,7 @@ pub struct AuthorBranchResult {
     /// The branch just created (`create` only).
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub created: Option<String>,
-    /// Every branch's head commit and ref digest (WS-3, ≥ contract 1.7.0) —
+    /// Every branch's head commit and ref digest —
     /// `expected_ref`'s source material for a subsequent `author.merge` or
     /// `author.branch` `delete`/`create` fence.
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -2320,14 +2296,14 @@ pub struct AuthorMergeParams {
     /// The branch merged into (default `main`).
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub target: Option<String>,
-    /// Inspect the merge without committing it (WS-3, ≥ contract 1.7.0): writes
+    /// Inspect the merge without committing it: writes
     /// the same content-addressed merge commit a real merge would (so a later
     /// real merge of the same two heads produces the identical hash) and runs
     /// the full conflict scan, but skips the target-ref CAS — nothing
     /// observable moves.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub dry_run: Option<bool>,
-    /// Fence the TARGET branch's whole-ref digest (WS-3, ≥ contract 1.7.0). A
+    /// Fence the target branch's whole-ref digest. A
     /// mismatch is `stale-fence`.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub expected_ref: Option<String>,

@@ -73,7 +73,7 @@ pub enum Decl {
     Functional(FunctionalDecl),
     /// `inertial <pred>` — declare a predicate's fluent values persistent: a
     /// value asserted `since t` holds forward until a later, distinct, live
-    /// value defeats it (contract 1.8.0).
+    /// value defeats it.
     Inertial(InertialDecl),
     /// `cycle <name>(<modulus>) = <spokes>` — a cyclic time structure.
     Cycle(CycleDecl),

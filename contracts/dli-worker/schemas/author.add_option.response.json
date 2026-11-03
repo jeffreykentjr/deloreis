@@ -5,7 +5,7 @@
   "type": "object",
   "properties": {
     "facts": {
-      "description": "The committed fact objects as JSON — the 0.6.0 materialize JSON-first\nreturn (`.dli` rendering is the opt-in, DL-0045 ruling 1).",
+      "description": "The committed fact objects as JSON, returned by `materialize`.\n`.dli` rendering is optional.",
       "type": [
         "array",
         "null"
@@ -20,14 +20,14 @@
       }
     },
     "rendered": {
-      "description": "The rendered lines the mutation produced. On a 0.6.0 `materialize`\nthis is empty unless the request opted in with `rendered: true` —\nthe JSON-first return carries `facts` instead.",
+      "description": "The rendered lines the mutation produced. For `materialize`, this is\nempty unless the request opts in with `rendered: true`. The committed\nobjects are returned in `facts`.",
       "type": "array",
       "items": {
         "type": "string"
       }
     },
     "root_hash": {
-      "description": "The lorestore commit hash a `materialize` advanced the workspace's\nbranch to. A separate field from `workspace_digest` — the two digest\nregimes never share a field. 0.6.0 materialize only.",
+      "description": "The lorestore commit hash a `materialize` advanced the workspace's\nbranch to. A separate field from `workspace_digest` — the two digest\nregimes never share a field. Present for `materialize`.",
       "type": [
         "string",
         "null"
@@ -61,7 +61,7 @@
           "type": "string"
         },
         "data": {
-          "description": "A structured payload a consumer can reconstruct the verdict from,\nwithout parsing [`message`](Finding::message) (WS-2's rider, contract\n`1.7.0`). Additive: absent serializes to nothing, so every frozen\nfixture byte holds. Populated only on a `≥1.7.0` negotiation, and only\nfor the specific finding classes documented to carry one — every\nother finding, on every version, keeps answering with no `data` key\nat all, exactly as before this field existed."
+          "description": "Structured details for finding classes that provide them. Consumers can\nuse these fields without parsing [`message`](Finding::message). Omitted\nwhen the finding has no structured payload."
         },
         "grade": {
           "description": "The grade at which the finding is asserted.",

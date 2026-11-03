@@ -9,7 +9,7 @@
       "$ref": "#/$defs/BranchAction"
     },
     "expected_ref": {
-      "description": "Fence `create`'s FROM branch, or `delete`'s target branch, on its\ncurrent whole-ref digest (WS-3, ≥ contract 1.7.0). A mismatch is\n`stale-fence`.",
+      "description": "Fence `create`'s FROM branch, or `delete`'s target branch, on its\ncurrent whole-ref digest. A mismatch is\n`stale-fence`.",
       "type": [
         "string",
         "null"
@@ -41,7 +41,7 @@
   ],
   "$defs": {
     "BranchAction": {
-      "description": "The branch action: create a new branch, list the existing ones, or delete\none (`delete`, WS-3, ≥ contract 1.7.0).",
+      "description": "The branch action: create a new branch, list the existing ones, or delete\none.",
       "oneOf": [
         {
           "description": "Create a new branch at the source branch's head.",
@@ -54,7 +54,7 @@
           "const": "list"
         },
         {
-          "description": "Delete a branch (WS-3, ≥ contract 1.7.0): pointer removal only, no\nobject GC. Refuses `main`, and refuses while any open workspace still\ntargets the branch.",
+          "description": "Delete a branch: pointer removal only, no\nobject GC. Refuses `main`, and refuses while any open workspace still\ntargets the branch.",
           "type": "string",
           "const": "delete"
         }

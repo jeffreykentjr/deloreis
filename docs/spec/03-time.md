@@ -123,8 +123,8 @@ The false contradiction a flashback would otherwise raise against the
 story-present enclosure fact is gone — not suppressed, but structurally absent,
 because the two claims hold over disjoint spans.
 
-**The wire recipe (contract 1.7.0, WS-4).** Author eras and events
-(`author.add_entity`), anchor states to them (`author.add_state`), chain
+**Using the tools.** Create eras with `author.add_entity` and events with
+`author.add_event`, anchor states to them with `author.add_state`, and chain
 chronology with pairwise `author.add_before` (a chain `a < b < c` is `N-1`
 befores — finer blame than a single chained ordering, and the only spelling
 the wire carries). Two close-out findings turn temporal dead ends into
@@ -144,7 +144,7 @@ undeclared order; the warn only names the gap. `dli.timeline.*` reflects
 `author.query`/`author.check`/`author.why` instead, by design (the review
 surface is the staged layer, not a premature timeline render).
 
-**Declared inertial persistence (contract 1.8.0).** Every fluent projected
+**Declared inertial persistence.** Every fluent projected
 above is, by default, open-ended: a value `since t` with no authored `until`
 holds forever, and two open-ended values on the same slot are a plain
 `continuity.fluent-contradiction` — the engine never guesses which one a
@@ -189,7 +189,7 @@ originating assertion drops only its span. The full ruling, interactions, and
 v1 scope boundaries are `docs/decisions.md` DL-0081 and
 `docs/design-notes/inertia-fluent-persistence.md`.
 
-When contract `1.12.0` joins two predicate names, this projection reads the
+When a predicate identity joins two names, this projection reads the
 same certain predicate-identity component as the ordinary fluent check. Inertia
 uses union semantics: one certain inertial declaration promotes the merged
 property, and a structured `predicate-identity.policy-promoted` warning records

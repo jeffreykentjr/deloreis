@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorDeclareInertialParams",
-  "description": "`author.declare_inertial` params: declare a predicate's fluent values\npersistent.\n\nThis stages a `Decl::Inertial`, marking `pred` inertial — a fluent value\nasserted `since t` with no authored `until` persists forward until a\nlater, distinct, certain value on the same slot defeats it. The continuity\ncheck reads the staged declaration to reshape the fluent projection,\nbounding that persistence at the next distinct certain value (contract\n1.8.0, DL-0081).",
+  "description": "`author.declare_inertial` params: declare a predicate's fluent values\npersistent.\n\nThis stages a `Decl::Inertial`, marking `pred` inertial — a fluent value\nasserted `since t` with no authored `until` persists forward until a\nlater, distinct, certain value on the same slot defeats it. The continuity\ncheck reads the staged declaration to reshape the fluent projection,\nbounding that persistence at the next distinct certain value.",
   "type": "object",
   "properties": {
     "pred": {
