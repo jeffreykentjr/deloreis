@@ -1870,17 +1870,21 @@ fn rule_derived_conflict_names_an_authored_value() {
 }
 
 #[test]
-fn rule_only_conflict_does_not_blame_an_unrelated_fact() {
+fn rule_only_conflict_names_an_actual_rule_application() {
     let dir = tmp("derived-continuity-no-false-location");
     let corpus = dir.join("world.dli");
-    fs::write(&corpus, "scope storybook\nratify d-0001\nfunctional home ratified d-0001\nfact lark home hill ratified d-0001\npresent(wren) ratified d-0001\nrule shore ratified d-0001\n  home($who, shore) :- present($who)\nrule marsh ratified d-0001\n  home($who, marsh) :- present($who)\n").unwrap();
+    fs::write(&corpus, "scope storybook\nratify d-0001\nfunctional home ratified d-0001\nfact lark home hill ratified d-0001\npresent(wren) ratified d-0001\nrule unused ratified d-0001\n  home($who, shore) :- absent($who)\nrule shore ratified d-0001\n  home($who, shore) :- present($who)\nrule marsh ratified d-0001\n  home($who, marsh) :- present($who)\n").unwrap();
     let output = bin().arg("check").arg(&corpus).output().unwrap();
     let text = stdout(&output);
     let line = text
         .lines()
         .find(|line| line.contains("continuity.derived-fd-violation"))
         .expect(&text);
-    assert!(!line.contains(&corpus.display().to_string()), "{text}");
+    assert!(
+        line.contains(&format!("{}:9:", corpus.display()))
+            || line.contains(&format!("{}:11:", corpus.display())),
+        "{text}"
+    );
     assert!(
         text.contains("help: revise a conflicting source claim or derivation rule"),
         "{text}"
@@ -1933,6 +1937,20 @@ fn cross_scope_collision_names_a_contributing_declaration() {
         text.contains("help: rename or remove a declaration shared by multiple scopes"),
         "{text}"
     );
+}
+
+#[test]
+fn a_recursive_rule_witness_is_not_guessed() {
+    let dir = tmp("derived-continuity-unproven-rule");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nratify d-0001\nfunctional home ratified d-0001\nseed(wren) ratified d-0001\nrule present ratified d-0001\n  present($who) :- seed($who)\nrule shore ratified d-0001\n  home($who, shore) :- present($who)\nrule marsh ratified d-0001\n  home($who, marsh) :- present($who)\n").unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.derived-fd-violation"))
+        .expect(&text);
+    assert!(!line.contains(&corpus.display().to_string()), "{text}");
 }
 
 #[test]

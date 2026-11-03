@@ -1035,13 +1035,17 @@ impl LoadCtx {
         }
         // define_rule_annotated only errs on range restriction (handled above);
         // ignore the redundant error rather than double-report.
-        let _ = self.wm.world.define_rule_annotated(
+        let index = self.wm.world.rules.len();
+        let result = self.wm.world.define_rule_annotated(
             name.text.clone(),
             head,
             body,
             ann.clone(),
             Grade::Asserted,
         );
+        if result.is_ok() && self.wm.world.rules.len() > index {
+            self.wm.rule_spans.insert(index, span);
+        }
     }
 
     fn process_cycle(&mut self, cycle: &CycleDecl, pack: &str) {

@@ -2106,10 +2106,127 @@ fn derived_fd_violations(
                 violation.values.iter().find_map(|value| {
                     sources.get(&dli_core::fd::fd_value_key(value)).copied()
                 })
-            });
+            }).or_else(|| positive_rule_witness(world, canon, &violation));
             if let Some(span) = span { finding.with_span(span) } else { finding }
         })
         .collect()
+}
+
+/// Find a direct, certain positive rule application that produces one of the
+/// conflicting rows from certain input facts. This deliberately avoids rule
+/// recursion, negation, and guessed attribution; those cases stay unlocated.
+fn positive_rule_witness(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+    violation: &dli_core::fd::FdViolation,
+) -> Option<dli_ast::span::Span> {
+    let model = &world.model;
+    let valuation = &model.world.valuation;
+    let theory = &model.world.theory;
+    let mut budget = 25_000usize;
+    for (index, rule) in model.world.rules.iter().enumerate() {
+        let Some(span) = model
+            .rule_spans
+            .get(&index)
+            .copied()
+            .filter(|span| span.end > span.start)
+        else {
+            continue;
+        };
+        if rule.body.is_empty()
+            || rule.body.iter().any(|literal| literal.negated)
+            || rule.ann.status(valuation, theory) != Status::Certain
+        {
+            continue;
+        }
+        for row in &model.world.derived {
+            budget = budget.checked_sub(1)?;
+            if row.ann().status(valuation, theory) != Status::Certain {
+                continue;
+            }
+            let Some((raw_slot, value)) = ground_binary_slot(&row.atom) else {
+                continue;
+            };
+            if canon_slot(world, canon, &raw_slot)
+                != (violation.pred.clone(), violation.subject.clone())
+                || !violation.values.iter().any(|candidate| {
+                    dli_core::fd::fd_value_key(candidate)
+                        == dli_core::fd::fd_value_key(dli_core::alias::canon(canon, &value))
+                })
+            {
+                continue;
+            }
+            let mut head_bindings = BTreeMap::new();
+            if !unify_witness(&rule.head, &row.atom, &mut head_bindings) {
+                continue;
+            }
+            let mut states = vec![(head_bindings, rule.ann.clone())];
+            for literal in &rule.body {
+                let mut next = Vec::new();
+                for (state, support) in states {
+                    for fact in &model.world.facts {
+                        budget = budget.checked_sub(1)?;
+                        if fact.ann.status(valuation, theory) != Status::Certain {
+                            continue;
+                        }
+                        let mut bindings = state.clone();
+                        if unify_witness(&literal.atom, &fact.atom, &mut bindings) {
+                            next.push((
+                                bindings,
+                                dli_eval::world::conjoin_annotations(&support, &fact.ann),
+                            ));
+                        }
+                    }
+                }
+                if next.is_empty() {
+                    states = Vec::new();
+                    break;
+                }
+                states = next;
+            }
+            if states
+                .iter()
+                .any(|(_, support)| support.status(valuation, theory) == Status::Certain)
+            {
+                return Some(span);
+            }
+        }
+    }
+    None
+}
+
+fn unify_witness(
+    pattern: &AtomExpr,
+    ground: &dli_eval::world::GroundAtom,
+    bindings: &mut BTreeMap<String, String>,
+) -> bool {
+    if pattern.pred.text != ground.pred || pattern.args.len() != ground.args.len() {
+        return false;
+    }
+    for (term, value) in pattern.args.iter().zip(&ground.args) {
+        if let Term::Var(id) = term {
+            match bindings.get(&id.text) {
+                Some(bound) if bound != value => return false,
+                Some(_) => {}
+                None => {
+                    bindings.insert(id.text.clone(), value.clone());
+                }
+            }
+        } else {
+            let one = AtomExpr {
+                pred: pattern.pred.clone(),
+                args: vec![term.clone()],
+            };
+            if dli_eval::world::GroundAtom::from_pattern(&one)
+                .as_ref()
+                .and_then(|atom| atom.args.first())
+                != Some(value)
+            {
+                return false;
+            }
+        }
+    }
+    true
 }
 
 /// Every certain binary source slot `(pred, subject, value)` in the compiled
