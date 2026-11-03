@@ -106,6 +106,14 @@ The workspace supports:
   comes from their embedded declaration provenance, so they reach certainty
   through `author.record_decision` plus a **cited declaration**, not
   `author.materialize {decision}`.
+  A carried entity, fact, attribute or time declaration that regenerates an
+  accepted fact is revised to reproduce the accepted support on replay. An
+  independently cited fact keeps its own support. If a proposed carried
+  annotation has citations that cannot be retained through stamping, the call
+  refuses before committing; materialize it without `decision` first. Proposed
+  identity links are also materialized separately. Option-implied facts remain
+  conditional on their options; the batch decision does not select an account
+  (DL-0114).
 
 A workspace mutation after `author.open` may carry the **workspace digest** it
 expects and returns the new digest. (`author.open` creates the first digest, so

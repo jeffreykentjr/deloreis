@@ -291,6 +291,14 @@ fn carriage_object(decl: &Decl, kind: ExpertDeclKind, name: &str) -> FactObject 
     })
 }
 
+/// Rebuild an existing carriage after its declaration has been revised.
+/// The original kind and name preserve its declaration identity; the body is
+/// serialized and span-normalized by the same path as an ordinary import.
+#[must_use]
+pub fn revised_carriage(decl: &Decl, kind: ExpertDeclKind, name: &str) -> FactObject {
+    carriage_object(decl, kind, name)
+}
+
 /// The rendered ground atoms a carried declaration regenerates on recompile —
 /// the reconstruction walk skips exactly these if they follow the carriage
 /// object in the stream. Identity-based (not count-based) because commit-chain
@@ -1365,6 +1373,50 @@ impl EntityReplay<'_> {
         }
     }
 
+    fn prepare_options(
+        &mut self,
+        decl: &Decl,
+        name: &str,
+    ) -> Result<Option<Vec<CarriedFactKey>>, ReconstructError> {
+        if !matches!(decl, Decl::Question(_) | Decl::Fork(_)) {
+            return Ok(None);
+        }
+        let mut replay = self.interner.clone();
+        let generated = lower_decl(decl, self.pack_name, &mut replay, &mut 0);
+        if replay.len() != self.interner.len() {
+            return Err(ReconstructError::Carriage {
+                name: name.to_owned(),
+                reason: "option support is absent from the committed interner".to_owned(),
+            });
+        }
+        let keys: Vec<_> = generated
+            .iter()
+            .filter(|object| object.expert_body.is_none())
+            .map(|object| {
+                Ok((
+                    object
+                        .content_hash()
+                        .map_err(|error| ReconstructError::Carriage {
+                            name: name.to_owned(),
+                            reason: error.to_string(),
+                        })?,
+                    object.claim_id.clone(),
+                ))
+            })
+            .collect::<Result<_, ReconstructError>>()?;
+        let markers = self
+            .markers
+            .get_or_insert_with(|| marker_index(self.objects));
+        if keys.iter().any(|key| !markers.contains_key(key)) {
+            return Err(ReconstructError::Carriage {
+                name: name.to_owned(),
+                reason: "option's implied fact is absent from the committed objects".to_owned(),
+            });
+        }
+        self.observe(decl);
+        Ok(Some(keys))
+    }
+
     fn restore_unattached(decl: &Decl) -> Result<(), ReconstructError> {
         if decl_to_atom(decl).0.is_none()
             && let Some(annotation) = decl_provenance(decl)
@@ -1874,7 +1926,12 @@ pub fn reconstruct_pack(
                 });
             }
             EntityReplay::restore_unattached(&decl)?;
-            let entity_fact_identities = entities_replay.prepare(&mut decl, &body.name, &decls)?;
+            let option_fact_identities = entities_replay.prepare_options(&decl, &body.name)?;
+            let entity_fact_identities = if option_fact_identities.is_some() {
+                option_fact_identities
+            } else {
+                entities_replay.prepare(&mut decl, &body.name, &decls)?
+            };
             let fact_identities = if entity_fact_identities.is_some() {
                 entity_fact_identities
             } else {
