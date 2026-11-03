@@ -5,9 +5,13 @@ use std::path::{Path, PathBuf};
 
 use clap::{Args, ValueEnum};
 use dli_ast::decl::{Decl, ProofDecl};
+use dli_ast::proof::{ProofOp, ProofStep};
+use dli_ast::span::Span;
 use dli_export::profile::{ExportTarget, Registry};
 use dli_export::{ExportOpts, export_with, source_fingerprint};
-use dli_ledger::ledger_check::{ProofReport, ProofVerdict, check_proof};
+use dli_ledger::ledger_check::{
+    ProofFinding, ProofReport, ProofVerdict, check_proof_with_locations,
+};
 use dli_ledger::practice::{PracticeDef, compile_practices};
 use dli_syntax::{ladder, parse_document};
 use dli_world::scene_projection::project_scene;
@@ -52,7 +56,11 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
         .filter(|diag| diag.class.is_error())
         .collect::<Vec<_>>();
     if !errors.is_empty() {
-        out!("{}", ladder::render(&text, &errors));
+        out!(
+            "{}:\n{}",
+            args.proof.display(),
+            ladder::render(text.strip_prefix('\u{feff}').unwrap_or(&text), &errors)
+        );
         outln!(
             "proof: {} syntax finding(s); replay refused because malformed proof text \
              cannot be discarded",
@@ -60,15 +68,54 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
         );
         return Ok(EXIT_FINDINGS);
     }
-    let proofs = proof_doc
-        .decls
+    let proof = select_proof(&proof_doc.decls, args, &text)?;
+
+    let proof_location = proof_source_position(&text, proof.name.span).map_or_else(
+        || args.proof.display().to_string(),
+        |(line, column)| format!("{}:{line}:{column}", args.proof.display()),
+    );
+    let practice_name = proof.practice().ok_or_else(|| {
+        format!(
+            "the proof at {proof_location} names no practice — write `in <practice>` in its header"
+        )
+    })?;
+    let practice = practices
+        .iter()
+        .find(|practice| practice.name.text == practice_name)
+        .ok_or_else(|| {
+            format!(
+                "the corpus declares no practice named '{practice_name}' (proof {proof_location}) — check the proof's \
+                 `in <practice>` against the corpus"
+            )
+        })?;
+
+    // Project the certain-layer scene for the proof's speaker, then check.
+    let speaker = proof.actor().map(ToOwned::to_owned);
+    let scene = project_scene(&world, speaker.as_deref());
+    let (report, locations) = check_proof_with_locations(practice, proof, &scene);
+
+    render_proof_report(&report, &locations, proof, &args.proof, &text);
+
+    if report.checks {
+        Ok(EXIT_CLEAN)
+    } else {
+        Ok(EXIT_FINDINGS)
+    }
+}
+
+fn select_proof<'a>(
+    decls: &'a [Decl],
+    args: &CheckProofArgs,
+    text: &str,
+) -> Result<&'a ProofDecl, String> {
+    let proofs = decls
         .iter()
         .filter_map(|decl| match decl {
             Decl::Proof(proof) => Some(proof),
             _ => None,
         })
         .collect::<Vec<_>>();
-    let proof: &ProofDecl = match args.proof_name.as_deref() {
+    Ok(match args.proof_name.as_deref() {
         Some(name) => {
             let matches = proofs
                 .iter()
@@ -84,10 +131,7 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
                     ));
                 }
                 _ => {
-                    return Err(format!(
-                        "proof '{name}' is declared more than once in {}",
-                        args.proof.display()
-                    ));
+                    return Err(duplicate_proof_error(name, &matches, &args.proof, text));
                 }
             }
         }
@@ -100,6 +144,14 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
                 ));
             }
             _ => {
+                let mut by_name = std::collections::BTreeMap::<&str, Vec<&ProofDecl>>::new();
+                for proof in &proofs {
+                    by_name.entry(&proof.name.text).or_default().push(proof);
+                }
+                if let Some((name, matches)) = by_name.iter().find(|(_, matches)| matches.len() > 1)
+                {
+                    return Err(duplicate_proof_error(name, matches, &args.proof, text));
+                }
                 let names = proofs
                     .iter()
                     .map(|proof| proof.name.text.as_str())
@@ -111,38 +163,30 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
                 ));
             }
         },
-    };
+    })
+}
 
-    let practice_name = proof.practice().ok_or_else(|| {
-        "the proof names no practice — write `in <practice>` in its header".to_owned()
-    })?;
-    let practice = practices
+fn duplicate_proof_error(name: &str, proofs: &[&ProofDecl], path: &Path, source: &str) -> String {
+    let locations = proofs
         .iter()
-        .find(|practice| practice.name.text == practice_name)
-        .ok_or_else(|| {
-            format!(
-                "the corpus declares no practice named '{practice_name}' — check the proof's \
-                 `in <practice>` against the corpus"
-            )
-        })?;
-
-    // Project the certain-layer scene for the proof's speaker, then check.
-    let speaker = proof.actor().map(ToOwned::to_owned);
-    let scene = project_scene(&world, speaker.as_deref());
-    let report = check_proof(practice, proof, &scene);
-
-    render_proof_report(&report);
-
-    if report.checks {
-        Ok(EXIT_CLEAN)
-    } else {
-        Ok(EXIT_FINDINGS)
-    }
+        .filter_map(|proof| proof_source_position(source, proof.name.span))
+        .map(|(line, column)| format!("{}:{line}:{column}", path.display()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "proof '{name}' is declared more than once ({locations}) — rename the proofs so each has a distinct name"
+    )
 }
 
 /// Hand-render a checked proof: its header, per-step verdicts, structural
 /// findings, the reached verdict, and its weakest-link grade.
-fn render_proof_report(report: &ProofReport) {
+fn render_proof_report(
+    report: &ProofReport,
+    locations: &[Option<Span>],
+    proof: &ProofDecl,
+    path: &Path,
+    source: &str,
+) {
     let speaker = report
         .speaker
         .as_deref()
@@ -160,11 +204,23 @@ fn render_proof_report(report: &ProofReport) {
             note = step.note
         );
     }
-    for finding in &report.findings {
+    for (finding, replay_span) in report.findings.iter().zip(locations) {
+        let location = replay_span
+            .or_else(|| proof_finding_span(proof, finding))
+            .and_then(|span| proof_source_position(source, span).map(|position| (span, position)))
+            .map_or_else(String::new, |(span, (line, column))| {
+                let scope = if span == proof.name.span {
+                    "in proof "
+                } else {
+                    ""
+                };
+                format!(" ({scope}{}:{line}:{column})", path.display())
+            });
         outln!(
-            "finding  {code} — {message}",
+            "finding  {code} — {message}{location}\n  help: {help}",
             code = finding.code(),
             message = finding.message(),
+            help = proof_finding_help(finding),
         );
     }
     outln!("verdict: {}", describe_verdict(&report.verdict));
@@ -181,6 +237,83 @@ fn render_proof_report(report: &ProofReport) {
             "proof: {} finding(s); the declared expectation was not met",
             report.findings.len()
         );
+    }
+}
+
+fn proof_source_position(source: &str, span: Span) -> Option<(usize, usize)> {
+    if span.end <= span.start {
+        return None;
+    }
+    let source = source.strip_prefix('\u{feff}').unwrap_or(source);
+    let prefix = source.get(..span.start as usize)?;
+    let line = prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
+    let column = prefix.rsplit('\n').next().unwrap_or("").chars().count() + 1;
+    Some((line, column))
+}
+
+fn proof_finding_span(proof: &ProofDecl, finding: &ProofFinding) -> Option<Span> {
+    use ProofFinding as F;
+    let matches = |op: &ProofOp| match (finding, op) {
+        (
+            F::UnknownForm { at, .. } | F::BadInstantiation { at, .. } | F::InvalidChain { at, .. },
+            ProofOp::Step(
+                ProofStep::Instantiate { label, .. }
+                | ProofStep::Chain { label, .. }
+                | ProofStep::Custom { label, .. },
+            ),
+        ) => at == label,
+        (
+            F::PremiseAbsent { label, .. }
+            | F::PremiseContradicted { label, .. }
+            | F::WrongPhase { label, .. }
+            | F::UnknownSpoke { label, .. },
+            ProofOp::Premise(premise),
+        ) => label == &premise.label,
+        (F::InvalidSpend { keyword, label }, ProofOp::Resource(resource)) => {
+            keyword == resource.keyword.keyword() && label == &resource.label
+        }
+        (
+            F::CloseMismatch { .. } | F::ExpectationUnmet { .. } | F::UnknownExpectation { .. },
+            ProofOp::Close(_),
+        ) => true,
+        _ => false,
+    };
+    let mut spans = proof.body.items.iter().filter_map(|item| {
+        item.op
+            .as_ref()
+            .filter(|op| matches(op))
+            .map(|_| item.clause.span)
+    });
+    match (spans.next(), spans.next()) {
+        (Some(span), None) if span.end > span.start => Some(span),
+        _ if proof.name.span.end > proof.name.span.start => Some(proof.name.span),
+        _ => None,
+    }
+}
+
+fn proof_finding_help(finding: &ProofFinding) -> &'static str {
+    use ProofFinding as F;
+    match finding {
+        F::UnknownForm { .. } => "use a form declared by the practice or declare it",
+        F::PremiseAbsent { .. } => "establish the premise in the scene or revise the proof",
+        F::PremiseContradicted { .. } => {
+            "resolve the conflicting scene claim or revise the premise"
+        }
+        F::WrongPhase { .. } => "use the required phase or revise the timing premise",
+        F::BadInstantiation { .. } => "use bindings accepted by the declared form",
+        F::UnknownRole { .. } => "use a role declared by the practice",
+        F::InvalidChain { .. } => "use established premises and a law declared by the practice",
+        F::ResourceViolation { .. } => "revise the resource operations to satisfy the declared law",
+        F::CloseMismatch { .. } => "derive the close from established proof steps",
+        F::ExpectationUnmet { .. } => "revise the proof or its declared expectation",
+        F::InvalidSpend { .. } => "use a declared resource premise for the operation",
+        F::UnknownSpoke { .. } => "use a phase declared by the cycle",
+        F::UnknownExpectation { .. } => "use holds, blocked, or fails-at followed by an error",
+        F::MissingClose => "add a final close to the proof",
+        F::PracticeMismatch { .. } => "select the practice named by the proof",
+        F::InvalidHeaderLayout => "write the proof header as role, actor, and practice",
+        F::MalformedBody { .. } => "correct the malformed proof body",
+        F::InvalidCloseLayout { .. } => "write exactly one final close",
     }
 }
 

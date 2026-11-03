@@ -789,15 +789,54 @@ fn check_proof_requires_selection_when_a_file_declares_multiple_proofs() {
 }
 
 #[test]
+fn duplicate_proof_names_have_locations_and_a_working_repair() {
+    let dir = tmp("proof-duplicate-names");
+    let path = dir.join("proofs.dli");
+    let original = fs::read_to_string(repo().join("examples/norse/seidr.dli")).unwrap();
+    let proof = original[original.find("proof the-seeress-answers").unwrap()..].to_owned();
+    let text = format!("{original}\n{proof}");
+    let lines: Vec<_> = text
+        .lines()
+        .enumerate()
+        .filter(|(_, line)| line.starts_with("proof the-seeress-answers"))
+        .map(|(i, _)| i + 1)
+        .collect();
+    fs::write(&path, text).unwrap();
+    for selected in [false, true] {
+        let mut command = bin();
+        command
+            .arg("check-proof")
+            .arg(&path)
+            .arg("--corpus")
+            .arg(repo().join("examples/norse"));
+        if selected {
+            command.args(["--proof", "the-seeress-answers"]);
+        }
+        let output = command.output().unwrap();
+        let text = stderr(&output);
+        assert_eq!(output.status.code(), Some(2), "{text}");
+        for line in &lines {
+            assert!(
+                text.contains(&format!("{}:{line}:", path.display())),
+                "{text}"
+            );
+        }
+        assert!(text.contains("rename the proofs"), "{text}");
+    }
+}
+
+#[test]
 fn check_proof_findings_and_errors_have_distinct_exit_codes() {
     let dir = tmp("proof-verdicts");
     let bad_expectation = dir.join("bad-expectation.dli");
     let proof = fs::read_to_string(repo().join("examples/norse/seidr.dli")).unwrap();
-    fs::write(
-        &bad_expectation,
-        proof.replace("expect holds", "expect fails"),
-    )
-    .unwrap();
+    let broken_proof = format!("\u{feff}{}", proof.replace("expect holds", "expect fails"));
+    let close_line = broken_proof
+        .lines()
+        .position(|line| line.contains("expect fails"))
+        .unwrap()
+        + 1;
+    fs::write(&bad_expectation, broken_proof).unwrap();
     let findings = bin()
         .arg("check-proof")
         .arg(&bad_expectation)
@@ -806,7 +845,19 @@ fn check_proof_findings_and_errors_have_distinct_exit_codes() {
         .output()
         .unwrap();
     assert_eq!(findings.status.code(), Some(1), "{}", stderr(&findings));
-    assert!(stdout(&findings).contains("proof.unknown-expectation"));
+    let text = stdout(&findings);
+    let finding = text
+        .lines()
+        .find(|line| line.contains("proof.unknown-expectation"))
+        .expect(&text);
+    assert!(
+        finding.contains(&format!("{}:{close_line}:", bad_expectation.display())),
+        "{text}"
+    );
+    assert!(
+        text.contains("help: use holds, blocked, or fails-at"),
+        "{text}"
+    );
 
     let missing = bin()
         .arg("check-proof")
@@ -850,6 +901,128 @@ fn check_proof_distinguishes_invalid_shape_from_unmet_expectation() {
 }
 
 #[test]
+fn missing_proof_practice_names_the_source_and_repair() {
+    let dir = tmp("proof-practice-source");
+    let path = dir.join("proof.dli");
+    let proof = fs::read_to_string(repo().join("examples/norse/seidr.dli"))
+        .unwrap()
+        .replace(
+            "speaker the-seeress in seidr {",
+            "speaker the-seeress in missing-practice {",
+        );
+    let line = proof
+        .lines()
+        .position(|line| line.contains("in missing-practice"))
+        .unwrap()
+        + 1;
+    fs::write(&path, format!("\u{feff}{proof}")).unwrap();
+    let output = bin()
+        .arg("check-proof")
+        .arg(&path)
+        .arg("--corpus")
+        .arg(repo().join("examples/norse"))
+        .output()
+        .unwrap();
+    let text = stderr(&output);
+    assert_eq!(output.status.code(), Some(2), "{text}");
+    assert!(
+        text.contains(&format!("{}:{line}:", path.display())),
+        "{text}"
+    );
+    assert!(text.contains("check the proof's `in <practice>`"), "{text}");
+}
+
+#[test]
+fn resource_violations_name_the_actual_replay_operation() {
+    let dir = tmp("proof-resource-source");
+    let original = fs::read_to_string(repo().join("examples/norse/seidr.dli")).unwrap();
+    for (name, text, marker, last) in [
+        (
+            "double",
+            original.replace("  spend p3\n", "  spend p3\n  spend p3\n"),
+            "spend p3",
+            true,
+        ),
+        (
+            "unbalanced",
+            original.replace("  spend p3\n", ""),
+            "close foretold",
+            false,
+        ),
+        (
+            "over-capacity",
+            original
+                .replace("affine bounded body-limit", "affine bounded 2")
+                .replace("p3 orlog(1)", "p3 megin(3)"),
+            "premise p3",
+            false,
+        ),
+    ] {
+        let path = dir.join(format!("{name}.dli"));
+        let positions: Vec<_> = text
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(marker))
+            .map(|(line, _)| line + 1)
+            .collect();
+        let expected = if last {
+            positions.last()
+        } else {
+            positions.first()
+        }
+        .unwrap();
+        fs::write(&path, text).unwrap();
+        let output = bin()
+            .arg("check-proof")
+            .arg(&path)
+            .arg("--corpus")
+            .arg(&path)
+            .arg("--corpus")
+            .arg(repo().join("examples/norse/nine-realms.dli"))
+            .output()
+            .unwrap();
+        let text = stdout(&output);
+        let finding = text
+            .lines()
+            .find(|line| line.contains("proof.resource-violation"))
+            .expect(&text);
+        assert!(
+            finding.contains(&format!("{}:{expected}:", path.display())),
+            "{text}\n{}",
+            stderr(&output)
+        );
+    }
+}
+
+#[test]
+fn proof_verdict_uses_the_first_failing_operation() {
+    let dir = tmp("proof-failure-order");
+    let path = dir.join("proof.dli");
+    let original = fs::read_to_string(repo().join("examples/norse/seidr.dli")).unwrap();
+    fs::write(
+        &path,
+        original.replace(
+            "  spend p3\n",
+            "  spend p3\n  premise p4 standing(ghost) cited d-0105\n  spend p3\n",
+        ),
+    )
+    .unwrap();
+    let output = bin()
+        .arg("check-proof")
+        .arg(&path)
+        .arg("--corpus")
+        .arg(repo().join("examples/norse"))
+        .output()
+        .unwrap();
+    let text = stdout(&output);
+    assert!(text.contains("verdict: failed at p4"), "{text}");
+    assert!(
+        text.find("proof.premise-absent") < text.find("proof.resource-violation"),
+        "{text}"
+    );
+}
+
+#[test]
 fn malformed_proof_child_blocks_check_replay_and_formatting() {
     let dir = tmp("proof-malformed-child");
     let proof_path = dir.join("malformed.dli");
@@ -873,6 +1046,8 @@ fn malformed_proof_child_blocks_check_replay_and_formatting() {
     assert_eq!(checked_proof.status.code(), Some(1));
     assert!(stdout(&checked_proof).contains("syntax finding"));
     assert!(stdout(&checked_proof).contains("proof line cannot begin"));
+    assert!(stdout(&checked_proof).contains(&proof_path.display().to_string()));
+    assert!(stdout(&checked_proof).contains("fix:"));
 
     let checked_document = bin().arg("check").arg(&proof_path).output().unwrap();
     assert_eq!(checked_document.status.code(), Some(1));
@@ -1136,6 +1311,41 @@ fn query_unknown_as_of_exits_two() {
 }
 
 #[test]
+fn bom_syntax_locations_and_repairs_are_consistent_across_commands() {
+    let dir = tmp("bom-syntax-locations");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "\u{feff}scope storybook\nfluent wren\n").unwrap();
+    for args in [
+        vec!["check"],
+        vec!["fmt", "--check"],
+        vec!["report", "--corpus"],
+    ] {
+        let output = bin().args(args).arg(&corpus).output().unwrap();
+        let text = stdout(&output);
+        assert!(text.contains(&corpus.display().to_string()), "{text}");
+        assert!(text.contains("line 2:1"), "{text}");
+        assert!(text.contains("fix:"), "{text}");
+    }
+}
+
+#[test]
+fn syntax_locations_count_unicode_characters() {
+    let dir = tmp("unicode-syntax-locations");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nperson wren \"é\" proposed “\n").unwrap();
+    for args in [vec!["check"], vec!["report", "--corpus"]] {
+        let output = bin().args(args).arg(&corpus).output().unwrap();
+        let text = stdout(&output);
+        assert!(text.contains("line 2:26"), "{text}");
+        assert!(
+            text.lines()
+                .any(|line| line.contains("^ ") && !line.contains("^^")),
+            "{text}"
+        );
+    }
+}
+
+#[test]
 fn negative_rule_cycle_names_a_real_contributing_clause() {
     let dir = tmp("rule-cycle-source");
     let first = dir.join("a.dli");
@@ -1157,6 +1367,26 @@ fn negative_rule_cycle_names_a_real_contributing_clause() {
         text.contains("help: remove or revise a negative dependency in the reported cycle"),
         "{text}"
     );
+}
+
+#[test]
+fn corpus_commands_report_negative_cycle_source_and_repair() {
+    let dir = tmp("rule-cycle-corpus-commands");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nratify d-1\nrule first ratified d-1\n  a($x) :- base($x), not b($x)\nrule second ratified d-1\n  b($x) :- base($x), a($x)\n").unwrap();
+    for args in [
+        vec!["query", "a(wren)", "--corpus"],
+        vec!["timeline", "order", "--corpus"],
+        vec!["report", "--corpus"],
+    ] {
+        let output = bin().args(args).arg(&corpus).output().unwrap();
+        let text = stderr(&output);
+        assert!(text.contains(&format!("{}:4:", corpus.display())), "{text}");
+        assert!(
+            text.contains("help: remove or revise a negative dependency in the reported cycle"),
+            "{text}"
+        );
+    }
 }
 
 /// M7 regression: a real chronology point is still accepted.
@@ -2043,6 +2273,35 @@ fn a_blocked_chained_rule_does_not_claim_the_conflict() {
     assert!(
         line.contains(&format!("{}:11:", corpus.display()))
             || line.contains(&format!("{}:13:", corpus.display())),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_conflicting_slot_can_fall_back_to_its_functional_declaration() {
+    use std::fmt::Write as _;
+    let dir = tmp("functional-source-fallback");
+    let corpus = dir.join("world.dli");
+    let mut source = String::from(
+        "scope storybook\nratify d-1\nfunctional other ratified d-1\nfunctional home ratified d-1\n",
+    );
+    for index in 0..170 {
+        writeln!(source, "seed(wren, item{index}) ratified d-1").unwrap();
+    }
+    for index in 0..180 {
+        writeln!(source, "rule decoy{index} ratified d-1\n  home(wren, shore) :- seed(wren, $item), missing($item)").unwrap();
+    }
+    source.push_str("rule shore ratified d-1\n  home(wren, shore) :- seed(wren, item0)\nrule marsh ratified d-1\n  home(wren, marsh) :- seed(wren, item0)\n");
+    fs::write(&corpus, source).unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.derived-fd-violation"))
+        .expect(&text);
+    assert!(line.contains(&format!("{}:4:", corpus.display())), "{text}");
+    assert!(
+        text.contains("or review the functional declarations"),
         "{text}"
     );
 }

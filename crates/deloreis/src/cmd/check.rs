@@ -43,7 +43,10 @@ pub(crate) fn run(args: &CheckArgs) -> CmdResult {
             out!(
                 "{}:\n{}",
                 file.path.display(),
-                ladder::render(&file.source, &file.diagnostics)
+                ladder::render(
+                    file.source.strip_prefix('\u{feff}').unwrap_or(&file.source),
+                    &file.diagnostics
+                )
             );
         }
     }
@@ -60,22 +63,7 @@ pub(crate) fn run(args: &CheckArgs) -> CmdResult {
                 lines.push(render_semantic_finding(&finding, &files));
             }
         }
-        Err(message) => {
-            let finding = check::WorldFinding::error("compile.unstratifiable", message);
-            let source = negative_cycle_source(&files);
-            let finding = if let Some(span) = source {
-                finding.with_span(span)
-            } else {
-                finding
-            };
-            let mut line = render_semantic_finding(&finding, &files);
-            if source.is_some() {
-                line.push_str(
-                    "\n  help: remove or revise a negative dependency in the reported cycle",
-                );
-            }
-            lines.push(line);
-        }
+        Err(message) => lines.push(message),
     }
     lines.extend(likely_entity_typos(&files));
     lines.sort();
@@ -92,6 +80,22 @@ pub(crate) fn run(args: &CheckArgs) -> CmdResult {
         outln!("checked {count} document(s): {findings} finding(s)");
         Ok(EXIT_FINDINGS)
     }
+}
+
+/// Render a corpus compile failure consistently for every CLI command.
+pub(super) fn render_compile_failure(message: String, files: &[cmd::CorpusFile]) -> String {
+    let finding = check::WorldFinding::error("compile.unstratifiable", message);
+    let source = negative_cycle_source(files);
+    let finding = if let Some(span) = source {
+        finding.with_span(span)
+    } else {
+        finding
+    };
+    let mut line = render_semantic_finding(&finding, files);
+    if source.is_some() {
+        line.push_str("\n  help: remove or revise a negative dependency in the reported cycle");
+    }
+    line
 }
 
 /// Locate an authored rule containing the exact negative edge selected by the
@@ -144,7 +148,10 @@ fn negative_cycle_source(files: &[cmd::CorpusFile]) -> Option<dli_ast::span::Spa
     None
 }
 
-fn render_semantic_finding(finding: &check::WorldFinding, files: &[cmd::CorpusFile]) -> String {
+pub(super) fn render_semantic_finding(
+    finding: &check::WorldFinding,
+    files: &[cmd::CorpusFile],
+) -> String {
     let mut line = cmd::render_world_finding(finding);
     if let Some(span) = finding.span
         && span.end > span.start
@@ -195,12 +202,12 @@ fn render_semantic_finding(finding: &check::WorldFinding, files: &[cmd::CorpusFi
         "continuity.fluent-contradiction" => {
             Some("adjust the time bounds or revise a conflicting state")
         }
-        "continuity.fd-violation" => {
-            Some("revise or defeat a conflicting value for the functional slot")
-        }
-        "continuity.derived-fd-violation" => {
-            Some("revise a conflicting source claim or derivation rule")
-        }
+        "continuity.fd-violation" => Some(
+            "revise or defeat a conflicting value for the functional slot, or review its functional declarations",
+        ),
+        "continuity.derived-fd-violation" => Some(
+            "revise a conflicting source claim or derivation rule, or review the functional declarations",
+        ),
         _ => None,
     };
     if let Some(help) = help {

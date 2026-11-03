@@ -67,21 +67,33 @@ pub(crate) fn run(args: &ReportArgs) -> CmdResult {
             } else {
                 "warn"
             };
+            let ladder = dli_syntax::ladder::render(
+                file.source.strip_prefix('\u{feff}').unwrap_or(&file.source),
+                std::slice::from_ref(diagnostic),
+            );
+            let details = ladder.split_once('\n').map_or("", |(_, details)| details);
             graded.push((
                 Grade::Checked,
                 format!(
-                    "{severity}  {} — {}",
+                    "{severity}  {} — {}\n{}:\n{details}",
                     diagnostic.class.code(),
-                    diagnostic.message
+                    diagnostic.message,
+                    file.path.display(),
                 ),
             ));
         }
     }
     for finding in check::run(&world) {
-        graded.push((finding.grade, cmd::render_world_finding(&finding)));
+        graded.push((
+            finding.grade,
+            cmd::check::render_semantic_finding(&finding, &files),
+        ));
     }
     for finding in language::check(&world.model.language) {
-        graded.push((finding.grade, cmd::render_world_finding(&finding)));
+        graded.push((
+            finding.grade,
+            cmd::check::render_semantic_finding(&finding, &files),
+        ));
     }
 
     if let Some(floor) = floor {

@@ -661,6 +661,13 @@ impl LoadCtx {
     /// declared functional dependency reach the in-memory merge (DL-0075) — the
     /// loader builds the eval world directly rather than through `World::lower`.
     fn process_functional(&mut self, functional: &FunctionalDecl) {
+        let span = functional.pred.span;
+        if span.end > span.start {
+            self.wm
+                .functional_spans
+                .entry(functional.pred.text.clone())
+                .or_insert(span);
+        }
         self.wm
             .functional_predicates
             .insert(functional.pred.text.clone());

@@ -217,15 +217,18 @@ ruler-of(camelot, arthur)          ratified d-0146
 
 A second, different certain `ruler-of` for `camelot` is then a
 `continuity.fd-violation` — raised against canon's own certain layer, not only
-against an incoming claim (`02-semantics.md §4`). Undeclared, the checker infers
-single-valuedness from precedent: a predicate that carries at most one value for
-every subject it appears on is treated as functional. That inference is blind
+against an incoming claim (`02-semantics.md §4`). When checking draft claims,
+the checker can infer single-valuedness from precedent: a predicate that carries
+at most one value for every subject it appears on is treated as functional for
+that check. The canon consistency check itself uses declared constraints. This
+inference is blind
 exactly where it is most wanted — the *first* use of a predicate, where two values
 may equally be a slip or a genuinely multi-valued relation. Deciding between them
 is a ruling about the world, and the engine does not make rulings (koan 3); the
 declaration is how an author makes it. It lowers to no atom — there is no fact
 "`ruler-of` is functional" to query — and rides, with its provenance, on the
-stored declaration. Agents declare it with `author.declare_functional`
+stored declaration. Its provenance is recorded but does not gate the structural
+constraint (DL-0074). Agents declare it with `author.declare_functional`
 (`11-agent-authoring.md §3.11`; contract `1.6.0`, DL-0074).
 
 A **`same-as`** declaration states a claim about the world rather than a
