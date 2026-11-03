@@ -43,7 +43,8 @@ checks references and continuity, not who is authorized to rule.
 
 ## Core tools
 
-The default MCP profile advertises `dli.check`, `dli.name.check`, and:
+The default MCP profile keeps 29 common tools, including the naming check used
+by a suggested repair. It advertises `dli.check`, `dli.name.check`, and:
 
 - Workspace and inspection: `author.open`, `author.status`, `author.check`,
   `author.findings`, `author.predicates`, `author.query`, `author.why`,

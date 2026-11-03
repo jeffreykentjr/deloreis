@@ -242,40 +242,22 @@ fn hollow_walkthrough_is_replayable_over_mcp() {
         json!({"workspace":workspace,"decision":"d-0003"}),
     );
     server.ok("author.add_fact", json!({"workspace":workspace,"entity":"miller","key":"death","value":"drowned","provenance":cited("d-0003")}));
-    let canon = server.ok("author.materialize", json!({"workspace":workspace}));
-    let claim = canon["facts"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|fact| fact["atom"]["pred"] == "death")
-        .unwrap()["claim_id"]
+    server.ok("author.materialize", json!({"workspace":workspace}));
+    let drowning = query(&mut server, &workspace, "death", "drowned");
+    assert_eq!(drowning["rows"][0]["status"], "certain");
+    let claim = drowning["rows"][0]["claim_ids"][0]
         .as_str()
         .unwrap()
         .to_owned();
-    assert_eq!(
-        query(&mut server, &workspace, "death", "drowned")["rows"][0]["status"],
-        "certain"
-    );
     let defeat = server.ok("author.defeat", json!({"workspace":workspace,"claim_id":claim,"decision":"d-0004","defeated_decision":"d-0003"}));
     assert!(defeat["root_hash"].is_string());
     let blocked_why = why(&mut server, &workspace, "drowned");
     assert_eq!(blocked_why["why_not"]["status"], "possible");
     server.ok("author.add_fact", json!({"workspace":workspace,"entity":"miller","key":"death","value":"poisoned","provenance":cited("d-0004")}));
-    let retcon = server.ok("author.materialize", json!({"workspace":workspace}));
+    server.ok("author.materialize", json!({"workspace":workspace}));
     let retconned = query(&mut server, &workspace, "death", "poisoned");
     assert_eq!(retconned["rows"][0]["status"], "certain");
-    let exported = server.ok(
-        "dli.corpus.export",
-        json!({"document":"world","format":"objects","at":retcon["root_hash"]}),
-    );
-    let attacker = exported["objects"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|fact| {
-            fact["atom"]["pred"] == "__decl" && fact["atom"]["args"] == json!(["Ratify", "d-0004"])
-        })
-        .unwrap()["claim_id"]
+    let attacker = retconned["rows"][0]["claim_ids"][0]
         .as_str()
         .unwrap()
         .to_owned();
@@ -293,6 +275,10 @@ fn hollow_walkthrough_is_replayable_over_mcp() {
         "overturned_account":overturned["rows"]}),
     );
 
+    server.ok("author.add_rule", json!({"workspace":workspace,"name":"away-if-not-stayed",
+        "head":atom("away","wren","thornfield"),
+        "body":[{"atom":atom("journey","wren","stayed"),"negated":true}],"provenance":cited("d-0001")}));
+    server.ok("author.materialize", json!({"workspace":workspace}));
     server.ok(
         "author.branch",
         json!({"workspace":workspace,"action":"create","name":"never-left","from":"main"}),
@@ -305,19 +291,36 @@ fn hollow_walkthrough_is_replayable_over_mcp() {
         .unwrap()
         .to_owned();
     server.ok(
+        "author.record_decision",
+        json!({"workspace":branch,"decision":"d-0006"}),
+    );
+    server.ok(
         "author.add_fact",
         json!({"workspace":branch,"entity":"wren","key":"journey","value":"stayed",
-        "provenance":{"kind":"proposed","origin":"what-if"}}),
+        "provenance":cited("d-0006")}),
     );
     server.ok("author.add_rule", json!({"workspace":branch,"name":"welcome-if-stayed",
         "head":atom("welcome","wren","thornfield"),
         "body":[{"atom":atom("journey","wren","stayed"),"negated":false}],"provenance":cited("d-0001")}));
     let diff = server.ok("author.diff", json!({"workspace":branch}));
-    assert!(
-        diff["rows"]
-            .to_string()
-            .contains("welcome(wren, thornfield)")
+    let rows = diff["rows"].as_array().unwrap();
+    let away = rows
+        .iter()
+        .find(|row| row["atom"] == "away(wren, thornfield)")
+        .unwrap();
+    assert_eq!(away["before"]["status"], "certain");
+    assert_eq!(away["after"]["status"], "possible");
+    let welcome = rows
+        .iter()
+        .find(|row| row["atom"] == "welcome(wren, thornfield)")
+        .unwrap();
+    assert_eq!(welcome["introduced"], true);
+    assert_eq!(welcome["after"]["status"], "certain");
+    let main = server.ok(
+        "author.query",
+        json!({"workspace":workspace,"goal_atom":atom("away","wren","thornfield")}),
     );
+    assert_eq!(main["rows"][0]["status"], "certain");
     record(
         &mut transcript,
         &mut server,
