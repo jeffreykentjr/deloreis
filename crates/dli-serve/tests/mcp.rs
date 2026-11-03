@@ -218,3 +218,48 @@ fn discovery_profiles_advertise_core_or_all() {
             .any(|tool| tool["name"] == "dli.export.run")
     );
 }
+
+#[test]
+fn naming_repair_is_advertised_and_callable_in_the_core_profile() {
+    let pack = dli_serve::session::builtin_pack("round-table").unwrap();
+    let mut author = Store::with_pack(pack).unwrap();
+    let mut sessions = Sessions::new();
+    let list = rpc(
+        r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#,
+        &mut sessions,
+        &mut author,
+    );
+    let opened = rpc(
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"author.open","arguments":{"scope":"round-table"}}}"#,
+        &mut sessions,
+        &mut author,
+    );
+    let opened: Value =
+        serde_json::from_str(opened["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    let workspace = opened["result"]["workspace"].as_str().unwrap();
+    let add = serde_json::json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"author.add_entity","arguments":{"workspace":workspace,"kind":"person","id":"elaine","name":"Elaine","provenance":{"kind":"proposed","origin":"test"}}}});
+    let added = rpc(&add.to_string(), &mut sessions, &mut author);
+    let added: Value =
+        serde_json::from_str(added["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    let warning = added["result"]["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|finding| finding["code"] == "name.unvetted")
+        .unwrap();
+    let repair = &warning["repair"];
+    let op = repair["op"].as_str().unwrap();
+    assert!(
+        list["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|tool| tool["name"] == op),
+        "repair tool {op} is absent from the default profile"
+    );
+    let check = serde_json::json!({"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":op,"arguments":repair["params"]}});
+    let checked = rpc(&check.to_string(), &mut sessions, &mut author);
+    let checked: Value =
+        serde_json::from_str(checked["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(checked["ok"], true, "{checked}");
+}
