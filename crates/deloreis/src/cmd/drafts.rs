@@ -68,63 +68,7 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
         );
         return Ok(EXIT_FINDINGS);
     }
-    let proofs = proof_doc
-        .decls
-        .iter()
-        .filter_map(|decl| match decl {
-            Decl::Proof(proof) => Some(proof),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    let proof: &ProofDecl = match args.proof_name.as_deref() {
-        Some(name) => {
-            let matches = proofs
-                .iter()
-                .copied()
-                .filter(|proof| proof.name.text == name)
-                .collect::<Vec<_>>();
-            match matches.as_slice() {
-                [proof] => proof,
-                [] => {
-                    return Err(format!(
-                        "no proof named '{name}' found in {}",
-                        args.proof.display()
-                    ));
-                }
-                _ => {
-                    return Err(duplicate_proof_error(name, &matches, &args.proof, &text));
-                }
-            }
-        }
-        None => match proofs.as_slice() {
-            [proof] => proof,
-            [] => {
-                return Err(format!(
-                    "no proof block found in {} — a proof file declares `proof <name> … {{ … }}`",
-                    args.proof.display()
-                ));
-            }
-            _ => {
-                let mut by_name = std::collections::BTreeMap::<&str, Vec<&ProofDecl>>::new();
-                for proof in &proofs {
-                    by_name.entry(&proof.name.text).or_default().push(proof);
-                }
-                if let Some((name, matches)) = by_name.iter().find(|(_, matches)| matches.len() > 1)
-                {
-                    return Err(duplicate_proof_error(name, matches, &args.proof, &text));
-                }
-                let names = proofs
-                    .iter()
-                    .map(|proof| proof.name.text.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                return Err(format!(
-                    "{} declares multiple proofs ({names}); pass --proof <name> to select one",
-                    args.proof.display()
-                ));
-            }
-        },
-    };
+    let proof = select_proof(&proof_doc.decls, args, &text)?;
 
     let proof_location = proof_source_position(&text, proof.name.span).map_or_else(
         || args.proof.display().to_string(),
@@ -157,6 +101,69 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
     } else {
         Ok(EXIT_FINDINGS)
     }
+}
+
+fn select_proof<'a>(
+    decls: &'a [Decl],
+    args: &CheckProofArgs,
+    text: &str,
+) -> Result<&'a ProofDecl, String> {
+    let proofs = decls
+        .iter()
+        .filter_map(|decl| match decl {
+            Decl::Proof(proof) => Some(proof),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    Ok(match args.proof_name.as_deref() {
+        Some(name) => {
+            let matches = proofs
+                .iter()
+                .copied()
+                .filter(|proof| proof.name.text == name)
+                .collect::<Vec<_>>();
+            match matches.as_slice() {
+                [proof] => proof,
+                [] => {
+                    return Err(format!(
+                        "no proof named '{name}' found in {}",
+                        args.proof.display()
+                    ));
+                }
+                _ => {
+                    return Err(duplicate_proof_error(name, &matches, &args.proof, text));
+                }
+            }
+        }
+        None => match proofs.as_slice() {
+            [proof] => proof,
+            [] => {
+                return Err(format!(
+                    "no proof block found in {} — a proof file declares `proof <name> … {{ … }}`",
+                    args.proof.display()
+                ));
+            }
+            _ => {
+                let mut by_name = std::collections::BTreeMap::<&str, Vec<&ProofDecl>>::new();
+                for proof in &proofs {
+                    by_name.entry(&proof.name.text).or_default().push(proof);
+                }
+                if let Some((name, matches)) = by_name.iter().find(|(_, matches)| matches.len() > 1)
+                {
+                    return Err(duplicate_proof_error(name, matches, &args.proof, text));
+                }
+                let names = proofs
+                    .iter()
+                    .map(|proof| proof.name.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                return Err(format!(
+                    "{} declares multiple proofs ({names}); pass --proof <name> to select one",
+                    args.proof.display()
+                ));
+            }
+        },
+    })
 }
 
 fn duplicate_proof_error(name: &str, proofs: &[&ProofDecl], path: &Path, source: &str) -> String {
