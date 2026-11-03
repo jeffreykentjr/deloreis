@@ -164,7 +164,7 @@ fn handle_version(request: &Request) -> Result<Response, Fault> {
             contract: "dli-worker".to_owned(),
             contract_version: request.dli.clone(),
             server: concat!("deloreis ", env!("CARGO_PKG_VERSION")).to_owned(),
-            capabilities: capabilities(&request.dli),
+            capabilities: capabilities(),
         },
     ))
 }
@@ -178,7 +178,7 @@ fn handle_check(request: &Request, sessions: &mut Sessions) -> Result<Response, 
     procedure_grades.extend(world_findings.iter().map(|finding| finding.grade));
     let mut findings = world_findings
         .iter()
-        .map(|finding| CheckFinding::World(world_finding(finding, &request.dli)))
+        .map(|finding| CheckFinding::World(world_finding(finding)))
         .collect::<Vec<_>>();
     if let Some(project) = project {
         let checked = evidence::check_attestations(&project, &p.document, &scope.world.model)
@@ -1234,7 +1234,7 @@ fn diff_conflict(conflict: &dli_eval::fork::Conflict) -> DiffConflict {
 }
 
 /// Map a kernel [`WorldFinding`] onto the wire [`Finding`].
-fn world_finding(finding: &WorldFinding, _dli: &str) -> Finding {
+fn world_finding(finding: &WorldFinding) -> Finding {
     Finding {
         severity: match finding.severity {
             WorldSeverity::Error => Severity::Error,
@@ -1431,14 +1431,12 @@ fn params<T: DeserializeOwned + Serialize>(request: &Request) -> Result<T, Fault
 /// refusal that names the successor field, exactly as `refuse_op` does for a
 /// retired op.
 fn killed_field_fault(request: &Request) -> Option<Fault> {
-    crate::serve::killed_field_successor(&request.dli, request.op, &request.params).map(
-        |(field, successor)| {
-            (
-                ErrorCode::KilledForm,
-                crate::serve::killed_field_message(&request.dli, field, successor),
-            )
-        },
-    )
+    crate::serve::killed_field_successor(request.op, &request.params).map(|(field, successor)| {
+        (
+            ErrorCode::KilledForm,
+            crate::serve::killed_field_message(&request.dli, field, successor),
+        )
+    })
 }
 
 /// The first input field (dotted path) absent from the normalized
@@ -1604,7 +1602,7 @@ fn evidence_fault(error: &EvidenceError) -> Fault {
 /// list to whatever the build happens to be.
 ///
 /// The current contract advertises the complete supported operation set.
-fn capabilities(_dli: &str) -> Vec<String> {
+fn capabilities() -> Vec<String> {
     Op::ALL.iter().copied().map(wire_name).collect()
 }
 
@@ -1748,10 +1746,9 @@ fn handle_corpus_import(request: &Request, sessions: &mut Sessions) -> Result<Re
                 &p.attacks,
                 &p.document,
                 true,
-                &request.dli,
             )?
         }
-        (None, Some(documents)) => import_dli_documents(&store, documents, &request.dli)?,
+        (None, Some(documents)) => import_dli_documents(&store, documents)?,
     };
 
     let count = store
@@ -1787,7 +1784,6 @@ fn import_objects(
     attacks: &[serde_json::Value],
     document: &str,
     validate_claim_ids: bool,
-    dli: &str,
 ) -> Result<dli_lorestore::ContentHash, Fault> {
     // Appending into a populated store may only extend the table it already
     // resolves against. The store enforces this too, but as an `internal`
@@ -1825,7 +1821,7 @@ fn import_objects(
             .provenance
             .as_ref()
             .and_then(|provenance| provenance.marker)
-            .and_then(|marker| crate::serve::killed_marker_successor(dli, marker.keyword()))
+            .and_then(|marker| crate::serve::killed_marker_successor(marker.keyword()))
         {
             return Err((
                 ErrorCode::KilledForm,
@@ -1957,7 +1953,6 @@ fn corpus_commit_fault(error: dli_lorestore::StoreError) -> Fault {
 fn import_dli_documents(
     store: &dli_lorestore::Lorestore,
     documents: &[CorpusDocument],
-    _dli: &str,
 ) -> Result<dli_lorestore::ContentHash, Fault> {
     let mut parsed = Vec::with_capacity(documents.len());
     for entry in documents {
@@ -2081,7 +2076,6 @@ fn contains_marker(value: &serde_json::Value, marker: &str) -> bool {
 fn import_dli_documents(
     _store: &dli_lorestore::Lorestore,
     _documents: &[CorpusDocument],
-    _dli: &str,
 ) -> Result<dli_lorestore::ContentHash, Fault> {
     Err((
         ErrorCode::NotWired,

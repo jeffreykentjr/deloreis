@@ -453,7 +453,7 @@ fn precheck(store: &store::Store, request: &Request, ws_id: &str) -> Result<(), 
             },
         ));
     }
-    if let Some(message) = provenance_contract_error(&request.dli, &request.params["provenance"]) {
+    if let Some(message) = provenance_contract_error(&request.params["provenance"]) {
         return Err(error(
             request,
             ErrorBody {
@@ -468,8 +468,8 @@ fn precheck(store: &store::Store, request: &Request, ws_id: &str) -> Result<(), 
 
 /// Apply the ordinary negotiated-provenance fence to every nested record in a
 /// bulk decision request. `precheck` handles only the common top-level
-/// `params.provenance` shape; without this explicit descent, a cited record at
-/// 1.5+ could omit its required state and silently lower as legacy `Decided`.
+/// `params.provenance` shape; this descent enforces the same state requirement
+/// on each record.
 fn precheck_record_decisions(
     request: &Request,
     params: &AuthorRecordDecisionsParams,
@@ -478,7 +478,7 @@ fn precheck_record_decisions(
         let Some(provenance) = request.params["records"][record_index].get("provenance") else {
             continue;
         };
-        if let Some(message) = provenance_contract_error(&request.dli, provenance) {
+        if let Some(message) = provenance_contract_error(provenance) {
             return Err(error(
                 request,
                 ErrorBody {
@@ -496,7 +496,7 @@ fn precheck_record_decisions(
 }
 
 /// The cited-provenance rule shared by single and bulk authoring calls.
-fn provenance_contract_error(_dli: &str, provenance: &serde_json::Value) -> Option<&'static str> {
+fn provenance_contract_error(provenance: &serde_json::Value) -> Option<&'static str> {
     if provenance["kind"] == serde_json::json!("cited") && provenance.get("state").is_none() {
         return Some("cited provenance requires state `provisional` or `ratified`");
     }
@@ -534,17 +534,16 @@ fn parse<T: DeserializeOwned>(request: &Request) -> Result<T, Response> {
         // that is still declared never reaches here — `serve::dispatch` refuses
         // it above the routing fork — so this covers the shape 1.0 will have
         // once the field leaves the struct outright.
-        let (code, message) =
-            crate::serve::killed_field_successor(&request.dli, request.op, &request.params)
-                .map_or_else(
-                    || (ErrorCode::SchemaViolation, err.to_string()),
-                    |(field, successor)| {
-                        (
-                            ErrorCode::KilledForm,
-                            crate::serve::killed_field_message(&request.dli, field, successor),
-                        )
-                    },
-                );
+        let (code, message) = crate::serve::killed_field_successor(request.op, &request.params)
+            .map_or_else(
+                || (ErrorCode::SchemaViolation, err.to_string()),
+                |(field, successor)| {
+                    (
+                        ErrorCode::KilledForm,
+                        crate::serve::killed_field_message(&request.dli, field, successor),
+                    )
+                },
+            );
         error(
             request,
             ErrorBody {

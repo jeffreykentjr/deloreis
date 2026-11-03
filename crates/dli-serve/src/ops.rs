@@ -335,7 +335,7 @@ impl Op {
 
     /// Whether the current contract accepts fences for this operation.
     #[must_use]
-    pub fn accepts_author_fences(self, _dli: &str) -> bool {
+    pub fn accepts_author_fences(self) -> bool {
         self.is_post_open_author_mutation()
     }
 
@@ -507,7 +507,7 @@ mod tests {
     fn every_current_post_open_mutation_accepts_the_shared_fences() {
         for op in Op::ALL {
             assert_eq!(
-                op.accepts_author_fences(crate::CONTRACT_VERSION),
+                op.accepts_author_fences(),
                 op.is_post_open_author_mutation(),
                 "the current native/MCP fence schema must match dispatch mutation status for {op:?}"
             );

@@ -51,7 +51,7 @@ const KILLED_OPS: &[(&str, &str)] = &[
 /// `Decided` in historical data; the current wire refuses new imports of it.
 const KILLED_MARKERS: &[(&str, &str)] = &[("decided", "provisional")];
 
-pub(crate) fn killed_marker_successor(_dli: &str, marker: &str) -> Option<&'static str> {
+pub(crate) fn killed_marker_successor(marker: &str) -> Option<&'static str> {
     KILLED_MARKERS
         .iter()
         .find(|(retired, _)| *retired == marker)
@@ -102,7 +102,6 @@ fn field_present(value: &Value, path: &str) -> bool {
 
 /// The successor for a retired field present in a request.
 pub(crate) fn killed_field_successor(
-    _dli: &str,
     op: Op,
     params: &Value,
 ) -> Option<(&'static str, &'static str)> {
@@ -121,17 +120,8 @@ pub(crate) fn killed_field_message(dli: &str, field: &str, successor: &str) -> S
     format!("field '{field}' is a killed form at contract {dli}; its successor is '{successor}'")
 }
 
-/// The version a pre-dispatch refusal echoes: the frame's own, when the frame
-/// named one this worker actually speaks, and the build's otherwise.
-///
-/// A refusal raised *before* [`dispatch`] — an unknown op, an unknown envelope
-/// field — has no negotiated version to echo, so it used to answer with
-/// [`CONTRACT_VERSION`]. That made a framing refusal drift with every version
-/// bump: the same `0.5.1` unknown-op answered `0.5.1` under one build and
-/// `0.6.4` under the next, having nothing to do with the caller's wire. Echoing
-/// the frame's own version instead pins the answer to the conversation, and
-/// falling back to [`CONTRACT_VERSION`] keeps the invariant that a response
-/// never claims a version this worker cannot speak.
+/// Echo the current contract on pre-dispatch refusals. A frame that names a
+/// retired or unknown version receives the current version in its response.
 fn spoken_version(dli: &str) -> String {
     if crate::ACCEPTED_CONTRACT_VERSIONS.contains(&dli) {
         dli.to_owned()
@@ -279,13 +269,11 @@ pub fn dispatch(
     if !crate::ACCEPTED_CONTRACT_VERSIONS.contains(&request.dli.as_str()) {
         return version_mismatch(request);
     }
-    if let Some((field, successor)) =
-        killed_field_successor(&request.dli, request.op, &request.params)
-    {
+    if let Some((field, successor)) = killed_field_successor(request.op, &request.params) {
         return refuse_field(request, field, successor);
     }
     // Fences are accepted on post-open authoring mutations.
-    let fences_ok = request.op.accepts_author_fences(&request.dli);
+    let fences_ok = request.op.accepts_author_fences();
     if !fences_ok {
         if request.expected_digest.is_some() {
             return fence_schema_violation(request, "expected_digest");
@@ -603,18 +591,14 @@ mod tests {
 
     #[test]
     fn retired_decided_marker_names_its_successor() {
-        assert_eq!(
-            killed_marker_successor("2.0.0", "decided"),
-            Some("provisional")
-        );
-        assert_eq!(killed_marker_successor("2.0.0", "ratified"), None);
+        assert_eq!(killed_marker_successor("decided"), Some("provisional"));
+        assert_eq!(killed_marker_successor("ratified"), None);
     }
 
     /// The refusal names the successor FIELD, and the wire it was made on.
     #[test]
     fn contract_2_names_the_successor_field() {
         let (field, successor) = killed_field_successor(
-            "2.0.0",
             Op::Query,
             &json!({ "document": "d", "goal": "serves(nara, ?who)" }),
         )
@@ -642,7 +626,6 @@ mod tests {
     fn only_the_registered_pair_matches() {
         assert!(
             killed_field_successor(
-                "1.0.0",
                 Op::Query,
                 &json!({ "document": "d", "goal_atom": { "pred": "x", "args": [] } }),
             )
@@ -650,8 +633,7 @@ mod tests {
             "the typed successor is not a killed form"
         );
         assert!(
-            killed_field_successor("2.0.0", Op::Check, &json!({ "goal": "serves(nara)" }))
-                .is_none(),
+            killed_field_successor(Op::Check, &json!({ "goal": "serves(nara)" })).is_none(),
             "`goal` is retired for dli.query, not for every op that might carry it"
         );
     }
