@@ -2131,6 +2131,34 @@ fn a_conflicting_slot_can_fall_back_to_its_functional_declaration() {
 }
 
 #[test]
+fn other_subjects_do_not_exhaust_rule_witness_search() {
+    use std::fmt::Write as _;
+    let dir = tmp("rule-witness-unrelated-subjects");
+    let corpus = dir.join("world.dli");
+    let mut source = String::from("scope storybook\nratify d-1\nfunctional home ratified d-1\n");
+    for index in 0..200 {
+        writeln!(source, "present(person{index}) ratified d-1\nrule noise{index} ratified d-1\n  home(person{index}, nest) :- present(person{index})").unwrap();
+    }
+    source.push_str("present(wren) ratified d-1\n");
+    let shore_line = source.lines().count() + 2;
+    source.push_str("rule shore ratified d-1\n  home(wren, shore) :- present(wren)\n");
+    let marsh_line = source.lines().count() + 2;
+    source.push_str("rule marsh ratified d-1\n  home(wren, marsh) :- present(wren)\n");
+    fs::write(&corpus, source).unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.derived-fd-violation"))
+        .expect(&text);
+    assert!(
+        line.contains(&format!("{}:{shore_line}:", corpus.display()))
+            || line.contains(&format!("{}:{marsh_line}:", corpus.display())),
+        "{text}"
+    );
+}
+
+#[test]
 fn unrelated_predicates_do_not_exhaust_rule_witness_search() {
     use std::fmt::Write as _;
     let dir = tmp("rule-witness-unrelated-predicates");
