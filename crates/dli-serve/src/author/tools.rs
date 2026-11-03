@@ -70,25 +70,9 @@ use super::workspace::{Mode, Workspace};
 /// §2). The `scope` param stages over an existing scope (a pack, in DL-0016's
 /// renamed surface); `fork` opens a fork-scoped workspace.
 ///
-/// `branch` (WS-3, ≥ contract 1.7.0 — `branch_writes` gates it) opens the
-/// workspace against a named branch head instead of the project document's
-/// main lorestore ref: it requires `scope` (branch + fork is refused — there
-/// is no third meaning of "fork"), an attached lorestore
-/// ([`ErrorCode::ProjectRequired`]), and an existing branch
-/// ([`ErrorCode::UnknownDoc`], naming the branch). Below 1.7.0, supplying
-/// `branch` at all is a schema violation — the same "explicit version check
-/// in the open arm" shape the provenance.state gate in `precheck` already
-/// uses.
-pub(super) fn open(
-    store: &mut Store,
-    params: &AuthorOpenParams,
-    branch_writes: bool,
-) -> Result<Value, ErrorBody> {
-    if params.branch.is_some() && !branch_writes {
-        return Err(schema_error(
-            "field `branch` is defined only by contract 1.7.0 branch-scoped writes",
-        ));
-    }
+/// A named branch opens a scope workspace at that branch's head. It requires
+/// an attached lorestore and an existing branch.
+pub(super) fn open(store: &mut Store, params: &AuthorOpenParams) -> Result<Value, ErrorBody> {
     let (mode, base_name) = match (&params.scope, &params.fork) {
         (Some(scope), None) => (Mode::Scope, scope.clone()),
         (None, Some(fork)) => (Mode::Fork, fork.clone()),
@@ -109,7 +93,7 @@ pub(super) fn open(
     Ok(value(&AuthorOpenResult {
         workspace: ws.id.clone(),
         workspace_digest: ws.digest.clone(),
-        branch: branch_writes.then(|| ws.target_branch.clone()).flatten(),
+        branch: ws.target_branch.clone(),
     }))
 }
 
@@ -141,16 +125,14 @@ pub(super) fn status(
     store: &Store,
     params: &AuthorStatusParams,
     v2: bool,
-    structural_keys: bool,
-    carries_data: bool,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let report = reads::workspace_report(store, ws, carries_data);
+    let report = reads::workspace_report(store, ws, true);
     Ok(value(&AuthorStatusResult {
         rendered: render_decls(&ws.decls),
         root_hash: if v2 { ws.base_root_hash.clone() } else { None },
         diff_rows: v2.then_some(report.diff_rows),
-        staged: structural_keys.then(|| ws.decls.iter().map(staged_decl).collect()),
+        staged: Some(ws.decls.iter().map(staged_decl).collect()),
         findings: report.findings,
         workspace_digest: ws.digest.clone(),
     }))
@@ -204,16 +186,10 @@ fn decl_kind(decl: &Decl) -> &'static str {
 }
 
 /// The rendered canonical block, findings, and consequences of the staged change.
-/// On a 0.6.0 request the result also carries the pinned base commit and the
-/// structured per-fact rows.
-pub(super) fn diff(
-    store: &Store,
-    params: &AuthorDiffParams,
-    v2: bool,
-    carries_data: bool,
-) -> Result<Value, ErrorBody> {
+/// The result also carries the pinned base commit and structured per-fact rows.
+pub(super) fn diff(store: &Store, params: &AuthorDiffParams, v2: bool) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let report = reads::workspace_report(store, ws, carries_data);
+    let report = reads::workspace_report(store, ws, true);
     Ok(value(&AuthorDiffResult {
         rendered: render_decls(&ws.decls),
         root_hash: if v2 { ws.base_root_hash.clone() } else { None },
@@ -250,24 +226,13 @@ pub(super) fn discard(
     store: &mut Store,
     ws_id: &str,
     decl: Option<&str>,
-    structural_keys: bool,
 ) -> Result<Value, ErrorBody> {
     let Some(decl_id) = decl else {
         return Ok(json!({ "discarded": store.discard(ws_id) }));
     };
-    if !structural_keys && !super::render::renders_dli() {
-        return Err(ErrorBody {
-            code: ErrorCode::SchemaViolation,
-            message: "per-declaration `discard` names a staged declaration by its rendered `.dli` \
-                      line, and this build links no formatter; discard the whole workspace, or \
-                      use a `syntax`-enabled build"
-                .to_owned(),
-            data: None,
-        });
-    }
     let (_, ws) = parts_mut(store, ws_id)?;
     let index = ws.decls.iter().position(|staged| {
-        let by_structure = structural_keys && decl_key(staged) == decl_id;
+        let by_structure = decl_key(staged) == decl_id;
         by_structure || rendered_key(staged).is_some_and(|line| line == decl_id)
     });
     match index {
@@ -4098,23 +4063,7 @@ fn unknown_decl(decl_id: &str) -> ErrorBody {
 /// (`delete`, WS-3, ≥ contract 1.7.0). Operates on the lorestore backing the
 /// workspace's base — branches are durable divergent lines of writes, so a
 /// store without a lorestore refuses (demo mode).
-pub(super) fn branch(
-    store: &Store,
-    params: &AuthorBranchParams,
-    branch_writes: bool,
-) -> Result<Value, ErrorBody> {
-    if !branch_writes {
-        if params.expected_ref.is_some() {
-            return Err(schema_error(
-                "field `expected_ref` is defined only by contract 1.7.0 branch-scoped writes",
-            ));
-        }
-        if matches!(params.action, BranchAction::Delete) {
-            return Err(schema_error(
-                "action `delete` is defined only by contract 1.7.0 branch-scoped writes",
-            ));
-        }
-    }
+pub(super) fn branch(store: &Store, params: &AuthorBranchParams) -> Result<Value, ErrorBody> {
     let base_key = store.base_key_for(&params.workspace).map(str::to_owned);
     let lorestore = store
         .workspace_lorestore(&params.workspace)
@@ -4163,7 +4112,7 @@ pub(super) fn branch(
         }
     };
     let branches = lorestore.list_branches().map_err(|e| store_error(&e))?;
-    let heads = branch_writes.then(|| branch_heads(lorestore, &branches));
+    let heads = Some(branch_heads(lorestore, &branches));
     to_value(&AuthorBranchResult {
         branches,
         created,
@@ -4227,24 +4176,7 @@ fn fence_branch_ref(
 /// commit a real merge would and runs the full conflict scan, but skips the
 /// target-ref CAS — the derived-layer conflict inspection, with no
 /// commitment. `expected_ref` fences the TARGET's whole-ref digest either way.
-pub(super) fn merge(
-    store: &mut Store,
-    params: &AuthorMergeParams,
-    branch_writes: bool,
-    carries_data: bool,
-) -> Result<Value, ErrorBody> {
-    if !branch_writes {
-        if params.dry_run.is_some() {
-            return Err(schema_error(
-                "field `dry_run` is defined only by contract 1.7.0 branch-scoped writes",
-            ));
-        }
-        if params.expected_ref.is_some() {
-            return Err(schema_error(
-                "field `expected_ref` is defined only by contract 1.7.0 branch-scoped writes",
-            ));
-        }
-    }
+pub(super) fn merge(store: &mut Store, params: &AuthorMergeParams) -> Result<Value, ErrorBody> {
     let lorestore = store
         .workspace_lorestore(&params.workspace)
         .ok_or_else(no_lorestore)?;
@@ -4265,11 +4197,7 @@ pub(super) fn merge(
         merge_commit: report.merge_commit.to_string(),
         merge_base: report.merge_base.map(|h| h.to_string()),
         conflicts: report.conflicts.iter().map(conflict_to_wire).collect(),
-        findings: report
-            .findings
-            .iter()
-            .map(|finding| world_finding_to_wire(finding, carries_data))
-            .collect(),
+        findings: report.findings.iter().map(world_finding_to_wire).collect(),
         stratifies: report.stratifies,
         standing_changes: report
             .standing_changes
@@ -4354,8 +4282,7 @@ fn conflict_to_wire(conflict: &Conflict) -> DiffConflict {
 }
 
 /// A `dli-world` [`WorldFinding`] on the wire as the contract [`Finding`].
-/// `data` rides across when `carries_data` is set.
-fn world_finding_to_wire(finding: &WorldFinding, carries_data: bool) -> Finding {
+fn world_finding_to_wire(finding: &WorldFinding) -> Finding {
     Finding {
         severity: match finding.severity {
             WorldSeverity::Error => Severity::Error,
@@ -4366,7 +4293,7 @@ fn world_finding_to_wire(finding: &WorldFinding, carries_data: bool) -> Finding 
         grade: finding.grade,
         repair: None,
         citations: finding.citations.clone(),
-        data: carries_data.then(|| finding.data.clone()).flatten(),
+        data: finding.data.clone(),
     }
 }
 

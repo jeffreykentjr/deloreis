@@ -64,26 +64,20 @@ use crate::ops::Op;
 pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
     match request.op {
         Op::AuthorOpen => match parse::<AuthorOpenParams>(request) {
-            Ok(params) => settle(request, tools::open(store, &params, true)),
+            Ok(params) => settle(request, tools::open(store, &params)),
             Err(response) => response,
         },
         Op::AuthorStatus => read(request, store, |store, request| {
             let params: AuthorStatusParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
             let v2 = true;
-            Ok((
-                params.workspace.clone(),
-                tools::status(store, &params, v2, true, true),
-            ))
+            Ok((params.workspace.clone(), tools::status(store, &params, v2)))
         }),
         Op::AuthorDiff => read(request, store, |store, request| {
             let params: AuthorDiffParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
             let v2 = true;
-            Ok((
-                params.workspace.clone(),
-                tools::diff(store, &params, v2, true),
-            ))
+            Ok((params.workspace.clone(), tools::diff(store, &params, v2)))
         }),
         // materialize advances the lorestore ref: a mutation, dispatched
         // through the mutating wrapper so idempotency-key replay works
@@ -103,7 +97,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             let decl = request.params.get("decl").and_then(Value::as_str);
             Ok((
                 params.workspace.clone(),
-                tools::discard(store, &params.workspace, decl, true),
+                tools::discard(store, &params.workspace, decl),
             ))
         }),
         Op::AuthorAddEntity => mutate(request, store, |store, request| {
@@ -298,7 +292,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorCheck => read(request, store, |store, request| {
             let params: AuthorCheckParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), reads::check(store, &params, true)))
+            Ok((params.workspace.clone(), reads::check(store, &params)))
         }),
         Op::AuthorWhy => read(request, store, |store, request| {
             let params: AuthorWhyParams = parse(request)?;
@@ -311,15 +305,12 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorFindings => read(request, store, |store, request| {
             let params: AuthorFindingsParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                reads::findings(store, &params, true),
-            ))
+            Ok((params.workspace.clone(), reads::findings(store, &params)))
         }),
         // No workspace param, so no precheck: a store-level read of the open set.
         Op::AuthorListWorkspaces => read(request, store, |store, request| {
             let _params: AuthorListWorkspacesParams = parse(request)?;
-            Ok((String::new(), Ok(reads::list_workspaces(store, true))))
+            Ok((String::new(), Ok(reads::list_workspaces(store))))
         }),
         // The incremental-canonicalization reads (contract 1.10.0): both answer
         // over the STAGED world and stage nothing, so they route through `read`.
@@ -351,18 +342,12 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorBranch => mutate(request, store, |store, request| {
             let params: AuthorBranchParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                tools::branch(store, &params, true),
-            ))
+            Ok((params.workspace.clone(), tools::branch(store, &params)))
         }),
         Op::AuthorMerge => mutate(request, store, |store, request| {
             let params: AuthorMergeParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                tools::merge(store, &params, true, true),
-            ))
+            Ok((params.workspace.clone(), tools::merge(store, &params)))
         }),
         // Every non-`author.*` op is the batch worker's; the frozen seam only
         // ever receives `author.*`, so anything else is an unknown op here.

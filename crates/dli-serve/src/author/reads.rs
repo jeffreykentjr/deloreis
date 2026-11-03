@@ -385,13 +385,9 @@ pub(super) fn entity_candidates(
 /// contradictions ([`factcheck`]) over the staged claims. A new proposed claim is
 /// legitimately *unsupported*, so only *contradictions* surface here; unsupported
 /// is silent (it is candidate lore, not a defect). Findings are deduplicated.
-pub(super) fn check(
-    store: &Store,
-    params: &AuthorCheckParams,
-    carries_data: bool,
-) -> Result<Value, ErrorBody> {
+pub(super) fn check(store: &Store, params: &AuthorCheckParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let findings = workspace_report(store, ws, carries_data).findings;
+    let findings = workspace_report(store, ws, true).findings;
     let ok = findings
         .iter()
         .all(|finding| finding.severity != Severity::Error);
@@ -742,13 +738,9 @@ fn named_decision_path(
 /// pre-flight of what `author.materialize` would refuse on, each carrying its
 /// typed repair. This is the exact set the materialize gate reads, so
 /// `materializable` answers "could I materialize now?".
-pub(super) fn findings(
-    store: &Store,
-    params: &AuthorFindingsParams,
-    carries_data: bool,
-) -> Result<Value, ErrorBody> {
+pub(super) fn findings(store: &Store, params: &AuthorFindingsParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let all = workspace_report(store, ws, carries_data).findings;
+    let all = workspace_report(store, ws, true).findings;
     let (errors, warnings): (Vec<Finding>, Vec<Finding>) = all
         .into_iter()
         .partition(|finding| finding.severity == Severity::Error);
@@ -765,12 +757,8 @@ pub(super) fn findings(
 /// agent to recover which workspaces it has open and where each stands. Total: a
 /// store-level read that never fails.
 ///
-/// `branch_writes` gates the row's `branch` field (WS-3, ≥ 1.7.0): this list
-/// can surface workspaces a DIFFERENT caller opened, so — unlike
-/// `author.open`'s own result, where a pre-1.7.0 caller could never have set
-/// `branch` on its own workspace in the first place — a 1.6.0-or-earlier
-/// caller here needs the field actively suppressed, not just naturally absent.
-pub(super) fn list_workspaces(store: &Store, branch_writes: bool) -> Value {
+/// List open workspaces and their target branches.
+pub(super) fn list_workspaces(store: &Store) -> Value {
     let workspaces = store
         .workspaces()
         .map(|ws| WorkspaceDigest {
@@ -779,7 +767,7 @@ pub(super) fn list_workspaces(store: &Store, branch_writes: bool) -> Value {
             mode: wire_mode(ws.mode),
             staged: ws.decls.len(),
             workspace_digest: ws.digest.clone(),
-            branch: branch_writes.then(|| ws.target_branch.clone()).flatten(),
+            branch: ws.target_branch.clone(),
         })
         .collect();
     value(&AuthorListWorkspacesResult { workspaces })
