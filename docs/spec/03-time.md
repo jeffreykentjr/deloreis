@@ -207,10 +207,10 @@ atom. Unordered plain bounds remain possible and share consistent ordering
 assumptions across the query. If unresolved inertial ordering, a possible
 chronology ruling, or a cycle prevents a faithful projection of the query, it is
 refused with `temporal-indeterminate` rather than returning a guessed answer.
-Without predicate-identity links, an unrelated unresolved fluent does not block
-a query whose predicate and rule dependencies have no temporal state. When
-predicate identities exist, the fallback is conservative and refuses; a cycle
-also blocks the query.
+Without predicate-identity links, an unresolved fluent outside the query
+predicate's rule-dependency closure does not block the query. Relevant
+temporal states are still projected. With predicate identities, the fallback
+is conservative and refuses; a cycle also blocks the query.
 The current evaluator may leave a value possible when multiple alternative
 spans jointly cover every ordering; it does not promote their disjunction to
 certain solely for that reason.

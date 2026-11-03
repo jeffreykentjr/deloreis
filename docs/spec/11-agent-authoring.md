@@ -62,10 +62,11 @@ are refused. Once opened, a workspace remains bound to that one document base
 for mutation findings, read tools, staged recompilation, and materialization; it
 cannot observe another document or the bundled demo world.
 
-After an authoring operation in this server successfully commits to the main
-branch of a live project, a newly opened workspace starts from that committed
-base and its standing state. Workspaces
-already open keep their own earlier bases. A project pinned to a specific
+After an authoring operation commits to the main branch of a live project, a
+newly opened scope workspace starts from that committed base and its standing
+state, even if another server made the commit. Fork names are resolved from the
+project snapshot loaded when the server starts; restart the server after changing
+declared forks. Workspaces already open keep their own earlier bases. A project pinned to a specific
 commit continues opening from that pinned snapshot, and a commit on another
 branch does not advance the main base.
 

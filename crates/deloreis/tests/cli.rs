@@ -1328,6 +1328,20 @@ fn broken_pipe_does_not_panic() {
 /// M7: a dangling `--as-of` era is an unknown-reference error (exit 2), not a
 /// silent no-op that returns unfiltered rows.
 #[test]
+fn historical_query_ignores_unrelated_uncertain_state() {
+    let output = bin()
+        .args(["query", "keeper(excalibur, $x)", "--corpus"])
+        .arg(camelot())
+        .args(["--as-of", "the-round-table-founded"])
+        .output()
+        .unwrap();
+    let text = stdout(&output);
+    assert_eq!(output.status.code(), Some(0), "{text} {}", stderr(&output));
+    assert!(text.contains("keeper(excalibur, the-king)"), "{text}");
+    assert!(!text.contains("keeper(excalibur, in-the-stone)"), "{text}");
+}
+
+#[test]
 fn query_unknown_as_of_exits_two() {
     let output = bin()
         .arg("query")

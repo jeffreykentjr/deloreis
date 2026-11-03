@@ -156,6 +156,20 @@ pub(crate) fn handle_with_store(
 
 // -- per-op handlers ---------------------------------------------------------
 
+// A live store-backed document follows its current ref. Other documents and
+// explicitly pinned projects keep their loaded snapshot.
+fn live_snapshot(
+    sessions: &mut Sessions,
+    document: &str,
+) -> Result<Option<std::sync::Arc<crate::session::LiveSnapshot>>, Fault> {
+    sessions.live_snapshot(document).map_err(|message| {
+        (
+            ErrorCode::Internal,
+            format!("cannot read the current document: {message}"),
+        )
+    })
+}
+
 fn handle_version(request: &Request) -> Result<Response, Fault> {
     let _: VersionParams = params(request)?;
     Ok(ok_response(
@@ -172,8 +186,12 @@ fn handle_version(request: &Request) -> Result<Response, Fault> {
 fn handle_check(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: CheckParams = params(request)?;
     let project = sessions.project_handle();
+    let live = live_snapshot(sessions, &p.document)?;
     let scope = resolve(sessions, &p.document)?;
-    let world_findings = check::run(&scope.world);
+    let world = live
+        .as_ref()
+        .map_or(&scope.world, |snapshot| &snapshot.world);
+    let world_findings = check::run(world);
     let mut procedure_grades = vec![Grade::Checked];
     procedure_grades.extend(world_findings.iter().map(|finding| finding.grade));
     let mut findings = world_findings
@@ -181,7 +199,7 @@ fn handle_check(request: &Request, sessions: &mut Sessions) -> Result<Response, 
         .map(|finding| CheckFinding::World(world_finding(finding)))
         .collect::<Vec<_>>();
     if let Some(project) = project {
-        let checked = evidence::check_attestations(&project, &p.document, &scope.world.model)
+        let checked = evidence::check_attestations(&project, &p.document, &world.model)
             .map_err(|error| evidence_fault(&error))?;
         for attestation in checked {
             let finding = attestation_check_finding(attestation);
@@ -236,12 +254,20 @@ fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, 
         fork,
         why: p.why,
     };
+    let live = if p.fork.is_none() {
+        live_snapshot(sessions, &p.document)?
+    } else {
+        None
+    };
     let scope = resolve(sessions, &p.document)?;
+    let world = live
+        .as_ref()
+        .map_or(&scope.world, |snapshot| &snapshot.world);
     let query = Query { goal };
-    let mut query_interner = scope.world.model.interner().clone();
+    let mut query_interner = world.model.interner().clone();
     let mut temporal_digest = None;
     let answer = if let Some(as_of) = p.as_of.as_deref() {
-        let mut compiled = scope.world.clone();
+        let mut compiled = world.clone();
         let point = compiled
             .model
             .world
@@ -280,8 +306,7 @@ fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, 
             .query_with(&query, &projected_opts)
             .map_err(eval_fault)?
     } else {
-        scope
-            .world
+        world
             .model
             .world
             .query_with(&query, &opts)
@@ -295,7 +320,7 @@ fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, 
     // loadable store address (audit B6). The wire valuation is the full
     // ruled map, explicit falses included (audit B7).
     let context = {
-        let mut effective = scope.world.model.world.valuation.clone();
+        let mut effective = world.model.world.valuation.clone();
         if let Some(overlay) = &opts.fork {
             for (atom, value) in &overlay.0 {
                 effective.0.insert(*atom, *value);
@@ -303,7 +328,7 @@ fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, 
         }
         let entries = crate::author::reads::valuation_entries(&effective, interner);
         let digest = temporal_digest
-            .unwrap_or_else(|| world_binding_digest(&scope.world, &effective, p.as_of.as_deref()));
+            .unwrap_or_else(|| world_binding_digest(world, &effective, p.as_of.as_deref()));
         Some((digest, entries))
     };
     let rows = answer
@@ -424,7 +449,22 @@ fn handle_fork_new(request: &Request, sessions: &mut Sessions) -> Result<Respons
         Some(handle) => Some(fork_id_for_document(sessions, handle, &p.document)?),
         None => None,
     };
+    let live = if base.is_none() {
+        live_snapshot(sessions, &p.document)?
+    } else {
+        None
+    };
     let scope = resolve(sessions, &p.document)?;
+    // The first fork of a live document starts at the current ref. Once a
+    // session has forks, their shared base stays fixed so old handles keep
+    // their original meaning.
+    if scope.forks.is_empty()
+        && base.is_none()
+        && let Some(snapshot) = live
+    {
+        scope.world = snapshot.world.clone();
+        scope.forks = dli_eval::fork::ForkStore::new(scope.world.model.world.clone());
+    }
     let fork = match base {
         Some(parent) => scope.forks.fork_from(parent).map_err(fork_fault)?,
         None => scope.forks.fork(),
@@ -649,12 +689,17 @@ fn handle_check_proof(request: &Request, sessions: &mut Sessions) -> Result<Resp
     // The document's source declarations carry both the proof block and the
     // practices; they resolve deterministically from the same corpus the scope
     // compiles, so the report is projected against exactly the checked world.
-    let pack = sessions.pack(&p.document).ok_or_else(|| {
-        (
-            ErrorCode::UnknownDoc,
-            format!("no document named '{}' is loaded", p.document),
-        )
-    })?;
+    let live = live_snapshot(sessions, &p.document)?;
+    let pack = live
+        .as_ref()
+        .map(|snapshot| snapshot.pack.clone())
+        .or_else(|| sessions.pack(&p.document))
+        .ok_or_else(|| {
+            (
+                ErrorCode::UnknownDoc,
+                format!("no document named '{}' is loaded", p.document),
+            )
+        })?;
     let proofs = pack
         .documents
         .iter()
@@ -735,7 +780,10 @@ fn handle_check_proof(request: &Request, sessions: &mut Sessions) -> Result<Resp
         })?;
     let speaker = proof.actor().map(ToOwned::to_owned);
     let scope = resolve(sessions, &p.document)?;
-    let scene = project_scene(&scope.world, speaker.as_deref());
+    let world = live
+        .as_ref()
+        .map_or(&scope.world, |snapshot| &snapshot.world);
+    let scene = project_scene(world, speaker.as_deref());
     let report = check_proof(practice, proof, &scene);
     Ok(ok_response(request, &CheckProofResult { report }))
 }
@@ -763,11 +811,18 @@ fn export_lore(
             format!("no document named '{}' is loaded", params.document),
         )
     })?;
+    let live = live_snapshot(sessions, &params.document)?;
+    let source_commit = live
+        .as_ref()
+        .map_or(source_commit, |snapshot| snapshot.commit.clone());
     let scope = resolve(sessions, &params.document)?;
+    let world = live
+        .as_ref()
+        .map_or(&scope.world, |snapshot| &snapshot.world);
     let outcome = dli_export::export_with(
         &registry,
         ExportTarget::from_wire(params.profile),
-        &scope.world,
+        world,
         &ExportOpts {
             source_commit,
             profile_name: params.profile_name.clone(),
@@ -838,8 +893,12 @@ fn handle_name_check(
 fn handle_attest_missing(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: AttestMissingParams = params(request)?;
     let project = require_project(sessions)?;
+    let live = live_snapshot(sessions, &p.document)?;
     let scope = resolve(sessions, &p.document)?;
-    let questions = evidence::missing_attestations(&project, &p.document, &scope.world.model)
+    let world = live
+        .as_ref()
+        .map_or(&scope.world, |snapshot| &snapshot.world);
+    let questions = evidence::missing_attestations(&project, &p.document, &world.model)
         .map_err(|error| evidence_fault(&error))?
         .into_iter()
         .map(|demand| AttestationDemand {
@@ -872,9 +931,13 @@ fn handle_timeline_show(request: &Request, sessions: &mut Sessions) -> Result<Re
         .episodes(&p.document)
         .map(|episodes| fold(&episodes).placements().to_vec())
         .unwrap_or_default();
+    let live = live_snapshot(sessions, &p.document)?;
     let scope = resolve(sessions, &p.document)?;
-    let mut projected_world = scope.world.model.world.clone();
-    projected_world.chronology = scope.world.model.chronology_with_era_membership();
+    let current = live
+        .as_ref()
+        .map_or(&scope.world, |snapshot| &snapshot.world);
+    let mut projected_world = current.model.world.clone();
+    projected_world.chronology = current.model.chronology_with_era_membership();
     let world = &projected_world;
     let points = time_universe(world);
     let (layers, cycle) = match world.chronology.topological_layers(&points) {
@@ -954,9 +1017,13 @@ fn handle_timeline_show(request: &Request, sessions: &mut Sessions) -> Result<Re
 
 fn handle_timeline_order(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: TimelineOrderParams = params(request)?;
+    let live = live_snapshot(sessions, &p.document)?;
     let scope = resolve(sessions, &p.document)?;
-    let mut projected_world = scope.world.model.world.clone();
-    projected_world.chronology = scope.world.model.chronology_with_era_membership();
+    let current = live
+        .as_ref()
+        .map_or(&scope.world, |snapshot| &snapshot.world);
+    let mut projected_world = current.model.world.clone();
+    projected_world.chronology = current.model.chronology_with_era_membership();
     let world = &projected_world;
     if let Some(blame) = world.chronology.find_cycle(&[]) {
         return Ok(ok_response(
@@ -1042,13 +1109,17 @@ fn handle_timeline_episodes(request: &Request, sessions: &mut Sessions) -> Resul
         })
         .collect();
     let integrity = order_integrity(&episodes);
+    let live = live_snapshot(sessions, &p.document)?;
     let scope = resolve(sessions, &p.document)?;
+    let world = live
+        .as_ref()
+        .map_or(&scope.world, |snapshot| &snapshot.world);
     let slack = season_slack(
         &episodes,
         &[],
         &BTreeMap::new(),
-        &scope.world.model.world.valuation,
-        &scope.world.model.world.theory,
+        &world.model.world.valuation,
+        &world.model.world.theory,
     )
     .slots;
     Ok(ok_response(
@@ -1074,12 +1145,12 @@ fn handle_timeline_phases(request: &Request, sessions: &mut Sessions) -> Result<
                 format!("no episode '{}' in the season", p.episode),
             )
         })?;
-    let cycles = resolve(sessions, &p.document)?
-        .world
-        .model
-        .world
-        .cycles
-        .clone();
+    let live = live_snapshot(sessions, &p.document)?;
+    let scope = resolve(sessions, &p.document)?;
+    let world = live
+        .as_ref()
+        .map_or(&scope.world, |snapshot| &snapshot.world);
+    let cycles = world.model.world.cycles.clone();
     let mut anchors = Vec::new();
     let mut findings = Vec::new();
     append_phase_anchors(

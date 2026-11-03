@@ -1538,6 +1538,10 @@ impl From<String> for TemporalQueryError {
 
 /// Answer an independent predicate even when an unrelated temporal projection is unresolved.
 ///
+/// The returned world is valid for `goal` and its rule dependencies only.
+/// Unrelated temporal predicates may retain their unprojected facts, so callers
+/// must not use this result as a general historical snapshot.
+///
 /// # Errors
 /// Returns an error when the relevant projection cannot be computed.
 pub fn query_world_at_for_goal(
@@ -1545,30 +1549,45 @@ pub fn query_world_at_for_goal(
     at: TimePoint,
     goal: &str,
 ) -> Result<dli_eval::world::World, TemporalQueryError> {
-    match query_world_at(world, at) {
-        Err(TemporalQueryError::Indeterminate(_))
-            if world
-                .model
-                .chronology_with_era_membership()
-                .find_cycle(&[])
-                .is_none()
-                && temporal_independent(world, goal) =>
-        {
-            let mut projected = world.model.world.clone();
-            projected.chronology = world.model.chronology_with_era_membership();
-            projected.fixpoint().map_err(|error| {
-                TemporalQueryError::Internal(format!("temporal query projection failed: {error}"))
-            })
-        }
-        other => other,
+    let unresolved = match query_world_at(world, at) {
+        Ok(projected) => return Ok(projected),
+        Err(error @ TemporalQueryError::Internal(_)) => return Err(error),
+        Err(error @ TemporalQueryError::Indeterminate(_)) => error,
+    };
+    // A source that cannot contribute to this predicate must not make its
+    // point-in-time query fail. Keep every dependency (including negated rule
+    // bodies), but project only the temporal sources in that closure. Predicate
+    // identity can change that closure, so retain the conservative full-world
+    // projection whenever such links are present.
+    if world.model.world.predicate_same_as_links.is_empty() {
+        let dependencies = predicate_dependencies(world, goal);
+        let mut relevant = world.clone();
+        relevant
+            .model
+            .fluents
+            .retain(|(pred, _), _| dependencies.contains(pred));
+        relevant
+            .model
+            .fluent_fact_indices
+            .retain(|(pred, _), _| dependencies.contains(pred));
+        relevant
+            .model
+            .standalone_temporal_facts
+            .retain(|(index, _)| {
+                world
+                    .model
+                    .world
+                    .facts
+                    .get(*index)
+                    .is_none_or(|fact| dependencies.contains(&fact.atom.pred))
+            });
+        return query_world_at(&relevant, at);
     }
+    Err(unresolved)
 }
 
-fn temporal_independent(world: &CompiledWorld, goal: &str) -> bool {
+fn predicate_dependencies(world: &CompiledWorld, goal: &str) -> BTreeSet<String> {
     let model = &world.model;
-    if !model.world.predicate_same_as_links.is_empty() {
-        return false;
-    }
     let mut dependencies = BTreeSet::from([goal.to_owned()]);
     loop {
         let before = dependencies.len();
@@ -1585,17 +1604,7 @@ fn temporal_independent(world: &CompiledWorld, goal: &str) -> bool {
             break;
         }
     }
-    !model
-        .fluents
-        .keys()
-        .any(|(pred, _)| dependencies.contains(pred))
-        && !model.standalone_temporal_facts.iter().any(|(index, _)| {
-            model
-                .world
-                .facts
-                .get(*index)
-                .is_none_or(|fact| dependencies.contains(&fact.atom.pred))
-        })
+    dependencies
 }
 
 /// Project fluent facts at `at` and re-evaluate their consequences.
