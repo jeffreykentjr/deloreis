@@ -1135,6 +1135,7 @@ impl EntityReplay<'_> {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn prepare(
         &mut self,
         decl: &mut Decl,
