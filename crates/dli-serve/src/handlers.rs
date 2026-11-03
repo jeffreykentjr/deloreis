@@ -1940,6 +1940,10 @@ fn corpus_commit_fault(error: dli_lorestore::StoreError) -> Fault {
                  fact's provenance would re-render under a name it was never written in"
             ),
         ),
+        dli_lorestore::StoreError::Reconstruct(_) => (
+            ErrorCode::SchemaViolation,
+            format!("corpus cannot be replayed: {error}"),
+        ),
         dli_lorestore::StoreError::NotFound(message) if message.starts_with("decision attack") => (
             ErrorCode::SchemaViolation,
             format!("invalid conditional decision attack: {message}"),

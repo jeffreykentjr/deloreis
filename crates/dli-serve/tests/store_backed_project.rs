@@ -2958,3 +2958,57 @@ fn fork_hypothesis_cannot_reuse_a_committed_option_name() {
     );
     assert_eq!(collision["ok"], false, "{collision}");
 }
+
+#[test]
+fn corpus_append_refuses_unreplayable_chain_standing_before_ref_moves() {
+    let root = temp("chain-corpus-standing");
+    let (document, diagnostics) = dli_syntax::parse_document(
+        "scope storybook\nratify d-1\nera dawn < noon provisional d-1\n",
+    );
+    assert!(
+        diagnostics.iter().all(|d| !d.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let lore = Lorestore::open(root.join("store")).unwrap();
+    let head = lore
+        .import_pack(&Pack {
+            name: "storybook".into(),
+            documents: vec![document],
+        })
+        .unwrap();
+    let mut member = lore
+        .fact_hashes_from(&head)
+        .unwrap()
+        .iter()
+        .filter_map(|hash| lore.read_object::<dli_lorestore::FactObject>(hash).unwrap())
+        .find(|object| object.atom.pred == "era" && object.atom.args == ["noon"])
+        .unwrap();
+    member.provenance.as_mut().unwrap().marker = Some(ProvenanceMarker::Ratified);
+    let names = lore.interner_at(&head).unwrap();
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let project = std::sync::Arc::new(Project::load(&root).unwrap());
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::clone(&project));
+    let mut author = author_store_for(&project);
+    let response = send(
+        &serde_json::json!({"dli":"2.0.0","id":"import","op":"dli.corpus.import","params":{
+            "document":"storybook","mode":"append","objects":[member],"interner":names,"decisions":["d-1"]
+        }}),
+        &mut sessions,
+        &mut author,
+    );
+    assert!(
+        !response["ok"].as_bool().unwrap(),
+        "unreplayable import must fail: {response}"
+    );
+    assert!(
+        response["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("cannot be replayed")
+    );
+    assert_eq!(lore.root_hash().unwrap().unwrap(), head);
+    drop(author);
+    drop(sessions);
+    drop(project);
+    Project::load(&root).expect("the original project must reopen");
+}

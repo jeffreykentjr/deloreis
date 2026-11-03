@@ -3551,34 +3551,6 @@ fn durable_standing_change(
         provenance.standing_decision = Some(decision.to_owned());
         provenance.defeated_by = None;
     }
-    // A metadata-only revision must remain reconstructable before it is
-    // committed. In particular, one member of a carried era chain cannot
-    // currently express a standing different from its declaration in text.
-    if !defeating {
-        let ls = store
-            .workspace_lorestore(workspace)
-            .expect("lorestore presence checked above");
-        let hashes = ls
-            .fact_hashes_from(&head)
-            .map_err(|error| store_fault(&error))?;
-        let objects = hashes
-            .iter()
-            .map(|hash| {
-                if hash == &subject_fact_hash {
-                    Ok(object.clone())
-                } else {
-                    ls.read_object::<dli_lorestore::FactObject>(hash)
-                        .map_err(|error| store_fault(&error))?
-                        .ok_or_else(|| schema_error(format!("store object {hash} is missing")))
-                }
-            })
-            .collect::<Result<Vec<_>, ErrorBody>>()?;
-        let names = dli_core::Interner::from_names(interner.clone());
-        let known = decisions.iter().cloned().collect();
-        dli_lorestore::lower::reconstruct_pack(&objects, &names, &known, &pack_name).map_err(
-            |error| schema_error(format!("standing change cannot be replayed: {error}")),
-        )?;
-    }
     let adds_decision = defeating && !decisions.iter().any(|known| known == decision);
     if adds_decision {
         decisions.push(decision.to_owned());
@@ -3646,7 +3618,12 @@ fn durable_standing_change(
                 decisions,
                 pack_name,
             )
-            .map_err(|error| store_fault(&error))?;
+            .map_err(|error| match &error {
+                dli_lorestore::StoreError::Reconstruct(_) => {
+                    schema_error(format!("standing change cannot be replayed: {error}"))
+                }
+                _ => store_fault(&error),
+            })?;
         receipt.commit
     };
 
