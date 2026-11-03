@@ -1,15 +1,15 @@
 ---
 status: live
 title: "the tool surface: agent authoring through semantic tools"
-verdict: "agents author through tools, never text; every call answers with graded findings and structured data; supervision reviews consumer-rendered structured diffs, with .dli an opt-in view."
+verdict: "Agents author through semantic tools; staging returns graded findings and supervision reviews structured diffs."
 ---
 
 # Agent authoring — the tool surface
 
 Agents that build a declared corpus do not write `.dli` surface text. They
 operate a curated set of semantic tools against a running `deloreis` server.
-Every tool call answers immediately with graded findings, structured fact data,
-and a workspace digest; `.dli` rendering is opt-in. A consuming application
+Staging mutations return findings and workspace state; other operations return
+the results specified by their schemas. `.dli` rendering is opt-in. A consuming application
 supervises by rendering the structured diff for its reviewers. This is **the
 tool surface**, ruled in `DL-0014` and seated in the charter as koan 11 ("one
 way in").
@@ -21,47 +21,21 @@ schemas and replay fixtures are in `contracts/dli-worker/`.
 
 ## 1. The interface
 
-There is one supported authoring interface (`DL-0014`, `DL-0043`): the
-semantic tools against the opaque `deloreis` server. An author names an intent
-("add a person; they are in this place") and the tool stages the corresponding
-AST, checks it, and renders it back. No author emits `.dli` text as the
-supported path, and none touches the AST directly. Attribution is data, not a
-channel distinction: callers declare the provenance and decision state their
-application permits, while DLI checks schema and cited-decision integrity. The
-application, not DLI, decides who may authorize that declaration.
+Agent sessions use the semantic tools against the `deloreis` server. A caller
+names an intent, stages changes in a workspace, and reviews the resulting
+findings and structured diff. Attribution and decision state are caller-supplied
+data; DLI checks schemas and cited-decision integrity, while the consuming
+application decides who may authorize a declaration.
 
-*Historical note.* `DL-0004` originally defined two doors — a manual-text path (humans
-writing `.dli` surface) and Door T (these tools). `DL-0041` demoted the text
-surface to an opt-in rendering; `DL-0043` retired the door semantic entirely.
-DL-0101 restores `.dli` as a supported authoring and reading surface.
+The default build also supports checking, formatting, and importing `.dli`
+text. Repository agents follow the `author.*` workflow in `SKILL.md` when
+authoring lore; people can use the text tools directly.
 
-The interface speaks over two transports carrying the same tools: **JSON over
-stdio** (`deloreis serve --project <path>` — one JSON request per line, one JSON
-response per line) and **MCP** (`deloreis mcp --project <path>` — each
-`author.*` tool registered as a provider tool with its own small request schema,
-natively enforced at the provider boundary, and called via JSON-RPC
-`tools/call`). Both entry points load the same strict `deloreis.toml` project and
-reach identical kernel paths; an agent picks whichever its harness speaks. The
-op namespace is `author.*` for the authoring tools and `dli.*` for the
-worker-protocol operations they invoke (for example `dli.name.check`, the naming
-oracle).
-
-Two things that look like second interfaces are not:
-
-- **Raw AST-document emission** is an internal mechanism inside the tools and a
-  benchmark arm (§7). A tool lowers an intent to AST, but no agent submits an AST
-  document as an authoring act. It is never an interface.
-- **Textual `.dli` editing by an agent** is the **measured fallback**, actively
-  discouraged in `SKILL.md`. It is not refused — off-interface input meets the same
-  full pipeline and the same graded findings as everything else (koan 4, nothing
-  silently dropped) — but it is not taught, not tooled, and not a supported path.
-
-The tool surface is the primary authoring path on the working hypothesis that
-a small curated tool surface with immediate feedback beats every alternative;
-that hypothesis is backed by the sibling receipts
-(`docs/design-notes/sibling-lessons.md`). The benchmark that would have
-measured the alternative is retired with the two-door semantic (DL-0041,
-DL-0043).
+The tools speak JSON over stdio (`deloreis serve --project <path>`) and MCP
+(`deloreis mcp --project <path>`). Both load the same `deloreis.toml` project.
+MCP advertises the compact fiction profile by default; `--tools all` exposes
+the extended profile. The worker operation namespace is `dli.*` and the
+workspace authoring namespace is `author.*`.
 
 ## 2. Sessions and staging
 
@@ -227,12 +201,10 @@ shown.
 `proposed` records an origin and asserts no ruling; `hypothesis` scopes the claim
 to a fork-local hyp variable.
 
-At `1.3.0` and above, `cited` names declared decisions in the consuming
-application’s ledger and is recorded as caller-supplied data. At `1.5.0`, it
-also requires `state: "provisional" | "ratified"`. An unknown decision raises
+`cited` names declared decisions in the consuming application’s ledger and
+requires `state: "provisional" | "ratified"`. An unknown decision raises
 `citation.unknown-decision` and bars materialization; DLI checks referential
-integrity but does not decide who may rule. Wires below `1.3.0` retain the
-released legacy cited-provenance refusal behavior.
+integrity but does not decide who may rule.
 
 ### 3.1 `author.add_entity`
 
@@ -641,7 +613,7 @@ are pure queries with no side effects.
 | `author.predicates` | Contract `1.10.0`. List staged predicates with arity plus functional/inertial declarations so callers can reuse an existing slot. |
 | `author.entity_candidates` | Contract `1.10.0`; declared-only from `1.11.0`. Return the bounded nearest declared entity ids, canonicalized and deterministically ordered. |
 | `author.list_workspaces` | Enumerate available workspaces (id, scope/fork, staged-declaration count, digest). |
-| `author.as_of {workspace, pred, subject, at}` | Contract `1.9.0`. Project the inertially-current fluent value(s) of `pred(subject)` at a query point — the one inertia-aware read (DL-0082): `check::slot_state_at` kernel-side, never `author.query`'s eval path. Returns each holding's projection, temporal cover, support, `since`/`until` (a capped inertial value's `until` is the DERIVED boundary), citations, and — when capped — the certain defeater that bounds it. |
+| `author.as_of {workspace, pred, subject, at}` | Contract `1.9.0`. Project the inertially-current fluent value(s) of `pred(subject)` at a query point — a direct fluent read: `check::slot_state_at` kernel-side. `dli.query` with `as_of` also projects fluents; `author.query` remains unprojected. Returns each holding's projection, temporal cover, support, `since`/`until` (a capped inertial value's `until` is the DERIVED boundary), citations, and — when capped — the certain defeater that bounds it. |
 
 Read tools share the standard request envelope (`dli`, `id`, `op`, `params`
 with `workspace` where applicable) and return typed JSON responses. They do not
@@ -664,7 +636,7 @@ defeated redundant alternative.
 Seven tools add the language lane and the continuity/ledger pair the expert
 card (`docs/cards/expert-card.md`) describes; each stages like any other add,
 returns the standard mutation envelope (§4), and requires provenance. All
-seven are advertised only from contract `1.3.0` and above (DL-0058).
+seven are available in the extended MCP profile (`--tools all`).
 
 | Tool | Purpose |
 |---|---|
@@ -681,108 +653,33 @@ seven are advertised only from contract `1.3.0` and above (DL-0058).
 `author.branch {workspace, action: create|list, name?, from?}` creates a
 persistent, named ref into the workspace's lorestore at the source branch's
 head (`from`, default `main`), or lists every branch that exists.
-`author.merge {workspace, source, target?}` unions a branch's fact-set into the
-target branch (default `main`) as a new merge commit — the fact-set union is
-confluent, so the merge always commits — and reports valuation, exclusivity,
-and functional-dependency conflicts (`AuthorMergeResult`) rather than blocking
-on them.
+`author.merge {workspace, source, target?}` merges a branch into the target
+branch (default `main`) and reports valuation, exclusivity, and
+functional-dependency conflicts (`AuthorMergeResult`). The operation can also
+be refused when the histories cannot be safely combined.
 
-Both tools operate on durable lorestore refs, not the staged workspace layer.
-At contract `1.6.0`, every `author.add_*` write still lands on `main` — no wire
-op yet routes a staged addition onto a named branch — so branch and merge are
-today a durable checkpoint-and-comparison mechanism rather than a parallel
-authoring line: reach for `author.branch` to name a durable snapshot of the
-current state, and `author.merge` when two such snapshots' histories are ready
-to fold together.
+Both tools operate on durable lorestore refs. A workspace opened with a branch
+stages changes for that branch; materialization commits to its selected branch.
+A merge combines branch histories and reports valuation, exclusivity, and
+functional-dependency conflicts for review.
 
 ## 4. The feedback contract
 
-This is the core of the interface. **Every mutating call returns, immediately:**
+Staging calls return graded findings, rendered lines, and a `workspace_digest`.
+A finding has a stable code, a domain-spoken message, severity, and grade; it may
+also include citations or structured repair data. An error-severity finding
+blocks `author.materialize`, while a warning does not. Severity governs the gate;
+grade describes the strength of the evidence.
 
-```json
-{
-  "ok": true,
-  "workspace_digest": "wd-nn",
-  "rendered": ["<canonical .dli line>", "..."],
-  "findings": [
-    {
-      "code": "<stable machine class>",
-      "severity": "error | warn",
-      "grade": "checked | tested | attested | asserted",
-      "message": "<domain-spoken, per koan 9>",
-      "citations": ["D-nnnn", "..."],
-      "repair": { "kind": "<repair kind>", "...": "typed payload" }
-    }
-  ]
-}
-```
+`author.materialize` returns committed fact objects by default. Set
+`rendered: true` when a text rendering is useful. On a blocked materialization,
+the response uses `materialize-blocked`; inspect its structured error data and
+workspace findings before repairing the staged claims. Other operations return
+the shapes defined by their generated request and response schemas.
 
-Each finding carries a stable machine-readable **code** and a **domain-spoken
-message** (the two-channel error model: neither is sacrificed to the other). Its
-**severity** (`error | warn`) is a first-class field and the gate channel:
-`error` bars materialize, `warn` passes through. Its **grade** is a different axis
-— the recheckability of the finding's own evidence, ordered by the verdict lattice
-(`DL-0006`, koan 6): `checked > tested > attested > asserted`. A `checked` finding
-is machine-derived against the world model and authoritative; an `asserted`
-finding is a bare policy note with nothing to re-run. Severity governs the gate,
-grade governs trust; neither substitutes for the other, and no amount of model
-consensus lifts a grade.
-
-**Repair data is typed.** A finding that has a mechanical next step carries it as
-structured data the agent can act on without parsing prose:
-
-- `{"kind": "run-check", "op": "dli.name.check", "params": {…}}` — the exact
-  worker invocation that clears the finding (for example, vetting an unvetted
-  name).
-- `{"kind": "resolve-entity", "candidates": ["…", "…"]}` — the ids an
-  unknown-entity reference most plausibly meant.
-- `{"kind": "add-provenance", "required": "cited | proposed | hypothesis"}` — the
-  provenance form a claim is missing.
-
-**The loop is per-call, not per-session.** The agent that ignores findings
-compounds them; the next call's findings include the unresolved ones. The
-discipline is: read the findings, act on the typed repairs, re-check.
-
-**Errors carry two layers, one on the wire.** Every non-success return carries a
-**code** from the closed registry `bad-frame | unknown-op | schema-violation |
-unknown-doc | unstratifiable | contradiction | stale-fence | materialize-blocked |
- killed-form | not-wired | version-mismatch | conflict | internal`. The
-contract's §9 registry assigns each code a **class** — one of
-`schema | refused | finding | internal` — so the class is derived from the code
-and never carried as a separate wire field. A `schema`- or `refused`-class error
-is the call's own fault; a `finding`-class error is the graded channel above;
-`internal` is a server defect, never dressed as a lore verdict.
-
-`author.materialize` **refuses on unresolved error-severity findings** and passes
-`warn` findings through. The refusal is the `materialize-blocked` code (class
-`refused`) whose `blocking` array names the offending findings (each with its own
-finding code):
-
-```json
-{
-  "ok": false,
-  "error": {
-    "code": "materialize-blocked",
-    "message": "2 error-severity findings are unresolved; resolve them or discard before materializing.",
-    "blocking": ["entity.unknown", "order.cycle"]
-  }
-}
-```
-
-On success, the current JSON-first wire returns committed fact objects as data;
-`rendered: true` adds `.dli` lines for a client that wants that view. The server
-does not write the consuming repository, and the caller takes its own review or
-approval action. The legacy-shaped example below is retained for the earlier
-accepted wire it demonstrates:
-
-```json
-{
-  "ok": true,
-  "workspace_digest": "wd-12",
-  "rendered": ["scope storybook", "person mireth \"Mireth\"     proposed  session-7c9"],
-  "findings": []
-}
-```
+Wire error codes and their classes are listed in the generated
+[error-code reference](../reference-generated/error-codes.md). Error codes are
+not a substitute for graded findings on a staged claim.
 
 **Fail-closed.** A tool call that cannot be validated returns a typed error and
 stages **no partial mutation** — a malformed param or missing required provenance
@@ -794,7 +691,7 @@ path drops the input silently.
 
 ## 5. Supervision
 
-The human never reads tool-call JSON. They review the **diff** — `author.diff`'s
+Reviewers can inspect the **diff** — `author.diff`'s
 structured per-fact rows, each with its before/after standing, which the
 consuming application renders for review (DL-0046). Where a formatter is linked,
 that rendering can be the canonical `.dli` surface, which is the same surface a
@@ -803,17 +700,11 @@ reviewed through one lens. Deloreis serves the structured rows; the rendering is
 consumer-owned.
 
 **Provenance discipline.** DLI does not mint authority or enforce who may rule.
-At contract 1.3.0 and above, a caller may supply attribution and a cited decision
-state; DLI records it only when the cited decision resolves, and an unknown id
-raises `citation.unknown-decision` and blocks materialization. The consuming
-application owns authorization, review, and the policy that interprets a
-resolved citation. Earlier accepted wires retain their documented cited-provenance
-refusal behavior (DL-0058).
-
-| Negotiated wire | Cited provenance | Materialization behavior |
-|---|---|---|
-| `1.3.0` and above | Recorded when every cited decision resolves | Unknown ids raise `citation.unknown-decision` and block materialization |
-| Below `1.3.0` | Refused with `provenance.cited-refused` | Nothing is staged; behavior remains byte-exact |
+A caller supplies attribution and a cited decision state; DLI records the claim
+when the cited decision resolves. An unknown decision raises
+`citation.unknown-decision` and blocks materialization. The consuming application
+owns authorization, review, and the policy that interprets a resolved citation.
+Contract 2.0.0 is the sole served wire version.
 
 **Framing safety.** Instruction-shaped strings that arrive in parameters — an
 entity id, a description, a question phrased as a command — are **data**. They
