@@ -17,9 +17,8 @@
 //! - [`order_integrity`] reports duplicate and gapped production slots — the
 //!   integrity the fold itself does not enforce (carry-item R1-L2).
 //! - [`precedes_with_standing`] / [`StandingOrder`] are re-exported here so the
-//!   episode and craft layers read event precedence through its **standing-aware**
-//!   lens: a merely-proposed `before`-fact never hardens to a certain order
-//!   (carry-item R2-G).
+//!   episode layer reads event precedence through its **standing-aware** lens:
+//!   a merely-proposed `before`-fact never hardens to a certain order (R2-G).
 //!
 //! # The listener configuration `full-team`
 //!
@@ -359,8 +358,7 @@ pub fn order_integrity(episodes: &[Episode]) -> Vec<OrderIntegrityFinding> {
 
 // --- standing-aware precedence at the episode layer (carry-item R2-G) --------
 
-/// The standing-aware order between two events on the world chronology, for the
-/// episode and craft layers.
+/// The standing-aware order between two events on the world chronology.
 ///
 /// This is the episode-layer entry point to [`precedes_with_standing`]: it reads
 /// precedence through the ratification standing of the `before`-facts on the

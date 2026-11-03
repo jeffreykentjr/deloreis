@@ -50,9 +50,10 @@ Discipline (`decisions.md` DL-0011):
 - **Schema-first** (DL-0003 as amended by DL-0041). The schemars-derived JSON
   Schema is the language definition — it cannot drift from the Rust types. Under
   the lorestore pivot the schema describes the stored fact objects themselves;
-  canonical form is their JCS byte serialization. The formatter is one renderer
-  among several, and `.dli` text is an opt-in rendering, not the canonical
-  surface. The staged cutover is `docs/design-notes/lorestore-roadmap.md`.
+  canonical form is their JCS byte serialization. The default build supports
+  `.dli` text for human authoring and reading; agents use the semantic tools
+  below. The earlier cutover is recorded in
+  `docs/design-notes/lorestore-roadmap.md`.
 - **Replayable judgments.** Every verdict re-derives from committed inputs. A
   judgment you cannot replay is not a verdict.
 - **The gate is offline and deterministic** — no network, ever, in a gating

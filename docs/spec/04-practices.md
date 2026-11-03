@@ -16,12 +16,9 @@ that declaration the kernel derives a checker for castings, proofs, readings,
 and workings in that practice — with citations, expected verdicts, and honesty
 grades, exactly as for any other lore.
 
-Three of the seven programs named in [00-overview](00-overview.md) — the
-magic-system workbench, the ledger checker, and the practice simulator — are
-one machine pointed at different declared systems. The workbench authors a
-practice; the ledger checker runs a single casting against it; the simulator
-runs batteries. None of the three knows anything about a particular practice
-that the practice's own declaration does not tell it.
+The same practice and proof machinery can check different declared systems.
+A practice describes its rules as data, and `check-proof` checks a proof
+against that declaration. DLI does not ship a practice simulator.
 
 ## 1. The claim, precisely
 
