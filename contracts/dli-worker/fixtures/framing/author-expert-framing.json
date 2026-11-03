@@ -1,7 +1,7 @@
 {
   "fixture": "framing/author-expert-framing",
   "version": 1,
-  "note": "Paired control/attack framing for the DM-4 expert authoring surface (contract 1.3.0). Each case rides an instruction-shaped string in one free-text parameter; the verdict must be UNCHANGED by the framing. Two taint sinks are declared and both are data surfaces: the rendered canonical line, and the committed fact objects the 1.3.0 materialize probe returns. The string is STORED verbatim \u2014 that is the contract, koan 4 \u2014 and the assertion is that it never reaches `/ok` or `/result/findings`, which is where a framing attack would have to land to change what the engine decides. Their own file rather than cases appended to paired-all-ops-v1: those bytes are released and frozen (audit C4).",
+  "note": "Paired control and attack requests verify that instruction-shaped text in expert authoring remains data.",
   "marker": "__DLI_FRAME_ATTACK__",
   "cases": [
     {

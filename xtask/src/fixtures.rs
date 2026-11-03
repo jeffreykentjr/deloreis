@@ -640,6 +640,9 @@ fn reset_wire_fixture_correction(old: &[u8], new: &[u8]) -> bool {
         && new == "e8cc73d29d3ad9cacdf27d71957387e3ead3dc805eb99ddb356c5c1bf527ffdc")
         || (old == "e8cc73d29d3ad9cacdf27d71957387e3ead3dc805eb99ddb356c5c1bf527ffdc"
             && new == "017811af869f61efdd224f5f8d8a12a548d6fdf7e1712c75c1ed2fd01138adb4")
+        // Neutral names and accurate descriptions for the existing 2.0 cases.
+        || (old == "017811af869f61efdd224f5f8d8a12a548d6fdf7e1712c75c1ed2fd01138adb4"
+            && new == "fb8f7ea9f47de40dbd3f849d47fc53edf23a487d7ea2c87956419985bcb273a3")
 }
 
 #[cfg(test)]

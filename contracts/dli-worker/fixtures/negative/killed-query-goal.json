@@ -1,0 +1,18 @@
+{
+  "fixture": "negative/killed-query-goal",
+  "version": 1,
+  "note": "A string goal is a retired form; dli.query refuses it and names the typed goal_atom successor.",
+  "project": true,
+  "send": {
+    "dli": "2.0.0",
+    "id": "1",
+    "op": "dli.query",
+    "params": {
+      "document": "storybook",
+      "goal": "marker(baseline)"
+    }
+  },
+  "expect_error": {
+    "code": "killed-form"
+  }
+}

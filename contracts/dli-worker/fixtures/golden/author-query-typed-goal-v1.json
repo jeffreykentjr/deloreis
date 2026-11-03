@@ -1,6 +1,6 @@
 {
   "fixture": "golden/author-query-typed-goal-v1",
-  "note": "author.query's 0.6.3 typed successor goal_atom (LS-7) over the staged world. Steps 1/2 send the same goal as text and as a typed AtomExpr and receive identical rows; step 3 proves precedence — the goal string is unparseable and is never parsed because goal_atom is present.",
+  "note": "Query a staged world using structured goal_atom inputs.",
   "precondition": [
     {
       "dli": "2.0.0",

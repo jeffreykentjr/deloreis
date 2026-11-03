@@ -1,6 +1,6 @@
 {
   "fixture": "golden/author-record-decisions-v1",
-  "note": "Contract 1.13 author.record_decisions records multiple baseline supporting decisions atomically in request order, with one branch commit and deterministic counts.",
+  "note": "Record multiple baseline supporting decisions atomically in request order.",
   "precondition": [
     {
       "dli": "2.0.0",

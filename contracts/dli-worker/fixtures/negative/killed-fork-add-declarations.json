@@ -1,0 +1,20 @@
+{
+  "fixture": "negative/killed-fork-add-declarations",
+  "version": 1,
+  "note": "dli.fork.add refuses rendered declarations and names the typed additions successor before resolving the fork.",
+  "project": true,
+  "send": {
+    "dli": "2.0.0",
+    "id": "1",
+    "op": "dli.fork.add",
+    "params": {
+      "declarations": [
+        "note(\"x\") proposed"
+      ],
+      "fork": "fork-1"
+    }
+  },
+  "expect_error": {
+    "code": "killed-form"
+  }
+}
