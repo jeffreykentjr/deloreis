@@ -90,6 +90,7 @@ fn provenance() -> impl Strategy<Value = Option<Annotation>> {
             marker: ProvenanceMarker::Proposed,
             citations: vec![],
             condition: None,
+            bundle: None,
             tags: vec![],
             span: Span::synthetic(),
         })),
@@ -98,6 +99,7 @@ fn provenance() -> impl Strategy<Value = Option<Annotation>> {
                 marker,
                 citations,
                 condition: None,
+                bundle: None,
                 tags: vec![],
                 span: Span::synthetic(),
             })

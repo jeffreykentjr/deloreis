@@ -45,6 +45,7 @@ fn annotation(marker: ProvenanceMarker, decision: Option<&str>) -> Annotation {
             .map(|decision| CitationRef { id: id(decision) })
             .collect(),
         condition: None,
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     }

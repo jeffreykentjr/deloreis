@@ -13,16 +13,20 @@ fn doc(source: &str) -> dli_ast::decl::Document {
 }
 
 #[test]
-fn refuses_renumbering_a_gap_in_anonymous_proposals() {
+fn preserves_a_gap_in_anonymous_proposals() {
     let document = doc("scope story\nperson wren \"Wren\" proposed\n");
     let mut interner = Interner::from_names(vec!["h.story#0".into()]);
     let objects = lower_decl(&document.decls[0], "story", &mut interner, &mut 1);
-    let error = reconstruct_pack(&objects, &interner, &BTreeSet::new(), "story").unwrap_err();
-    assert!(error.to_string().contains("proposal"), "{error}");
+    let pack = reconstruct_pack(&objects, &interner, &BTreeSet::new(), "story").unwrap();
+    let rendered = dli_syntax::format_document(&pack.documents[0]);
+    assert!(
+        rendered.contains("proposed-bundle \"story#1\""),
+        "{rendered}"
+    );
 }
 
 #[test]
-fn refuses_unrenderable_scopes_in_anonymous_proposals() {
+fn preserves_anonymous_proposals_from_multiple_scopes() {
     let pack = Pack {
         name: "b".into(),
         documents: vec![
@@ -31,14 +35,16 @@ fn refuses_unrenderable_scopes_in_anonymous_proposals() {
         ],
     };
     let (objects, names) = lower_pack(&pack);
-    let error = reconstruct_pack(
+    let restored = reconstruct_pack(
         &objects,
         &Interner::from_names(names),
         &BTreeSet::new(),
         "b",
     )
-    .unwrap_err();
-    assert!(error.to_string().contains("proposal"), "{error}");
+    .unwrap();
+    let rendered = dli_syntax::format_document(&restored.documents[0]);
+    assert!(rendered.contains("proposed-bundle \"a#0\""), "{rendered}");
+    assert!(rendered.contains("proposed-bundle \"b#1\""), "{rendered}");
 }
 
 #[test]
@@ -66,7 +72,7 @@ fn refuses_a_missing_proposal_fact_regenerated_from_carriage() {
     let mut objects = lower_decl(&document.decls[0], "story", &mut interner, &mut 1);
     objects.retain(|object| object.expert_body.is_some());
     let error = reconstruct_pack(&objects, &interner, &BTreeSet::new(), "story").unwrap_err();
-    assert!(error.to_string().contains("proposal"), "{error}");
+    assert!(error.to_string().contains("absent"), "{error}");
 }
 
 #[test]
@@ -95,5 +101,5 @@ fn stored_carriage_without_its_proposal_fact_refuses_on_reopen() {
     drop(store);
     let reopened = dli_lorestore::Lorestore::open(root.path().to_path_buf()).unwrap();
     let error = reopened.reconstruct_at_uncached(&head).unwrap_err();
-    assert!(error.to_string().contains("proposal"), "{error}");
+    assert!(error.to_string().contains("absent"), "{error}");
 }

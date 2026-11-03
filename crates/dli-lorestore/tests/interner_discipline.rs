@@ -27,6 +27,7 @@ fn tiny_pack(name: &str, subject: &str, object: &str) -> Pack {
         marker: ProvenanceMarker::Proposed,
         citations: Vec::new(),
         condition: None,
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     };

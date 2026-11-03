@@ -49,6 +49,7 @@ fn provenance(marker: ProvenanceMarker, citations: &[&str]) -> Annotation {
             })
             .collect(),
         condition: None,
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     }

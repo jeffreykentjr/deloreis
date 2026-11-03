@@ -571,6 +571,7 @@ fn sanitize_annot(annot: &Annotation) -> Annotation {
             })
             .collect(),
         condition: annot.condition.as_ref().map(sanitize_cond),
+        bundle: annot.bundle.as_deref().map(escape_controls),
         tags: annot.tags.iter().map(|t| escape_controls(t)).collect(),
         span: annot.span,
     }

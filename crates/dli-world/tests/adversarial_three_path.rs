@@ -23,6 +23,7 @@ fn ratified(cite: &str) -> Annotation {
         marker: ProvenanceMarker::Ratified,
         citations: vec![CitationRef { id: id(cite) }],
         condition: None,
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     }

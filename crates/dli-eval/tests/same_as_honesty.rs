@@ -39,6 +39,7 @@ fn marker(m: ProvenanceMarker, cites: &[&str]) -> Annotation {
         marker: m,
         citations: cites.iter().map(|c| CitationRef { id: id(c) }).collect(),
         condition: None,
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     }
@@ -57,6 +58,7 @@ fn proposed_assumes(hyp: &str) -> Annotation {
         marker: ProvenanceMarker::Proposed,
         citations: Vec::new(),
         condition: Some(CondExpr::Hyp(id(hyp))),
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     }

@@ -44,6 +44,7 @@ fn proposed() -> Annotation {
         marker: ProvenanceMarker::Proposed,
         citations: Vec::new(),
         condition: None,
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     }
@@ -1075,6 +1076,7 @@ fn the_corpus_pivot_round_trips_to_the_same_commit() {
             marker: ProvenanceMarker::Decided,
             citations: vec![dli_ast::annot::CitationRef { id: id("d-1") }],
             condition: None,
+            bundle: None,
             tags: Vec::new(),
             span: Span::synthetic(),
         }),
@@ -1182,6 +1184,7 @@ fn an_append_that_drops_the_decision_set_is_refused() {
             marker: ProvenanceMarker::Decided,
             citations: vec![dli_ast::annot::CitationRef { id: id("d-1") }],
             condition: None,
+            bundle: None,
             tags: Vec::new(),
             span: Span::synthetic(),
         }),
@@ -2112,9 +2115,8 @@ fn init_seeds_a_genesis_only_store_and_still_refuses_a_seeded_one() {
     );
 }
 
-/// **The store's round-trip invariant: a corpus renders back as the document
-/// that was authored** — no clause invented, no clause dropped, no scope header
-/// the author did not write.
+/// The store's round-trip invariant: a corpus renders with the authored
+/// clauses and scope. Anonymous proposal identities are explicit on export.
 ///
 /// The comparison is against the *canonical formatting* of the authored text
 /// rather than its literal bytes, because the store round-trips through the one
@@ -2144,9 +2146,10 @@ fn init_seeds_a_genesis_only_store_and_still_refuses_a_seeded_one() {
 /// reconstruction that was wrong.
 #[cfg(feature = "syntax")]
 #[test]
-fn an_imported_dli_corpus_renders_back_as_the_document_that_was_authored() {
-    // (case, document id, authored text). The expectation is the authored text
-    // put through the canonical formatter — see the note above.
+#[allow(clippy::too_many_lines)]
+fn an_imported_dli_corpus_renders_preserved_proposal_identities() {
+    // (case, document id, authored text). Anonymous proposals render with
+    // explicit identities; other provenance retains its canonical form.
     let cases: &[(&str, &str, &str)] = &[
         // Bare declarations: `carriage_kind` is `None`, so these reconstruct
         // from the support polynomial — the path that fabricated the tag.
@@ -2160,8 +2163,7 @@ fn an_imported_dli_corpus_renders_back_as_the_document_that_was_authored() {
             "storybook",
             "home(joren, riverside) proposed\n",
         ),
-        // A carried declaration, kept as the control: it replays from carriage
-        // and so must be unaffected either way.
+        // Carried declarations also preserve the original bundle identity.
         (
             "carried entity",
             "storybook",
@@ -2243,9 +2245,29 @@ fn an_imported_dli_corpus_renders_back_as_the_document_that_was_authored() {
             "{case}: the authored text parses: {diagnostics:?}"
         );
         let canonical = dli_syntax::format_document(&parsed);
+        // Anonymous bundles need an explicit identity on export: otherwise
+        // flattening documents or deleting an earlier claim can renumber them.
+        let expected = match *case {
+            "bare fact"
+            | "bare attr"
+            | "carried entity"
+            | "scoped, id == scope"
+            | "scoped, id != scope" => {
+                let scope = if case.starts_with("scoped") {
+                    "storybook"
+                } else {
+                    ""
+                };
+                canonical.replace("proposed", &format!("proposed-bundle \"{scope}#0\""))
+            }
+            "two bare proposals" => canonical
+                .replacen("proposed", "proposed-bundle \"#0\"", 1)
+                .replacen("proposed\n", "proposed-bundle \"#1\"\n", 1),
+            _ => canonical,
+        };
         assert_eq!(
-            rendered, canonical,
-            "{case}: the corpus did not render back as it was authored"
+            rendered, expected,
+            "{case}: the corpus did not render with the expected proposal identity"
         );
     }
 }

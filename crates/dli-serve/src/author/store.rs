@@ -1107,21 +1107,48 @@ impl Store {
         &mut self,
         ws_id: &str,
         decl: &Decl,
-    ) -> Result<(), dli_lorestore::StoreError> {
+    ) -> Result<Decl, dli_lorestore::StoreError> {
         let Some(base_key) = self.workspace_bases.get(ws_id).cloned() else {
-            return Ok(());
+            return Ok(decl.clone());
+        };
+        let language_counter = if matches!(
+            decl,
+            Decl::Dialect(_) | Decl::NamePart(_) | Decl::Name(_) | Decl::Word(_) | Decl::Term(_)
+        ) {
+            let mut counter = dli_lorestore::lower::language_bundle_counter(
+                self.workspace_base_docs(ws_id).unwrap_or_default(),
+            );
+            if let Some(ws) = self.workspaces.get(ws_id) {
+                for pending in ws.pending_decl_refs() {
+                    let _ = dli_lorestore::lower::with_explicit_language_bundles(
+                        pending,
+                        &ws.base_name,
+                        &mut counter,
+                    );
+                }
+            }
+            Some(counter)
+        } else {
+            None
         };
         let Some(ws) = self.workspaces.get_mut(ws_id) else {
-            return Ok(());
+            return Ok(decl.clone());
         };
         let Some(ls) = self.lorestores.get(&base_key) else {
-            return Ok(());
+            return Ok(decl.clone());
         };
         let pack_name = ws.base_name.clone();
+        let carried = language_counter.map_or(std::borrow::Cow::Borrowed(decl), |mut counter| {
+            std::borrow::Cow::Owned(dli_lorestore::lower::with_explicit_language_bundles(
+                decl,
+                &pack_name,
+                &mut counter,
+            ))
+        });
         let interner_checkpoint = ws.interner.len();
         let bundle_checkpoint = ws.bundle_counter;
         let objects = dli_lorestore::lower::lower_decl(
-            decl,
+            &carried,
             &pack_name,
             &mut ws.interner,
             &mut ws.bundle_counter,
@@ -1144,9 +1171,9 @@ impl Store {
                 }
             }
         }
-        let key = super::tools::decl_key(decl);
+        let key = super::tools::decl_key(&carried);
         ws.staged_fact_hashes.push((key, hashes));
-        Ok(())
+        Ok(carried.into_owned())
     }
 
     /// Cache a mutating call's result under its idempotency key together with the
@@ -1411,6 +1438,7 @@ mod tests {
                 marker: ProvenanceMarker::Proposed,
                 citations: Vec::new(),
                 condition: None,
+                bundle: None,
                 tags: if origin.is_empty() {
                     Vec::new()
                 } else {
@@ -1691,6 +1719,96 @@ mod tests {
         assert_eq!(after.staged_fact_hashes, hashes);
         assert_eq!(after.digest, digest);
         assert!(after.decls.is_empty());
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn staged_language_declaration_records_its_separate_proposal_bundle() {
+        let root = tempfile::tempdir().expect("temporary lorestore");
+        let mut store = Store::default();
+        let ws_id = workspace(&mut store);
+        let base_key = store.workspace_bases[&ws_id].clone();
+        store.lorestores.insert(
+            base_key,
+            Lorestore::open(root.path().join("store")).unwrap(),
+        );
+        let (mut document, findings) = dli_syntax::parse_document(
+            "scope storybook\ndialect harbor proposed d-1 {\n name-part tide \"water\" role place proposed\n}\n",
+        );
+        assert!(findings.is_empty(), "{findings:?}");
+        let Decl::Dialect(dialect) = &mut document.decls[0] else {
+            unreachable!()
+        };
+        // The typed authoring operation synthesizes a clause from the item;
+        // older renderers did not include the item's provenance in that text.
+        dialect.body.clauses[0].clause.text = "name-part tide role place \"water\"".to_owned();
+        store.stage_lorestore(&ws_id, &document.decls[0]).unwrap();
+        let ws = store.get(&ws_id).unwrap();
+        let lorestore = store.workspace_lorestore(&ws_id).unwrap();
+        let objects: Vec<dli_lorestore::FactObject> = ws.staged_fact_hashes[0]
+            .1
+            .iter()
+            .map(|hash| lorestore.read_object(hash).unwrap().unwrap())
+            .collect();
+        let pack = dli_lorestore::lower::reconstruct_pack(
+            &objects,
+            &ws.interner,
+            &std::collections::BTreeSet::new(),
+            "storybook",
+        )
+        .unwrap();
+        let text = dli_syntax::format_document(&pack.documents[0]);
+        let (reparsed, findings) = dli_syntax::parse_document(&text);
+        assert!(findings.is_empty(), "{text}: {findings:?}");
+        let Decl::Dialect(dialect) = &reparsed.decls[0] else {
+            unreachable!()
+        };
+        let dli_ast::language::DialectItem::NamePart(part) = &dialect.body.clauses[0].item else {
+            unreachable!()
+        };
+        assert_eq!(
+            part.provenance
+                .as_ref()
+                .and_then(|annotation| annotation.bundle.as_deref()),
+            Some("storybook#1")
+        );
+        assert!(
+            text.contains("proposed-bundle \"storybook#0\" d-1"),
+            "{text}"
+        );
+        assert!(text.contains("proposed-bundle \"storybook#1\""), "{text}");
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn discarding_a_language_proposal_keeps_remaining_bundle_identities_distinct() {
+        let root = tempfile::tempdir().unwrap();
+        let mut store = Store::default();
+        let ws_id = workspace(&mut store);
+        let base_key = store.workspace_bases[&ws_id].clone();
+        store.lorestores.insert(
+            base_key,
+            Lorestore::open(root.path().join("store")).unwrap(),
+        );
+        for source in ["term one \"one\" proposed\n", "term two \"two\" proposed\n"] {
+            let (document, findings) = dli_syntax::parse_document(source);
+            assert!(findings.is_empty(), "{findings:?}");
+            let declaration = store.stage_lorestore(&ws_id, &document.decls[0]).unwrap();
+            store.parts_mut(&ws_id).unwrap().1.push_decl(declaration);
+        }
+        let ws = store.parts_mut(&ws_id).unwrap().1;
+        ws.remove_decl(0);
+        ws.staged_fact_hashes.remove(0);
+        let (document, _) = dli_syntax::parse_document("term three \"three\" proposed\n");
+        let declaration = store.stage_lorestore(&ws_id, &document.decls[0]).unwrap();
+        store.parts_mut(&ws_id).unwrap().1.push_decl(declaration);
+        let ws = store.get(&ws_id).unwrap();
+        let text = dli_syntax::format_document(&dli_ast::decl::Document {
+            scope: None,
+            decls: ws.decls.clone(),
+        });
+        assert!(text.contains("proposed-bundle \"storybook#1\""), "{text}");
+        assert!(text.contains("proposed-bundle \"storybook#2\""), "{text}");
     }
 
     /// Mutating the live interner produces the exact names, counter, and object

@@ -42,6 +42,7 @@ fn marker(m: ProvenanceMarker, cites: &[&str]) -> Annotation {
         marker: m,
         citations: cites.iter().map(|c| CitationRef { id: id(c) }).collect(),
         condition: None,
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     }

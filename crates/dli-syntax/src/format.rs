@@ -328,7 +328,17 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             r.label.as_deref(),
             &[],
             r.provenance.as_ref(),
-            &retained_clauses(r.body.clauses.iter().map(|c| &c.clause)),
+            &r.body
+                .clauses
+                .iter()
+                .map(|c| {
+                    let mut clause = c.clause.clone();
+                    if let dli_ast::language::DialectItem::NamePart(part) = &c.item {
+                        clause.text = render_name_part(part);
+                    }
+                    clause
+                })
+                .collect::<Vec<_>>(),
         ),
         Decl::Draft(d) => braced(
             "draft",
@@ -388,14 +398,7 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             vec![line.trim_end().to_owned()]
         }
         Decl::NamePart(m) => {
-            let mut line = format!("name-part {}", m.name.text);
-            if let Some(gloss) = &m.gloss {
-                line.push(' ');
-                line.push_str(&quote(gloss));
-            }
-            append_head(&mut line, &m.head);
-            append_provenance(&mut line, m.provenance.as_ref());
-            vec![line.trim_end().to_owned()]
+            vec![render_name_part(m)]
         }
         Decl::Attest(a) => {
             let mut line = format!("attest {}", a.question.text);
@@ -411,9 +414,39 @@ fn render_raw(decl: &Decl) -> Vec<String> {
             append_head(&mut header, &n.head);
             append_provenance(&mut header, n.provenance.as_ref());
             let mut lines = vec![header.trim_end().to_owned()];
-            lines.extend(clause_lines(&retained_clauses(
-                n.body.clauses.iter().map(|c| &c.clause),
-            )));
+            let clauses: Vec<_> = n
+                .body
+                .clauses
+                .iter()
+                .map(|c| {
+                    let mut clause = c.clause.clone();
+                    match &c.item {
+                        dli_ast::language::NameItem::Bearer { entity, provenance } => {
+                            "bearer".clone_into(&mut clause.text);
+                            if let Some(entity) = entity {
+                                clause.text.push(' ');
+                                if !entity.is_empty()
+                                    && entity.chars().all(|ch| {
+                                        ch.is_alphanumeric()
+                                            || matches!(ch, '-' | '_' | '.' | ':' | '/')
+                                    })
+                                {
+                                    clause.text.push_str(entity);
+                                } else {
+                                    clause.text.push_str(&quote(entity));
+                                }
+                            }
+                            append_provenance(&mut clause.text, provenance.as_ref());
+                        }
+                        dli_ast::language::NameItem::Provenance(annotation) => {
+                            clause.text = render_provenance(annotation);
+                        }
+                        _ => {}
+                    }
+                    clause
+                })
+                .collect();
+            lines.extend(clause_lines(&clauses));
             lines
         }
         Decl::Term(t) => {
@@ -466,6 +499,17 @@ fn render_raw(decl: &Decl) -> Vec<String> {
         // retiring text surface.
         Decl::PredicateSameAs(_) | Decl::Entity(_) | Decl::Attr(_) | Decl::Fact(_) => Vec::new(),
     }
+}
+
+fn render_name_part(part: &dli_ast::decl::NamePartDecl) -> String {
+    let mut line = format!("name-part {}", part.name.text);
+    if let Some(gloss) = &part.gloss {
+        line.push(' ');
+        line.push_str(&quote(gloss));
+    }
+    append_head(&mut line, &part.head);
+    append_provenance(&mut line, part.provenance.as_ref());
+    line.trim_end().to_owned()
 }
 
 fn braced(
@@ -596,6 +640,15 @@ fn flush(batch: &mut Vec<Row>, lines: &mut Vec<String>) {
 
 fn render_provenance(prov: &Annotation) -> String {
     let mut out = prov.marker.keyword().to_owned();
+    if let Some(bundle) = &prov.bundle {
+        if prov.marker == dli_ast::annot::ProvenanceMarker::Proposed {
+            "proposed-bundle".clone_into(&mut out);
+        } else {
+            out.push_str(" proposed-bundle");
+        }
+        out.push(' ');
+        out.push_str(&quote(bundle));
+    }
     for cite in &prov.citations {
         out.push(' ');
         out.push_str(&cite.id.text);

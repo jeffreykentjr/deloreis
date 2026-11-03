@@ -28,6 +28,7 @@ fn annotation(marker: ProvenanceMarker, citations: &[&str]) -> Annotation {
             .map(|citation| CitationRef { id: id(citation) })
             .collect(),
         condition: None,
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     }

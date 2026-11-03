@@ -701,6 +701,7 @@ fn the_structural_key_is_a_recomputable_digest_of_the_declaration() {
             marker: dli_ast::annot::ProvenanceMarker::Proposed,
             citations: Vec::new(),
             condition: None,
+            bundle: None,
             tags: vec!["dm4-key".to_owned()],
             span: dli_ast::span::Span::synthetic(),
         }),

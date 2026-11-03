@@ -55,6 +55,7 @@ fn marker(marker: ProvenanceMarker, cites: &[&str]) -> Annotation {
         marker,
         citations: cites.iter().map(|c| CitationRef { id: id(c) }).collect(),
         condition: None,
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     }
@@ -558,6 +559,7 @@ fn multi_citation_conjoins_and_supersession_degrades_on_both_sides() {
         marker: ProvenanceMarker::Proposed,
         citations: Vec::new(),
         condition: Some(dli_ast::annot::CondExpr::Hyp(id("guild-rang-it"))),
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     };

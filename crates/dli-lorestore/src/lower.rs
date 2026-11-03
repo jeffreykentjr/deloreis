@@ -144,10 +144,28 @@ pub fn expected_claim_id(object: &FactObject) -> ClaimId {
 /// `Entity` with no label, time clause, or slots).
 fn carriage_kind(decl: &Decl) -> Option<(ExpertDeclKind, String)> {
     use ExpertDeclKind as K;
+    let proposed_citations = |annotation: Option<&Annotation>| {
+        annotation.is_some_and(|annotation| {
+            annotation.marker == ProvenanceMarker::Proposed && !annotation.citations.is_empty()
+        })
+    };
     match decl {
+        Decl::Attr(a) if proposed_citations(a.provenance.as_ref()) => Some((
+            K::Attr,
+            decl_to_atom(decl)
+                .0
+                .map(|atom| atom_expr_to_ground(&atom).render())
+                .unwrap_or_default(),
+        )),
+        Decl::Fact(f) if proposed_citations(f.provenance.as_ref()) => {
+            Some((K::Fact, atom_expr_to_ground(&f.atom).render()))
+        }
         Decl::Attr(_) | Decl::Fact(_) => None,
-        Decl::Entity(e) => (e.label.is_some() || e.time.is_some() || !e.slots.is_empty())
-            .then(|| (K::Entity, e.name.text.clone())),
+        Decl::Entity(e) => (e.label.is_some()
+            || e.time.is_some()
+            || !e.slots.is_empty()
+            || proposed_citations(e.provenance.as_ref()))
+        .then(|| (K::Entity, e.name.text.clone())),
         Decl::Before(b) => Some((K::Before, format!("{}->{}", b.earlier.text, b.later.text))),
         Decl::SameAs(s) => Some((K::SameAs, format!("{}={}", s.left.text, s.right.text))),
         Decl::PredicateSameAs(s) => Some((
@@ -288,6 +306,10 @@ pub fn carried_atom_renders(decl: &Decl) -> Vec<String> {
             .collect::<Vec<_>>()
     };
     match decl {
+        Decl::Attr(_) | Decl::Fact(_) => decl_to_atom(decl)
+            .0
+            .map(|atom| vec![atom_expr_to_ground(&atom).render()])
+            .unwrap_or_default(),
         Decl::Entity(e) => {
             let mut renders = Vec::with_capacity(1 + e.slots.len());
             renders.push(
@@ -348,6 +370,179 @@ pub fn carried_atom_renders(decl: &Decl) -> Vec<String> {
 
 // ── per-declaration lowering ────────────────────────────────────────────
 
+/// Persist each implicit bundle on a carried declaration itself. The counter
+/// is only previewed here; ordinary lowering below performs the actual walk.
+fn assign_carried_bundle(annotation: &mut Annotation, pack: &str, counter: &mut u32) {
+    if !annotation.valid_bundle()
+        || annotation.marker != ProvenanceMarker::Proposed
+        || annotation.condition.is_some()
+    {
+        return;
+    }
+    if let Some(ordinal) = annotation.bundle_ordinal() {
+        *counter = (*counter).max(ordinal.saturating_add(1));
+    } else if annotation.tags.is_empty() {
+        let Some(next) = counter.checked_add(1) else {
+            return;
+        };
+        annotation.bundle = Some(format!("{pack}#{}", *counter));
+        *counter = next;
+    }
+}
+
+fn with_explicit_carried_bundles(decl: &Decl, pack: &str, mut counter: u32) -> Decl {
+    let mut carried = decl.clone();
+    if let Decl::Entity(entity) = &mut carried {
+        let inherited = entity.provenance.clone();
+        if let Some(annotation) = &mut entity.provenance {
+            assign_carried_bundle(annotation, pack, &mut counter);
+        }
+        for slot in &mut entity.slots {
+            let Some(mut annotation) = slot.provenance.clone().or_else(|| inherited.clone()) else {
+                continue;
+            };
+            let original = annotation.clone();
+            assign_carried_bundle(&mut annotation, pack, &mut counter);
+            if slot.provenance.is_some() || annotation != original {
+                slot.provenance = Some(annotation);
+            }
+        }
+    } else if decl_provenance(decl).is_some()
+        && let Some(annotation) = decl_provenance_mut(&mut carried)
+    {
+        assign_carried_bundle(annotation, pack, &mut counter);
+    }
+    carried
+}
+
+/// Record the language compiler's separate proposal counter in its carriage.
+/// Its nested clauses retain source text as well as typed annotations; update
+/// both so that rendering and reparsing cannot discard the identity.
+pub fn with_explicit_language_bundles(decl: &Decl, pack: &str, counter: &mut u32) -> Decl {
+    use dli_ast::language::{DialectItem, NameItem};
+
+    fn assign(annotation: &mut Option<Annotation>, pack: &str, counter: &mut u32) {
+        if let Some(annotation) = annotation {
+            assign_carried_bundle(annotation, pack, counter);
+        }
+    }
+
+    fn update_clause(text: &mut String, annotation: &Annotation) {
+        let Some(bundle) = &annotation.bundle else {
+            return;
+        };
+        let escaped = bundle.replace('\\', "\\\\").replace('"', "\\\"");
+        let marker = format!("proposed-bundle \"{escaped}\"");
+        // Only replace a marker outside a quoted label; `proposed` is also a
+        // valid word inside a gloss. Structured callers can supply an item
+        // whose generated clause has no provenance at all.
+        let mut quoted = false;
+        let mut escaped_char = false;
+        let mut position = None;
+        for (index, ch) in text.char_indices() {
+            if escaped_char {
+                escaped_char = false;
+            } else if quoted && ch == '\\' {
+                escaped_char = true;
+            } else if ch == '"' {
+                quoted = !quoted;
+            } else if !quoted && text[index..].starts_with("proposed") {
+                let before = text[..index].chars().next_back();
+                let after = text[index + "proposed".len()..].chars().next();
+                if before.is_none_or(char::is_whitespace) && after.is_none_or(char::is_whitespace) {
+                    position = Some(index);
+                }
+            }
+        }
+        if let Some(index) = position {
+            text.replace_range(index..index + "proposed".len(), &marker);
+        } else {
+            text.push(' ');
+            text.push_str(&marker);
+            for citation in &annotation.citations {
+                text.push(' ');
+                text.push_str(&citation.id.text);
+            }
+        }
+    }
+
+    let mut carried = decl.clone();
+    match &mut carried {
+        Decl::Dialect(d) => {
+            assign(&mut d.provenance, pack, counter);
+            for clause in &mut d.body.clauses {
+                if let DialectItem::NamePart(part) = &mut clause.item {
+                    let old = part.provenance.clone();
+                    assign(&mut part.provenance, pack, counter);
+                    if part.provenance != old
+                        && let Some(annotation) = &part.provenance
+                    {
+                        update_clause(&mut clause.clause.text, annotation);
+                    }
+                }
+            }
+        }
+        Decl::NamePart(d) => assign(&mut d.provenance, pack, counter),
+        Decl::Word(d) => assign(&mut d.provenance, pack, counter),
+        Decl::Term(d) => assign(&mut d.provenance, pack, counter),
+        Decl::Name(d) => {
+            if d.provenance.is_some() {
+                assign(&mut d.provenance, pack, counter);
+            } else {
+                for clause in &mut d.body.clauses {
+                    let annotation = match &mut clause.item {
+                        NameItem::Bearer { provenance, .. } => provenance.as_mut(),
+                        NameItem::Provenance(annotation) => Some(annotation),
+                        _ => None,
+                    };
+                    if let Some(annotation) = annotation {
+                        let old = annotation.clone();
+                        assign_carried_bundle(annotation, pack, counter);
+                        if *annotation != old {
+                            update_clause(&mut clause.clause.text, annotation);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+    carried
+}
+
+/// Continue the language compiler's independent proposal counter after the
+/// declarations in these documents, preserving their individual scopes.
+#[must_use]
+pub fn language_bundle_counter(documents: &[Document]) -> u32 {
+    let mut counter = 0;
+    for document in documents {
+        let scope = document
+            .scope
+            .as_ref()
+            .map_or("", |header| header.name.text.as_str());
+        for decl in &document.decls {
+            let _ = with_explicit_language_bundles(decl, scope, &mut counter);
+        }
+    }
+    counter
+}
+
+/// Lower a declaration while continuing both independent proposal counters.
+/// Use this when incrementally staging declarations that may include language
+/// constructs; the language counter must reflect the preceding declarations.
+#[must_use]
+pub fn lower_decl_with_language_counter(
+    decl: &Decl,
+    pack_name: &str,
+    interner: &mut Interner,
+    world_counter: &mut u32,
+    language_counter: &mut u32,
+) -> Vec<FactObject> {
+    let carried = with_explicit_language_bundles(decl, pack_name, language_counter);
+    lower_decl(&carried, pack_name, interner, world_counter)
+}
+
 /// Lower a single [`Decl`] into [`FactObject`]s, without a full world compilation.
 ///
 /// This is the LS-4b write path: each `author.add_*` call lowers its
@@ -386,7 +581,8 @@ pub fn lower_decl(
     // interner order stays in lock-step with the loader regardless.
     let mut objects: Vec<FactObject> = Vec::new();
     if let Some((kind, name)) = carriage_kind(decl) {
-        objects.push(carriage_object(decl, kind, &name));
+        let carried = with_explicit_carried_bundles(decl, pack_name, *bundle_counter);
+        objects.push(carriage_object(&carried, kind, &name));
     }
 
     // Question and Fork declarations don't process their own provenance in the
@@ -518,6 +714,23 @@ fn cond_pairs(ann: &dli_core::ann::Ann) -> Vec<CondPair> {
             )
         })
         .collect()
+}
+
+fn decl_provenance_mut(decl: &mut Decl) -> Option<&mut Annotation> {
+    match decl {
+        Decl::Entity(d) => d.provenance.as_mut(),
+        Decl::Attr(d) => d.provenance.as_mut(),
+        Decl::Fact(d) => d.provenance.as_mut(),
+        Decl::Before(d) => d.provenance.as_mut(),
+        Decl::SameAs(d) => d.provenance.as_mut(),
+        Decl::PredicateSameAs(d) => d.provenance.as_mut(),
+        Decl::Kind(d) => d.provenance.as_mut(),
+        Decl::Rule(d) => d.provenance.as_mut(),
+        Decl::Cycle(d) => d.provenance.as_mut(),
+        Decl::State(d) => d.provenance.as_mut(),
+        Decl::Inertial(d) => d.provenance.as_mut(),
+        _ => None,
+    }
 }
 
 /// Lower a question/fork's option clauses — mirrors the loader's
@@ -684,6 +897,10 @@ fn compile_ann(
         return dli_core::ann::Ann::supported(PosBool::FALSE);
     };
 
+    if !annotation.valid_bundle() {
+        return dli_core::ann::Ann::supported(PosBool::FALSE);
+    }
+
     // A citation-requiring marker with no citations fails closed, exactly as
     // the loader's compile_ann does — the durable object must never record
     // support the full compile would refuse.
@@ -699,9 +916,17 @@ fn compile_ann(
         if annotation.condition.is_some() {
             PosBool::truth()
         } else {
-            let key = if annotation.tags.is_empty() {
+            let key = if let Some(bundle) = &annotation.bundle {
+                if let Some(ordinal) = annotation.bundle_ordinal() {
+                    *bundle_counter = (*bundle_counter).max(ordinal.saturating_add(1));
+                }
+                bundle.clone()
+            } else if annotation.tags.is_empty() {
+                let Some(next) = bundle_counter.checked_add(1) else {
+                    return dli_core::ann::Ann::supported(PosBool::FALSE);
+                };
                 let key = format!("{pack}#{}", *bundle_counter);
-                *bundle_counter += 1;
+                *bundle_counter = next;
                 key
             } else {
                 annotation.tags.join("+")
@@ -941,7 +1166,7 @@ pub fn derive_annotation(
     support: &PosBool,
     interner: &Interner,
     known_decisions: &BTreeSet<String>,
-    pack_name: &str,
+    _pack_name: &str,
 ) -> Result<Option<Annotation>, String> {
     if support.is_false() {
         return Ok(None); // fail-closed: no provenance (spec 02 §3)
@@ -957,6 +1182,7 @@ pub fn derive_annotation(
                 })
                 .collect(),
             condition,
+            bundle: None,
             tags,
             span: Span::synthetic(),
         })
@@ -1012,22 +1238,24 @@ pub fn derive_annotation(
         return Ok(annotation(marker, citations, None, Vec::new()));
     }
 
-    // A single residual literal that is an `h.` gate: positional bundle or tags.
-    let bundle_prefix = format!("h.{pack_name}#");
+    // Preserve a positional gate explicitly; it must not be re-minted under
+    // the reconstructed pack's scope or declaration count.
     if residual.len() == 1 && residual[0].len() == 1 && residual[0][0].1 == Rail::Pos {
         let name = &residual[0][0].0;
-        if let Some(counter) = name.strip_prefix(&bundle_prefix)
-            && counter.parse::<u32>().is_ok()
-        {
-            // Positional proposal bundle — re-minted on recompile.
-            return Ok(annotation(
-                ProvenanceMarker::Proposed,
-                citations,
-                None,
-                Vec::new(),
-            ));
-        }
         if let Some(key) = name.strip_prefix("h.") {
+            if positional_bundle_name(name).is_some() {
+                if !citations.is_empty() {
+                    return Err(
+                        "proposal bundle mixed with citations cannot be expressed".to_owned()
+                    );
+                }
+                let mut result =
+                    annotation(ProvenanceMarker::Proposed, Vec::new(), None, Vec::new());
+                if let Some(provenance) = &mut result {
+                    provenance.bundle = Some(key.to_owned());
+                }
+                return Ok(result);
+            }
             return Ok(annotation(
                 ProvenanceMarker::Proposed,
                 citations,
@@ -1117,6 +1345,7 @@ pub enum ReconstructError {
 
 type CarriedFactKey = (crate::identity::ContentHash, ClaimId);
 type MarkerIndex = BTreeMap<CarriedFactKey, (Option<ProvenanceMarker>, bool)>;
+type BundleIndex = BTreeMap<dli_eval::world::GroundAtom, BTreeSet<String>>;
 
 /// Recover carried entity facts by identity and preserve their standing.
 struct EntityReplay<'a> {
@@ -1126,6 +1355,7 @@ struct EntityReplay<'a> {
     replay_interner: Option<Interner>,
     bundle_counter: u32,
     markers: Option<MarkerIndex>,
+    bundles: Option<BundleIndex>,
 }
 
 impl EntityReplay<'_> {
@@ -1135,6 +1365,112 @@ impl EntityReplay<'_> {
         }
     }
 
+    fn restore_unattached(decl: &Decl) -> Result<(), ReconstructError> {
+        if decl_to_atom(decl).0.is_none()
+            && let Some(annotation) = decl_provenance(decl)
+            && annotation.marker == ProvenanceMarker::Proposed
+            && annotation.bundle.is_none()
+            && annotation.tags.is_empty()
+            && annotation.condition.is_none()
+        {
+            return Err(ReconstructError::Unfaithful {
+                atom: "proposal".to_owned(),
+                reason:
+                    "anonymous carried bundle identity is ambiguous because it was not recorded"
+                        .to_owned(),
+            });
+        }
+        Ok(())
+    }
+
+    fn prepare_simple(
+        &mut self,
+        decl: &mut Decl,
+        name: &str,
+        preceding: &[Decl],
+    ) -> Result<Option<Vec<CarriedFactKey>>, ReconstructError> {
+        if matches!(decl, Decl::Entity(_)) {
+            return Ok(None);
+        }
+        let (Some(atom), _) = decl_to_atom(decl) else {
+            return Ok(None);
+        };
+        let ground = atom_expr_to_ground(&atom);
+        let bundles = self
+            .bundles
+            .get_or_insert_with(|| bundle_index(self.objects, self.interner));
+        if let Some(annotation) = decl_provenance_mut(decl) {
+            restore_bundle(annotation, &ground, bundles)?;
+        }
+        if self.replay_interner.is_none() {
+            let mut replay = self.interner.clone();
+            for previous in preceding {
+                let _ = lower_decl(
+                    previous,
+                    self.pack_name,
+                    &mut replay,
+                    &mut self.bundle_counter,
+                );
+            }
+            self.replay_interner = Some(replay);
+        }
+        let Some(replay) = &mut self.replay_interner else {
+            return Ok(None);
+        };
+        let initial_names = replay.names().len();
+        let generated = lower_decl(decl, self.pack_name, replay, &mut self.bundle_counter);
+        if replay.names().len() != initial_names {
+            return Err(ReconstructError::Carriage {
+                name: name.to_owned(),
+                reason: "provenance or proposal gate is absent from the committed interner"
+                    .to_owned(),
+            });
+        }
+        let keys: Vec<_> = generated
+            .iter()
+            .filter(|object| object.expert_body.is_none())
+            .map(|object| {
+                Ok((
+                    object
+                        .content_hash()
+                        .map_err(|error| ReconstructError::Carriage {
+                            name: name.to_owned(),
+                            reason: error.to_string(),
+                        })?,
+                    object.claim_id.clone(),
+                ))
+            })
+            .collect::<Result<_, ReconstructError>>()?;
+        let markers = self
+            .markers
+            .get_or_insert_with(|| marker_index(self.objects));
+        for key in &keys {
+            if matches!(decl, Decl::Fact(_) | Decl::Attr(_)) && !markers.contains_key(key) {
+                return Err(ReconstructError::Carriage {
+                    name: name.to_owned(),
+                    reason: "carried declaration's fact is absent from the committed objects"
+                        .to_owned(),
+                });
+            }
+            match markers.get(key) {
+                Some((_, true)) => {
+                    return Err(ReconstructError::Carriage {
+                        name: name.to_owned(),
+                        reason: "conflicting standing metadata for the same carried fact"
+                            .to_owned(),
+                    });
+                }
+                Some((Some(marker), false)) if marker.requires_citation() => {
+                    if let Some(annotation) = decl_provenance_mut(decl) {
+                        annotation.marker = *marker;
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(Some(keys))
+    }
+
     #[allow(clippy::too_many_lines)]
     fn prepare(
         &mut self,
@@ -1142,9 +1478,42 @@ impl EntityReplay<'_> {
         name: &str,
         preceding: &[Decl],
     ) -> Result<Option<Vec<CarriedFactKey>>, ReconstructError> {
-        let eligible = matches!(decl, Decl::Entity(entity) if entity.provenance.is_some());
+        let eligible = matches!(decl, Decl::Entity(_));
         if !eligible {
             return Ok(None);
+        }
+        let bundles = self
+            .bundles
+            .get_or_insert_with(|| bundle_index(self.objects, self.interner));
+        if let Decl::Entity(entity) = decl {
+            let parent_before = entity.provenance.clone();
+            let head = dli_eval::world::GroundAtom {
+                pred: entity.kind.keyword().to_owned(),
+                args: vec![entity.name.text.clone()],
+            };
+            if let Some(annotation) = &mut entity.provenance {
+                restore_bundle(annotation, &head, bundles)?;
+            }
+            for slot in &mut entity.slots {
+                let Some(mut annotation) =
+                    slot.provenance.clone().or_else(|| parent_before.clone())
+                else {
+                    continue;
+                };
+                let was_implicit_proposal = slot.provenance.is_none()
+                    && annotation.marker == ProvenanceMarker::Proposed
+                    && annotation.bundle.is_none()
+                    && annotation.tags.is_empty()
+                    && annotation.condition.is_none();
+                let atom = atom_expr_to_ground(&AtomExpr {
+                    pred: slot.attr.clone(),
+                    args: vec![Term::Sym(slot.subject.clone()), slot.value.clone()],
+                });
+                restore_bundle(&mut annotation, &atom, bundles)?;
+                if slot.provenance.is_some() || was_implicit_proposal {
+                    slot.provenance = Some(annotation);
+                }
+            }
         }
         if self.replay_interner.is_none() {
             let mut replay = self.interner.clone();
@@ -1200,6 +1569,19 @@ impl EntityReplay<'_> {
         let markers = self
             .markers
             .get_or_insert_with(|| marker_index(self.objects));
+        // Older era chains stored only the head, so their synthetic member
+        // keys remain a supported legacy exception. The head and every slot
+        // always have their own durable fact and must not be fabricated.
+        if std::iter::once(&keys[0])
+            .chain(keys[1 + chain_len..].iter())
+            .any(|key| !markers.contains_key(key))
+        {
+            return Err(ReconstructError::Carriage {
+                name: name.to_owned(),
+                reason: "carried entity's fact or slot is absent from the committed objects"
+                    .to_owned(),
+            });
+        }
         let current_marker =
             |key: &CarriedFactKey| -> Result<Option<ProvenanceMarker>, ReconstructError> {
                 match markers.get(key) {
@@ -1252,13 +1634,115 @@ impl EntityReplay<'_> {
                 || entity
                     .provenance
                     .as_ref()
-                    .is_none_or(|parent| parent.marker != annotation.marker)
+                    .is_none_or(|parent| *parent != annotation)
             {
                 slot.provenance = Some(annotation);
             }
         }
         Ok(Some(keys))
     }
+}
+
+// Language declarations have a separate interner and counter, neither of
+// which is recorded in the world interner. Do not guess an old anonymous
+// language proposal's identity from the latter.
+fn has_anonymous_language_proposal(decl: &Decl) -> bool {
+    use dli_ast::language::{DialectItem, NameItem};
+    let anonymous = |annotation: &Annotation| {
+        annotation.marker == ProvenanceMarker::Proposed
+            && annotation.bundle.is_none()
+            && annotation.tags.is_empty()
+            && annotation.condition.is_none()
+    };
+    match decl {
+        Decl::Dialect(d) => {
+            d.provenance.as_ref().is_some_and(anonymous)
+                || d.body.clauses.iter().any(|clause| match &clause.item {
+                    DialectItem::NamePart(part) => part.provenance.as_ref().is_some_and(anonymous),
+                    _ => false,
+                })
+        }
+        Decl::NamePart(d) => d.provenance.as_ref().is_some_and(anonymous),
+        Decl::Word(d) => d.provenance.as_ref().is_some_and(anonymous),
+        Decl::Term(d) => d.provenance.as_ref().is_some_and(anonymous),
+        Decl::Name(d) => d
+            .provenance
+            .as_ref()
+            .or_else(|| {
+                d.body.clauses.iter().find_map(|clause| match &clause.item {
+                    NameItem::Bearer { provenance, .. } => provenance.as_ref(),
+                    NameItem::Provenance(annotation) => Some(annotation),
+                    _ => None,
+                })
+            })
+            .is_some_and(anonymous),
+        _ => false,
+    }
+}
+
+fn positional_bundle_name(name: &str) -> Option<&str> {
+    let key = name.strip_prefix("h.")?;
+    let (_, number) = key.rsplit_once('#')?;
+    if number.is_empty() || !number.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    number.parse::<u32>().ok()?;
+    Some(key)
+}
+
+fn bundle_index(objects: &[FactObject], interner: &Interner) -> BundleIndex {
+    let mut index: BundleIndex = BTreeMap::new();
+    for object in objects.iter().filter(|object| object.expert_body.is_none()) {
+        let mut paths = object.support.monomials();
+        let Some(path) = paths.next() else { continue };
+        if paths.next().is_some() {
+            continue;
+        }
+        let mut literals = path.lits();
+        let Some(literal) = literals.next() else {
+            continue;
+        };
+        if literals.next().is_some() || literal.rail != Rail::Pos {
+            continue;
+        }
+        let Some(bundle) = interner
+            .resolve(literal.atom)
+            .and_then(positional_bundle_name)
+        else {
+            continue;
+        };
+        index
+            .entry(object.atom.clone())
+            .or_default()
+            .insert(bundle.to_owned());
+    }
+    index
+}
+
+fn restore_bundle(
+    annotation: &mut Annotation,
+    atom: &dli_eval::world::GroundAtom,
+    index: &BundleIndex,
+) -> Result<(), ReconstructError> {
+    if annotation.marker != ProvenanceMarker::Proposed
+        || annotation.bundle.is_some()
+        || !annotation.tags.is_empty()
+        || annotation.condition.is_some()
+        || !annotation.citations.is_empty()
+    {
+        return Ok(());
+    }
+    if let Some(candidates) = index.get(atom) {
+        if candidates.len() > 1 {
+            return Err(ReconstructError::Unfaithful {
+                atom: atom.render(),
+                reason: "more than one anonymous proposal bundle could belong to this declaration"
+                    .to_owned(),
+            });
+        }
+        annotation.bundle = candidates.iter().next().cloned();
+    }
+    Ok(())
 }
 
 fn marker_index(objects: &[FactObject]) -> MarkerIndex {
@@ -1347,6 +1831,7 @@ pub fn reconstruct_pack(
         replay_interner: None,
         bundle_counter: 0,
         markers: None,
+        bundles: None,
     };
     let mut index = 0;
     let mut pending: BTreeMap<CarriedFactKey, usize> = BTreeMap::new();
@@ -1382,9 +1867,21 @@ pub fn reconstruct_pack(
                     name: body.name.clone(),
                     reason: e.to_string(),
                 })?;
+            if has_anonymous_language_proposal(&decl) {
+                return Err(ReconstructError::Unfaithful {
+                    atom: body.name.clone(),
+                    reason: "anonymous language proposal identity is not recorded; name its origin before importing".to_owned(),
+                });
+            }
+            EntityReplay::restore_unattached(&decl)?;
             let entity_fact_identities = entities_replay.prepare(&mut decl, &body.name, &decls)?;
+            let fact_identities = if entity_fact_identities.is_some() {
+                entity_fact_identities
+            } else {
+                entities_replay.prepare_simple(&mut decl, &body.name, &decls)?
+            };
             index += 1;
-            if let Some(keys) = entity_fact_identities {
+            if let Some(keys) = fact_identities {
                 // Intervening independent supports can precede a carried
                 // child. Keep looking by exact identity until the next carriage.
                 for key in keys {
@@ -1485,7 +1982,7 @@ fn ensure_positional_proposals_survive(
     objects: &[FactObject],
     interner: &Interner,
     pack: &Pack,
-    pack_name: &str,
+    _pack_name: &str,
 ) -> Result<(), ReconstructError> {
     fn positional(name: &str) -> bool {
         name.strip_prefix("h.")
@@ -1536,18 +2033,6 @@ fn ensure_positional_proposals_survive(
             || matches!(decl, Decl::Entity(entity) if entity.slots.iter().any(|slot| slot.provenance.as_ref().is_some_and(|annotation| annotation.marker == ProvenanceMarker::Proposed)))
     }) {
         return Ok(());
-    }
-    let prefix = format!("h.{pack_name}#");
-    if source
-        .iter()
-        .flat_map(|(_, monomials)| monomials)
-        .flatten()
-        .any(|(name, _)| positional(name) && !name.starts_with(&prefix))
-    {
-        return Err(ReconstructError::Unfaithful {
-            atom: "proposal".to_owned(),
-            reason: "anonymous proposal belongs to a different source scope".to_owned(),
-        });
     }
     let (regenerated, names) = lower_pack(pack);
     let mut replayed = collect(&regenerated, &Interner::from_names(names))?;
@@ -1608,6 +2093,7 @@ pub fn lower_pack(pack: &Pack) -> (Vec<FactObject>, Vec<String>) {
     // LoadCtx field that never resets between documents, even though the
     // minted prefix follows each document's scope name.
     let mut bundle_counter = 0u32;
+    let mut language_bundle_counter = 0u32;
     let mut objects: Vec<FactObject> = Vec::new();
     for doc in &pack.documents {
         // A document with no `scope` header belongs to the **empty** pack, not
@@ -1624,8 +2110,10 @@ pub fn lower_pack(pack: &Pack) -> (Vec<FactObject>, Vec<String>) {
         // two agree, and because an empty document mints no bundle at all.
         let scope_name = doc.scope.as_ref().map_or("", |s| s.name.text.as_str());
         for decl in &doc.decls {
+            let carried =
+                with_explicit_language_bundles(decl, scope_name, &mut language_bundle_counter);
             objects.extend(lower_decl(
-                decl,
+                &carried,
                 scope_name,
                 &mut interner,
                 &mut bundle_counter,

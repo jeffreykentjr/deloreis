@@ -1049,7 +1049,7 @@ pub(super) fn add_option(
     };
     // Durably stage the replacement before changing the workspace. Otherwise
     // materialize commits the earlier question without the newly added option.
-    store
+    let updated = store
         .stage_lorestore(&params.workspace, &updated)
         .map_err(|error| ErrorBody {
             code: ErrorCode::Internal,
@@ -1464,26 +1464,26 @@ fn composition_text(steps: &[CompositionStep]) -> String {
 /// If a lorestore is attached (LS-4b), the decl is also lowered to a
 /// `FactObject` and written immediately, with the hash tracked in the
 /// workspace for `materialize` to commit.
+#[allow(clippy::needless_pass_by_value)]
 fn stage(store: &mut Store, ws_id: &str, decl: Decl) -> Result<Value, ErrorBody> {
     // Findings read the workspace's derived base-plus-staged resolution index;
     // no historical declaration or base-atom census belongs on this hot path.
-    let (findings, rendered) = {
+    let findings = {
         let (base, ws) = parts_mut(store, ws_id)?;
-        let findings = decl_findings(&decl, ws, base);
-        let rendered = render_decls(std::slice::from_ref(&decl));
-        (findings, rendered)
+        decl_findings(&decl, ws, base)
     };
 
     // LS-4b: lower the decl and write fact objects to the lorestore
     // immediately (durable staging), tracking hashes for materialize. A write
     // failure refuses the add — the durable staged set and the in-memory
     // workspace must never diverge silently (the graded-findings law).
-    store.stage_lorestore(ws_id, &decl).map_err(|e| ErrorBody {
+    let decl = store.stage_lorestore(ws_id, &decl).map_err(|e| ErrorBody {
         code: ErrorCode::Internal,
         message: format!("durable staging failed; the declaration was not added: {e}"),
         data: None,
     })?;
 
+    let rendered = render_decls(std::slice::from_ref(&decl));
     let (_, ws) = parts_mut(store, ws_id)?;
     ws.push_decl(decl);
     Ok(mutation(findings, rendered, &ws.digest))
@@ -2776,6 +2776,7 @@ fn annotation(provenance: &Provenance) -> Annotation {
                 .map(|id| CitationRef { id: ident(id) })
                 .collect(),
             condition: None,
+            bundle: None,
             tags: Vec::new(),
             span: Span::synthetic(),
         },
@@ -2783,6 +2784,7 @@ fn annotation(provenance: &Provenance) -> Annotation {
             marker: ProvenanceMarker::Proposed,
             citations: Vec::new(),
             condition: None,
+            bundle: None,
             tags: vec![origin.clone()],
             span: Span::synthetic(),
         },
@@ -2790,6 +2792,7 @@ fn annotation(provenance: &Provenance) -> Annotation {
             marker: ProvenanceMarker::Proposed,
             citations: Vec::new(),
             condition: Some(CondExpr::Hyp(Ident::synthetic(hyp))),
+            bundle: None,
             tags: Vec::new(),
             span: Span::synthetic(),
         },

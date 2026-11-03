@@ -40,6 +40,7 @@ fn marker(marker: ProvenanceMarker, cites: &[&str]) -> Annotation {
         marker,
         citations: cites.iter().map(|c| CitationRef { id: id(c) }).collect(),
         condition: None,
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     }
@@ -412,6 +413,7 @@ fn malformed_provenance_fails_closed_with_a_finding() {
         marker: ProvenanceMarker::Ratified,
         citations: Vec::new(),
         condition: None,
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     };
