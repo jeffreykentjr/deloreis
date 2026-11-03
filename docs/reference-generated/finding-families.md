@@ -59,7 +59,7 @@ These finding codes are **disjoint** from the wire error-code registry (the `Err
 
 - **Emitted by:** world-internal and claim-relative continuity checks
 - **Owner:** `dli-world :: check/continuity.rs (WorldFinding)`
-- **Severity:** All error: a continuity finding is a contradiction of canon or an assertion the claim may not make.
+- **Severity:** Errors block contradictions; warnings flag unresolved drafts or temporal gaps.
 
 | Code | Severity | Repair | Meaning |
 |---|---|---|---|

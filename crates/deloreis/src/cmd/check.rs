@@ -227,6 +227,15 @@ pub(super) fn render_semantic_finding(
         "continuity.fluent-contradiction" => {
             Some("adjust the time bounds or revise a conflicting state")
         }
+        "continuity.fluent-order-undeclared" => {
+            Some("declare an ordering between the named events or revise the states")
+        }
+        "continuity.inertia-unanchored" => {
+            Some("give the state a since event, or leave the value unanchored deliberately")
+        }
+        "continuity.pending-conflict" => {
+            Some("review the proposed values and decide which account should hold")
+        }
         "continuity.fd-violation" => Some(
             "revise or defeat a conflicting value for the functional slot, or review its functional declarations",
         ),

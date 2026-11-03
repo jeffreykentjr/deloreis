@@ -199,8 +199,7 @@ const FAMILIES: &[Family] = &[
         title: "continuity — the world-consistency battery",
         emitter: "world-internal and claim-relative continuity checks",
         owner: "dli-world :: check/continuity.rs (WorldFinding)",
-        severity_note: "All error: a continuity finding is a contradiction of canon or an \
-            assertion the claim may not make.",
+        severity_note: "Errors block contradictions; warnings flag unresolved drafts or temporal gaps.",
         sources: &["../crates/dli-world/src/check/continuity.rs"],
         scrape: Scrape::Prefixed("continuity"),
         codes: &[
