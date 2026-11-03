@@ -289,10 +289,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorWhy => read(request, store, |store, request| {
             let params: AuthorWhyParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                reads::why(store, &params, true, true),
-            ))
+            Ok((params.workspace.clone(), reads::why(store, &params)))
         }),
         Op::AuthorFindings => read(request, store, |store, request| {
             let params: AuthorFindingsParams = parse(request)?;

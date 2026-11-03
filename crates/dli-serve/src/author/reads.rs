@@ -493,12 +493,7 @@ pub(super) fn materialize_candidate_findings(
 /// certain / why dead / why possible), plus the support antichain when the world
 /// derives it. The agent asks "why can't this be certain yet?" and gets the exact
 /// blocker — an unruled hypothesis, an unknown entity, or a defeater.
-pub(super) fn why(
-    store: &Store,
-    params: &AuthorWhyParams,
-    records_decisions: bool,
-    explains_active_support: bool,
-) -> Result<Value, ErrorBody> {
+pub(super) fn why(store: &Store, params: &AuthorWhyParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     ws.note_why();
     // The typed successor wins when the caller sent it; the rendered string is
@@ -519,11 +514,9 @@ pub(super) fn why(
     // filtered to the workspace's known-decision set, the same filter the
     // continuity findings' `ann_citations` uses. The auditability affordance:
     // it names which recorded decisions a certain fact rests on, so a caller can
-    // confirm it reached certainty the designed way. Floor-gated: below 1.9.0
-    // the field stays empty and, being `skip_serializing_if = Vec::is_empty`,
-    // absent — so pre-1.9.0 `author.why` responses stay byte-identical.
-    let supporting_decisions = match (records_decisions, derived) {
-        (true, Some(derived)) => {
+    // confirm it reached certainty the designed way.
+    let supporting_decisions = match derived {
+        Some(derived) => {
             let known = super::tools::workspace_decisions(store, &params.workspace);
             let mut out = Vec::new();
             for monomial in derived.support.monomials() {
@@ -540,58 +533,55 @@ pub(super) fn why(
         }
         _ => Vec::new(),
     };
-    let (active_supporting_decision_paths, blocking_defeats, blocked_supports) =
-        if explains_active_support {
-            let known = super::tools::workspace_decisions(store, &params.workspace);
-            let attacks = store
-                .workspace_decision_attacks(&params.workspace)
-                .map_err(|message| ErrorBody {
-                    code: ErrorCode::EvidenceCorrupt,
-                    message,
-                    data: None,
-                })?;
-            let (active, blocked, symbolic_path_count, attack_blocked_path_count) = derived
-                .map_or_else(
-                    || (Vec::new(), Vec::new(), 0, 0),
-                    |derived| {
-                        let symbolic_path_count = derived.support.monomials().count();
-                        let (active, blocked, attack_blocked_path_count, work) =
-                            explain_support_paths(inner, derived, &known, &attacks);
-                        ws.note_attack_explanation(
-                            work.endpoint_resolutions,
-                            work.incidence_visits,
-                            work.valuation_copies,
-                        );
-                        (
-                            active,
-                            blocked,
-                            symbolic_path_count,
-                            attack_blocked_path_count,
-                        )
-                    },
-                );
-            // The conclusion itself is attack-blocked only when every symbolic
-            // support monomial is accounted for by a structured blocked entry.
-            // A merely open/possible or otherwise-dead alternative prevents a
-            // direct attack from being reported as the global cause.
-            let blockers = if active.is_empty()
-                && symbolic_path_count > 0
-                && attack_blocked_path_count == symbolic_path_count
-            {
-                let mut blockers: Vec<_> = blocked
-                    .iter()
-                    .flat_map(|support| support.blocking_defeats.iter().cloned())
-                    .collect();
-                blockers.sort();
-                blockers.dedup();
-                blockers
-            } else {
-                Vec::new()
-            };
-            (Some(active), Some(blockers), Some(blocked))
+    let (active_supporting_decision_paths, blocking_defeats, blocked_supports) = {
+        let known = super::tools::workspace_decisions(store, &params.workspace);
+        let attacks = store
+            .workspace_decision_attacks(&params.workspace)
+            .map_err(|message| ErrorBody {
+                code: ErrorCode::EvidenceCorrupt,
+                message,
+                data: None,
+            })?;
+        let (active, blocked, symbolic_path_count, attack_blocked_path_count) = derived
+            .map_or_else(
+                || (Vec::new(), Vec::new(), 0, 0),
+                |derived| {
+                    let symbolic_path_count = derived.support.monomials().count();
+                    let (active, blocked, attack_blocked_path_count, work) =
+                        explain_support_paths(inner, derived, &known, &attacks);
+                    ws.note_attack_explanation(
+                        work.endpoint_resolutions,
+                        work.incidence_visits,
+                        work.valuation_copies,
+                    );
+                    (
+                        active,
+                        blocked,
+                        symbolic_path_count,
+                        attack_blocked_path_count,
+                    )
+                },
+            );
+        // The conclusion itself is attack-blocked only when every symbolic
+        // support monomial is accounted for by a structured blocked entry.
+        // A merely open/possible or otherwise-dead alternative prevents a
+        // direct attack from being reported as the global cause.
+        let blockers = if active.is_empty()
+            && symbolic_path_count > 0
+            && attack_blocked_path_count == symbolic_path_count
+        {
+            let mut blockers: Vec<_> = blocked
+                .iter()
+                .flat_map(|support| support.blocking_defeats.iter().cloned())
+                .collect();
+            blockers.sort();
+            blockers.dedup();
+            blockers
         } else {
-            (None, None, None)
+            Vec::new()
         };
+        (Some(active), Some(blockers), Some(blocked))
+    };
     Ok(value(&AuthorWhyResult {
         why_not,
         why,
@@ -1287,9 +1277,9 @@ mod cache_tests {
         };
 
         query(&store, &query_params).expect("first query");
-        why(&store, &why_params, true, true).expect("why hit");
+        why(&store, &why_params).expect("why hit");
         query(&store, &query_params).expect("second query hit");
-        why(&store, &why_params, true, true).expect("second why hit");
+        why(&store, &why_params).expect("second why hit");
 
         assert_eq!(
             store.get("ws-1").expect("workspace").compile_cache_stats(),
@@ -1408,7 +1398,7 @@ mod cache_tests {
                 goal_atom: Some(missing_goal()),
             };
             let enabled_query = query(&store, &query_params).expect("enabled query");
-            let enabled_why = why(&store, &why_params, true, true).expect("enabled why");
+            let enabled_why = why(&store, &why_params).expect("enabled why");
 
             ws.set_compile_cache_enabled(false);
             let disabled = staged_world(&store, ws).expect("disabled compile");
@@ -1420,7 +1410,7 @@ mod cache_tests {
             );
             assert_eq!(
                 enabled_why,
-                why(&store, &why_params, true, true).expect("disabled why"),
+                why(&store, &why_params).expect("disabled why"),
                 "{mode:?} why"
             );
 
@@ -1680,7 +1670,7 @@ mod cache_tests {
                             query(&store, &query_params).expect("profile query");
                             query_time += started.elapsed();
                             let started = Instant::now();
-                            why(&store, &why_params, true, true).expect("profile why");
+                            why(&store, &why_params).expect("profile why");
                             why_time += started.elapsed();
                         }
                     }
