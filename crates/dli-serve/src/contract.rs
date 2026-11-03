@@ -399,20 +399,17 @@ pub struct QueryParams {
 
 /// `dli.query` result.
 ///
-/// Contract 0.6.0 adds the replay context `(root_hash, valuation)`: the pair
-/// identifies exactly which world state — including any fork/as-of overlay
-/// folded into the evaluation — the answer was computed against, so a
-/// consumer can replay the triple `(root_hash, valuation, query)`. Both
-/// fields are absent on a `0.5.1` request (dual-mode).
+/// The replay context `(root_hash, valuation)` identifies the world state,
+/// including any fork or as-of overlay, used to compute the answer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct QueryResult {
     /// The domain-prefixed digest (`world:sha256:<hex>`) binding the compiled
     /// world the query ran against: its fact set, rules, interner, and the
-    /// full effective valuation (fork/as-of overlays folded in). 0.6.0 only.
+    /// full effective valuation (fork/as-of overlays folded in).
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub root_hash: Option<String>,
     /// The full effective valuation — every ruled atom with its boolean,
-    /// sorted by atom name; absence from the list means unruled. 0.6.0 only.
+    /// sorted by atom name; absence from the list means unruled.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub valuation: Option<Vec<ValuationEntry>>,
     /// Every row matching the query and its requested filters.
@@ -453,10 +450,10 @@ pub struct QueryResultRow {
     /// The kernel's deterministic one-line rendering of the row.
     pub rendered: String,
     /// The result-level `root_hash`, repeated per row so a single row is
-    /// independently verifiable. 0.6.0 only.
+    /// independently verifiable.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub root_hash: Option<String>,
-    /// The result-level valuation, repeated per row. 0.6.0 only.
+    /// The result-level valuation, repeated per row.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub valuation: Option<Vec<ValuationEntry>>,
 }
@@ -1058,9 +1055,8 @@ pub struct AuthorOpenParams {
     /// Open a fork-scoped workspace, named by its question.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub fork: Option<String>,
-    /// Open against a named branch head instead of `main` (WS-3, ≥ contract
-    /// 1.7.0). Requires `scope` (branch + fork is refused); defined only from
-    /// 1.7.0 up — a schema violation below it.
+    /// Open against a named branch head instead of `main`. Requires `scope`;
+    /// branch and fork cannot be combined.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub branch: Option<String>,
 }
@@ -1072,9 +1068,7 @@ pub struct AuthorOpenResult {
     pub workspace: String,
     /// The initial workspace digest.
     pub workspace_digest: String,
-    /// The branch this workspace targets, echoed back (WS-3). Emitted only on
-    /// a ≥ 1.7.0 request; `None` below it, and `None` on a 1.7.0-or-above
-    /// request that did not supply `branch` either.
+    /// The branch supplied when opening the workspace, if any.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub branch: Option<String>,
 }
@@ -1096,18 +1090,15 @@ pub struct AuthorStatusResult {
     pub rendered: Vec<String>,
     /// The lorestore commit the workspace was opened against — pinned at
     /// `author.open`, advanced by this workspace's own `materialize`, never
-    /// the moving global head. Absent on a `0.5.1` request or when no
-    /// lorestore is attached. 0.6.0 only.
+    /// the moving global head. Absent when no lorestore is attached.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub root_hash: Option<String>,
     /// Structured per-fact diff rows with before/after standing — the
-    /// machine-readable review surface. 0.6.0 only.
+    /// machine-readable review surface.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub diff_rows: Option<Vec<AuthorDiffRow>>,
     /// The staged declarations and the structural key that names each one —
-    /// what `author.discard` takes to reject a single declaration. Contract
-    /// 1.3.0 and above only; below it, the key had no wire surface and
-    /// per-declaration discard named the rendered line instead (DL-0058).
+    /// what `author.discard` takes to reject a single declaration.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub staged: Option<Vec<StagedDecl>>,
     /// Every current graded finding over the staged world.
@@ -1163,8 +1154,8 @@ pub struct AuthorDiffParams {
 
 /// `author.diff` result.
 ///
-/// Contract 0.6.0 adds `root_hash` (the pinned base commit this change-set is
-/// relative to) and `rows` (structured per-fact diffs) alongside the rendered
+/// `root_hash` pins the base commit this change-set is relative to; `rows`
+/// provide structured per-fact diffs alongside the rendered
 /// lines and findings. Accept/reject semantics: `author.materialize` is the
 /// accept decision for the reviewed change-set; `author.discard` (with its
 /// per-declaration `decl` parameter) is the reject decision.
@@ -1172,12 +1163,13 @@ pub struct AuthorDiffParams {
 pub struct AuthorDiffResult {
     /// The rendered diff lines.
     pub rendered: Vec<String>,
-    /// The lorestore commit this diff is relative to — pinned at
-    /// `author.open`. Absent on a `0.5.1` request or without a lorestore.
+    /// The base commit this diff is relative to, initially pinned at
+    /// `author.open` and advanced by this workspace's own materialize.
+    /// Absent without a lorestore.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub root_hash: Option<String>,
     /// Structured per-fact diffs with before/after standing — the
-    /// machine-readable review surface. 0.6.0 only.
+    /// machine-readable review surface.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub rows: Option<Vec<AuthorDiffRow>>,
     /// Every current graded finding over the staged world.
@@ -1232,8 +1224,9 @@ pub struct AuthorDiffStanding {
 pub struct AuthorDiscardParams {
     /// The workspace id.
     pub workspace: String,
-    /// The single staged declaration to discard, named by its rendered canonical
-    /// line. Omit to discard the whole workspace.
+    /// The single staged declaration to discard, named by its structural key
+    /// from `author.status` or, when a renderer is available, by its rendered
+    /// canonical line. Omit to discard the whole workspace.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub decl: Option<String>,
 }
@@ -1257,20 +1250,15 @@ pub struct AuthorDiscardResult {
 pub struct AuthorMaterializeParams {
     /// The workspace id.
     pub workspace: String,
-    /// Opt into the `.dli` rendering in the result. Contract 0.6.0 returns
-    /// the committed fact objects as JSON by default (the JSON-first return);
-    /// the rendered lines are produced only on request. Ignored (always
-    /// rendered) on a `0.5.1` request.
+    /// For a lorestore-backed workspace, opt into the `.dli` rendering in the
+    /// result. Committed fact objects are returned as JSON by default. A
+    /// workspace without a lorestore returns rendered lines when a renderer is
+    /// available and otherwise refuses.
     #[serde(default)]
     pub rendered: bool,
-    /// Accept the whole committed set under a named, recorded, defeasible
-    /// decision (contract 1.9.0, DL-0083): materialize injects a synthetic
-    /// `ratify` for it into the committed decls and marks every committed fact
-    /// object's provenance `Ratified` under it, so the accepted set reads
-    /// `certain` by the ordinary algebra. The honest replacement for
-    /// `fixture-authority ... true` — it stamps exactly the facts this call
-    /// commits, never the whole valuation overlay. Floor-gated at 1.9.0:
-    /// supplying it on an earlier accepted version is a schema violation.
+    /// When committing staged facts to a lorestore, record this defeasible
+    /// decision and stamp previously uncited facts `Ratified` under it.
+    /// Existing citations and declaration objects are preserved.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub decision: Option<String>,
 }
@@ -1798,10 +1786,9 @@ pub struct AuthorRecordDecisionsResult {
     pub recorded: usize,
 }
 
-/// `author.defeat` records a defeating decision. Through contract 1.12 it rules
-/// the existing supporting decision false on the Ref; from 1.13 it appends a
-/// conditional attack edge, so grounded standing restores the target when its
-/// attacker is itself defeated.
+/// `author.defeat` records a conditional attack against a supporting decision.
+/// Defeating an attacker removes its effect; other live attacks may still block
+/// the target.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorDefeatParams {
@@ -1811,7 +1798,7 @@ pub struct AuthorDefeatParams {
     pub claim_id: String,
     /// The decision that defeats the claim.
     pub decision: String,
-    /// The claim's existing supporting decision to rule false.
+    /// The claim's existing supporting decision to attack.
     pub defeated_decision: String,
 }
 
@@ -1846,11 +1833,10 @@ pub struct AuthorQueryParams {
 pub struct AuthorQueryResult {
     /// The workspace digest the query was evaluated against (`jcs:sha256:`
     /// regime — the staged world is workspace state, not a store commit).
-    /// 0.6.0 only.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub root_hash: Option<String>,
     /// The full effective valuation of the staged world — every ruled atom
-    /// with its boolean, sorted by name. 0.6.0 only.
+    /// with its boolean, sorted by name.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub valuation: Option<Vec<ValuationEntry>>,
     /// The answer rows over the staged world.
@@ -1926,7 +1912,7 @@ pub struct AuthorAsOfResult {
     pub holdings: Vec<AsOfHolding>,
     /// The workspace digest the read was evaluated against (`jcs:sha256:`
     /// regime — the staged world is workspace state, not a store commit).
-    /// v2 only, mirroring [`AuthorQueryResult::root_hash`].
+    /// Like [`AuthorQueryResult::root_hash`], this names workspace state.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub root_hash: Option<String>,
 }
@@ -2030,10 +2016,8 @@ pub struct PredicateEntry {
 // -- author.entity_candidates (read, contract 1.10.0) -------------------------
 
 /// `author.entity_candidates` params: entities in the staged world whose id is
-/// close to a surface form, by edit distance. From contract 1.11.0, the
-/// candidate universe contains declared entities only; symbols referenced only
-/// by facts are not candidates. Contract 1.10.0 retains its released result
-/// semantics.
+/// close to a surface form, by edit distance. The candidate universe contains
+/// declared entities only; symbols referenced only by facts are not candidates.
 ///
 /// The bounded coreference candidate read a canonicalizing extractor runs once
 /// per mention: given the surface form it is about to mint, return the existing
@@ -2055,8 +2039,8 @@ pub struct AuthorEntityCandidatesParams {
 }
 
 /// `author.entity_candidates` result: the nearest candidate entities to the
-/// surface form, nearest first, each with its edit distance. Contract 1.11.0
-/// returns declared entities only.
+/// surface form, nearest first, each with its edit distance. Only declared
+/// entities are returned.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct AuthorEntityCandidatesResult {
     /// The candidate entities, nearest first (lexical on ties), at most `limit`.
@@ -2146,16 +2130,13 @@ pub struct AuthorWhyResult {
     /// The recorded decisions in the atom's support antichain — the support
     /// monomials' claim ids filtered to the known-decision set (contract 1.9.0,
     /// DL-0083). The auditability affordance: it lets a caller confirm a fact
-    /// reached certainty the designed way, through recorded decisions, rather
-    /// than through a side channel. Floor-gated with skip-serialize, so pre-1.9.0
-    /// `author.why` responses stay byte-identical (the field is absent, not
-    /// `null`, and never populated below the floor).
+    /// reached certainty through recorded decisions. The field is omitted when
+    /// there are no supporting decisions.
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub supporting_decisions: Vec<String>,
     /// Currently admissible minimal support monomials, with exact recorded
-    /// decision names and path boundaries preserved. `Some([])` is an explicit
-    /// dead/unknown result at contract 1.13+; `None` omits the field on every
-    /// earlier accepted wire.
+    /// decision names and path boundaries preserved. An empty list means no
+    /// support paths are currently admissible; it does not establish standing.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub active_supporting_decision_paths: Option<Vec<Vec<String>>>,
     /// The active direct decision defeats that explain a currently blocked
@@ -2278,8 +2259,7 @@ pub enum BranchAction {
 
 /// `author.branch` params. `name`/`from` apply to `create`; `name` alone
 /// applies to `delete`; `list` ignores both. `expected_ref` fences `create`'s
-/// FROM branch or `delete`'s target branch (WS-3, ≥ contract 1.7.0 — a schema
-/// violation below it).
+/// FROM branch or `delete`'s target branch.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorBranchParams {
@@ -2344,11 +2324,11 @@ pub struct AuthorMergeParams {
     /// the same content-addressed merge commit a real merge would (so a later
     /// real merge of the same two heads produces the identical hash) and runs
     /// the full conflict scan, but skips the target-ref CAS — nothing
-    /// observable moves. A schema violation below 1.7.0.
+    /// observable moves.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub dry_run: Option<bool>,
     /// Fence the TARGET branch's whole-ref digest (WS-3, ≥ contract 1.7.0). A
-    /// mismatch is `stale-fence`. A schema violation below 1.7.0.
+    /// mismatch is `stale-fence`.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub expected_ref: Option<String>,
 }
@@ -2418,8 +2398,7 @@ pub struct CorpusImportParams {
     /// would demote every ratified fact it carried.
     #[serde(default)]
     pub decisions: Vec<String>,
-    /// Conditional decision-attack objects exported by a contract 1.13+
-    /// store. Default-empty so every older import frame remains valid.
+    /// Conditional decision-attack objects to import. Defaults to empty.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub attacks: Vec<serde_json::Value>,
     /// The corpus as `.dli` documents. Syntax builds only; elsewhere this is a
@@ -2510,7 +2489,7 @@ pub struct CorpusExportResult {
     /// rather than `proposed assumes`. Round-trips with `objects` and
     /// `interner`; the three together are the exported state.
     pub decisions: Vec<String>,
-    /// Folded conditional decision attacks at this commit (contract 1.13+).
+    /// Folded conditional decision attacks at this commit.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub attacks: Vec<serde_json::Value>,
     /// The `.dli` rendering, when `format: rendered` was asked for.

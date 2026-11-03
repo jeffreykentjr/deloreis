@@ -18,8 +18,7 @@ pub enum Severity {
 
 /// The stored standing requested for a cited authoring operation.
 ///
-/// The field is optional here so pre-1.5 wire frames remain decodable. The
-/// 1.5 request boundary requires it for `kind: cited`.
+/// Cited provenance requires this field at the request boundary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ProvenanceState {
@@ -93,7 +92,7 @@ pub enum Provenance {
     Cited {
         /// The cited decision identifiers in the consuming repo's ledger.
         decisions: Vec<String>,
-        /// The requested standing on contract 1.5 and above.
+        /// The requested standing for the cited claim.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         state: Option<ProvenanceState>,
     },

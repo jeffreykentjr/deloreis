@@ -5,7 +5,7 @@
   "type": "object",
   "properties": {
     "active_supporting_decision_paths": {
-      "description": "Currently admissible minimal support monomials, with exact recorded\ndecision names and path boundaries preserved. `Some([])` is an explicit\ndead/unknown result at contract 1.13+; `None` omits the field on every\nearlier accepted wire.",
+      "description": "Currently admissible minimal support monomials, with exact recorded\ndecision names and path boundaries preserved. An empty list means no\nsupport paths are currently admissible; it does not establish standing.",
       "type": [
         "array",
         "null"
@@ -38,7 +38,7 @@
       }
     },
     "supporting_decisions": {
-      "description": "The recorded decisions in the atom's support antichain — the support\nmonomials' claim ids filtered to the known-decision set (contract 1.9.0,\nDL-0083). The auditability affordance: it lets a caller confirm a fact\nreached certainty the designed way, through recorded decisions, rather\nthan through a side channel. Floor-gated with skip-serialize, so pre-1.9.0\n`author.why` responses stay byte-identical (the field is absent, not\n`null`, and never populated below the floor).",
+      "description": "The recorded decisions in the atom's support antichain — the support\nmonomials' claim ids filtered to the known-decision set (contract 1.9.0,\nDL-0083). The auditability affordance: it lets a caller confirm a fact\nreached certainty through recorded decisions. The field is omitted when\nthere are no supporting decisions.",
       "type": "array",
       "items": {
         "type": "string"

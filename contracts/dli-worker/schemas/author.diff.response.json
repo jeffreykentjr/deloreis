@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorDiffResult",
-  "description": "`author.diff` result.\n\nContract 0.6.0 adds `root_hash` (the pinned base commit this change-set is\nrelative to) and `rows` (structured per-fact diffs) alongside the rendered\nlines and findings. Accept/reject semantics: `author.materialize` is the\naccept decision for the reviewed change-set; `author.discard` (with its\nper-declaration `decl` parameter) is the reject decision.",
+  "description": "`author.diff` result.\n\n`root_hash` pins the base commit this change-set is relative to; `rows`\nprovide structured per-fact diffs alongside the rendered\nlines and findings. Accept/reject semantics: `author.materialize` is the\naccept decision for the reviewed change-set; `author.discard` (with its\nper-declaration `decl` parameter) is the reject decision.",
   "type": "object",
   "properties": {
     "consequences": {
@@ -23,14 +23,14 @@
       }
     },
     "root_hash": {
-      "description": "The lorestore commit this diff is relative to — pinned at\n`author.open`. Absent on a `0.5.1` request or without a lorestore.",
+      "description": "The base commit this diff is relative to, initially pinned at\n`author.open` and advanced by this workspace's own materialize.\nAbsent without a lorestore.",
       "type": [
         "string",
         "null"
       ]
     },
     "rows": {
-      "description": "Structured per-fact diffs with before/after standing — the\nmachine-readable review surface. 0.6.0 only.",
+      "description": "Structured per-fact diffs with before/after standing — the\nmachine-readable review surface.",
       "type": [
         "array",
         "null"

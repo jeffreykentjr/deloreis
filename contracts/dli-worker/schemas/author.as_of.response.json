@@ -39,7 +39,7 @@
       "type": "string"
     },
     "root_hash": {
-      "description": "The workspace digest the read was evaluated against (`jcs:sha256:`\nregime — the staged world is workspace state, not a store commit).\nv2 only, mirroring [`AuthorQueryResult::root_hash`].",
+      "description": "The workspace digest the read was evaluated against (`jcs:sha256:`\nregime — the staged world is workspace state, not a store commit).\nLike [`AuthorQueryResult::root_hash`], this names workspace state.",
       "type": [
         "string",
         "null"

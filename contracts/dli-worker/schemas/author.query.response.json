@@ -5,7 +5,7 @@
   "type": "object",
   "properties": {
     "root_hash": {
-      "description": "The workspace digest the query was evaluated against (`jcs:sha256:`\nregime — the staged world is workspace state, not a store commit).\n0.6.0 only.",
+      "description": "The workspace digest the query was evaluated against (`jcs:sha256:`\nregime — the staged world is workspace state, not a store commit).",
       "type": [
         "string",
         "null"
@@ -19,7 +19,7 @@
       }
     },
     "valuation": {
-      "description": "The full effective valuation of the staged world — every ruled atom\nwith its boolean, sorted by name. 0.6.0 only.",
+      "description": "The full effective valuation of the staged world — every ruled atom\nwith its boolean, sorted by name.",
       "type": [
         "array",
         "null"
