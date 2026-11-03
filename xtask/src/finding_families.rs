@@ -735,12 +735,6 @@ const FAMILIES: &[Family] = &[
                 meaning: "a free-text field carries a control/bidi/zero-width character that could forge or reorder a declaration in the review diff.",
             },
             Code {
-                code: "provenance.cited-refused",
-                severity: "error",
-                repair: "add-provenance",
-                meaning: "below contract 1.3.0 only: a citation is refused outright and nothing is staged. Scrubbed at 1.3.0 and above, where a citation is recorded and verified instead (DL-0054, DL-0058); every earlier wire keeps this refusal permanently.",
-            },
-            Code {
                 code: "citation.unknown-decision",
                 severity: "error",
                 repair: "resolve-citation",
@@ -873,7 +867,7 @@ pub fn render() -> String {
          only), and what it means.\n\n",
     );
     out.push_str(
-        "These finding codes are **disjoint** from the wire error-code registry (the 13 \
+        "These finding codes are **disjoint** from the wire error-code registry (the \
          `ErrorCode` values in `error-codes.md`, per the dli-worker contract §3.2 / §9). \
          The distinction is load-bearing: a wire error code says the *call* failed — it was \
          malformed (`schema`), refused by principle (`refused`), or hit a server defect \

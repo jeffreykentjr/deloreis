@@ -85,10 +85,6 @@ fn a_citation_is_recorded_as_data() {
         "2.0.0",
         &json!({ "kind": "cited", "decisions": ["d-1"], "state": "ratified" }),
     );
-    assert!(
-        !codes(&result).contains(&"provenance.cited-refused".to_owned()),
-        "a citation is recorded: {result}"
-    );
     // The claim staged: something is in the workspace to review.
     let staged = store
         .workspaces()

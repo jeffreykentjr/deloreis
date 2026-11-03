@@ -109,42 +109,30 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorAddEntity => mutate(request, store, |store, request| {
             let params: AuthorAddEntityParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                tools::add_entity(store, &params, true),
-            ))
+            Ok((params.workspace.clone(), tools::add_entity(store, &params)))
         }),
         Op::AuthorAddFact => mutate(request, store, |store, request| {
             let params: AuthorAddFactParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                tools::add_fact(store, &params, true),
-            ))
+            Ok((params.workspace.clone(), tools::add_fact(store, &params)))
         }),
         Op::AuthorAddRelation => mutate(request, store, |store, request| {
             let params: AuthorAddRelationParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::add_relation(store, &params, true),
+                tools::add_relation(store, &params),
             ))
         }),
         Op::AuthorAddEvent => mutate(request, store, |store, request| {
             let params: AuthorAddEventParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                tools::add_event(store, &params, true),
-            ))
+            Ok((params.workspace.clone(), tools::add_event(store, &params)))
         }),
         Op::AuthorAddBefore => mutate(request, store, |store, request| {
             let params: AuthorAddBeforeParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                tools::add_before(store, &params, true),
-            ))
+            Ok((params.workspace.clone(), tools::add_before(store, &params)))
         }),
         Op::AuthorOpenQuestion => mutate(request, store, |store, request| {
             let params: AuthorOpenQuestionParams = parse(request)?;
@@ -178,58 +166,40 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorAddDialect => mutate(request, store, |store, request| {
             let params: AuthorAddDialectParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                tools::add_dialect(store, &params, true),
-            ))
+            Ok((params.workspace.clone(), tools::add_dialect(store, &params)))
         }),
         Op::AuthorAddNamePart => mutate(request, store, |store, request| {
             let params: AuthorAddNamePartParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::add_name_part(store, &params, true),
+                tools::add_name_part(store, &params),
             ))
         }),
         Op::AuthorAddName => mutate(request, store, |store, request| {
             let params: AuthorAddNameParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                tools::add_name(store, &params, true),
-            ))
+            Ok((params.workspace.clone(), tools::add_name(store, &params)))
         }),
         Op::AuthorAddTerm => mutate(request, store, |store, request| {
             let params: AuthorAddTermParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                tools::add_term(store, &params, true),
-            ))
+            Ok((params.workspace.clone(), tools::add_term(store, &params)))
         }),
         Op::AuthorAddBanned => mutate(request, store, |store, request| {
             let params: AuthorAddBannedParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                tools::add_banned(store, &params, true),
-            ))
+            Ok((params.workspace.clone(), tools::add_banned(store, &params)))
         }),
         Op::AuthorAddState => mutate(request, store, |store, request| {
             let params: AuthorAddStateParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                tools::add_state(store, &params, true),
-            ))
+            Ok((params.workspace.clone(), tools::add_state(store, &params)))
         }),
         Op::AuthorAddAttest => mutate(request, store, |store, request| {
             let params: AuthorAddAttestParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                tools::add_attest(store, &params, true),
-            ))
+            Ok((params.workspace.clone(), tools::add_attest(store, &params)))
         }),
         Op::AuthorSetStanding => mutate(request, store, |store, request| {
             let params: AuthorSetStandingParams = parse(request)?;
@@ -252,7 +222,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::declare_functional(store, &params, true),
+                tools::declare_functional(store, &params),
             ))
         }),
         Op::AuthorAssertSameAs => mutate(request, store, |store, request| {
@@ -260,7 +230,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::assert_same_as(store, &params, true),
+                tools::assert_same_as(store, &params),
             ))
         }),
         Op::AuthorAssertPredicateSameAs => mutate(request, store, |store, request| {
@@ -268,23 +238,20 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::assert_predicate_same_as(store, &params, true),
+                tools::assert_predicate_same_as(store, &params),
             ))
         }),
         Op::AuthorAddRule => mutate(request, store, |store, request| {
             let params: AuthorAddRuleParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                tools::add_rule(store, &params, true),
-            ))
+            Ok((params.workspace.clone(), tools::add_rule(store, &params)))
         }),
         Op::AuthorDeclareInertial => mutate(request, store, |store, request| {
             let params: AuthorDeclareInertialParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::declare_inertial(store, &params, true),
+                tools::declare_inertial(store, &params),
             ))
         }),
         // The baseline-decision recorder (contract 1.9.0, DL-0083): writes a
@@ -297,7 +264,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::record_decision(store, &params, true),
+                tools::record_decision(store, &params),
             ))
         }),
         Op::AuthorRecordDecisions => mutate(request, store, |store, request| {
@@ -306,7 +273,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck_record_decisions(request, &params)?;
             Ok((
                 params.workspace.clone(),
-                tools::record_decisions(store, &params, true),
+                tools::record_decisions(store, &params),
             ))
         }),
         // The read/self-check tools (AUTH-2): each answers over the STAGED world

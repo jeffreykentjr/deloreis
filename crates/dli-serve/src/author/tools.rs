@@ -846,23 +846,14 @@ pub(super) fn materialize(
 pub(super) fn add_entity(
     store: &mut Store,
     params: &AuthorAddEntityParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let decl = Decl::Entity(EntityDecl {
         kind: map_kind(params.kind),
         name: ident(&params.id),
         label: Some(params.name.clone()),
         time: None,
         slots: Vec::new(),
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -871,21 +862,12 @@ pub(super) fn add_entity(
 pub(super) fn add_fact(
     store: &mut Store,
     params: &AuthorAddFactParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let decl = Decl::Attr(AttrDecl {
         subject: ident(&params.entity),
         attr: ident(&params.key),
         value: author_value(&params.value),
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -894,23 +876,14 @@ pub(super) fn add_fact(
 pub(super) fn add_relation(
     store: &mut Store,
     params: &AuthorAddRelationParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let decl = Decl::Fact(FactDecl {
         atom: AtomExpr {
             pred: ident(&params.relation),
             args: vec![Term::Sym(ident(&params.from)), Term::Sym(ident(&params.to))],
         },
         triple: false,
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -919,23 +892,14 @@ pub(super) fn add_relation(
 pub(super) fn add_event(
     store: &mut Store,
     params: &AuthorAddEventParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let decl = Decl::Entity(EntityDecl {
         kind: AstEntityKind::Event,
         name: ident(&params.id),
         label: params.name.clone(),
         time: Some(TimeClause::During(ident(&params.era))),
         slots: Vec::new(),
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -945,20 +909,11 @@ pub(super) fn add_event(
 pub(super) fn add_before(
     store: &mut Store,
     params: &AuthorAddBeforeParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let decl = Decl::Before(BeforeDecl {
         earlier: ident(&params.earlier),
         later: ident(&params.later),
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -974,20 +929,11 @@ pub(super) fn add_before(
 pub(super) fn assert_same_as(
     store: &mut Store,
     params: &AuthorAssertSameAsParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let decl = Decl::SameAs(SameAsDecl {
         left: ident(&params.left),
         right: ident(&params.right),
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -998,20 +944,11 @@ pub(super) fn assert_same_as(
 pub(super) fn assert_predicate_same_as(
     store: &mut Store,
     params: &AuthorAssertPredicateSameAsParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let decl = Decl::PredicateSameAs(PredicateSameAsDecl {
         left: ident(&params.left),
         right: ident(&params.right),
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -1045,16 +982,7 @@ pub(super) fn assert_predicate_same_as(
 pub(super) fn add_rule(
     store: &mut Store,
     params: &AuthorAddRuleParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let datalog = Datalog {
         head: params.head.clone(),
         body: params.body.clone(),
@@ -1073,7 +1001,7 @@ pub(super) fn add_rule(
             }],
             inline: None,
         },
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
 
     let findings = {
@@ -1317,23 +1245,14 @@ pub(super) fn suppose(store: &mut Store, params: &AuthorSupposeParams) -> Result
 pub(super) fn add_dialect(
     store: &mut Store,
     params: &AuthorAddDialectParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let decl = Decl::Dialect(DialectDecl {
         name: ident(&params.id),
         label: params.label.clone(),
         body: DialectBody {
             clauses: params.body.iter().map(dialect_clause).collect(),
         },
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -1342,21 +1261,12 @@ pub(super) fn add_dialect(
 pub(super) fn add_name_part(
     store: &mut Store,
     params: &AuthorAddNamePartParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let decl = Decl::NamePart(NamePartDecl {
         name: ident(&params.id),
         gloss: params.gloss.clone(),
         head: params.head.clone(),
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -1367,16 +1277,7 @@ pub(super) fn add_name_part(
 pub(super) fn add_name(
     store: &mut Store,
     params: &AuthorAddNameParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let mut clauses = Vec::new();
     if !params.composition.is_empty() {
         clauses.push(name_clause(
@@ -1402,7 +1303,7 @@ pub(super) fn add_name(
         label: params.label.clone(),
         head: params.head.clone(),
         body: NameBody { clauses },
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -1411,20 +1312,11 @@ pub(super) fn add_name(
 pub(super) fn add_term(
     store: &mut Store,
     params: &AuthorAddTermParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let decl = Decl::Term(TermDecl {
         name: ident(&params.id),
         label: params.label.clone(),
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -1434,20 +1326,11 @@ pub(super) fn add_term(
 pub(super) fn add_banned(
     store: &mut Store,
     params: &AuthorAddBannedParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let decl = Decl::Banned(BannedDecl {
         word: ident(&params.word),
         reason: params.reason.clone(),
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -1458,16 +1341,7 @@ pub(super) fn add_banned(
 pub(super) fn add_state(
     store: &mut Store,
     params: &AuthorAddStateParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let decl = Decl::State(StateDecl {
         name: ident(&params.id),
         value: params.value.as_deref().map(author_value),
@@ -1480,7 +1354,7 @@ pub(super) fn add_state(
                 StateTimeKind::Until => TimeClause::Until(point),
             }
         }),
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -1493,19 +1367,10 @@ pub(super) fn add_state(
 pub(super) fn declare_functional(
     store: &mut Store,
     params: &AuthorDeclareFunctionalParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let decl = Decl::Functional(FunctionalDecl {
         pred: ident(&params.pred),
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -1518,19 +1383,10 @@ pub(super) fn declare_functional(
 pub(super) fn declare_inertial(
     store: &mut Store,
     params: &AuthorDeclareInertialParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let decl = Decl::Inertial(InertialDecl {
         pred: ident(&params.pred),
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -1540,19 +1396,10 @@ pub(super) fn declare_inertial(
 pub(super) fn add_attest(
     store: &mut Store,
     params: &AuthorAddAttestParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
-    if let Some(refusal) = refuse_cited(
-        store,
-        &params.workspace,
-        &params.provenance,
-        records_citations,
-    ) {
-        return refusal;
-    }
     let decl = Decl::Attest(AttestDecl {
         question: ident(&params.question),
-        provenance: Some(annotation(&params.provenance, records_citations)),
+        provenance: Some(annotation(&params.provenance)),
     });
     stage(store, &params.workspace, decl)
 }
@@ -2938,19 +2785,6 @@ fn control_char(field: &str) -> Finding {
     }
 }
 
-fn cited_refused() -> Finding {
-    Finding {
-        severity: Severity::Error,
-        code: "provenance.cited-refused".to_owned(),
-        message: "Door T authors `proposed` or `hypothesis` only; an agent cannot cite a ruling to mint canon authority. Citing a decision is a human act in review — resubmit with proposed provenance."
-            .to_owned(),
-        grade: Grade::Checked,
-        repair: Some(json!({ "kind": "add-provenance", "required": "proposed" })),
-        citations: Vec::new(),
-        data: None,
-    }
-}
-
 /// The per-add referential-integrity finding for a citation naming a decision
 /// the base does not declare (the authority scrub's kept half, DL-0054 clause 2).
 ///
@@ -2982,25 +2816,11 @@ fn citation_unknown(id: &str, known: &BTreeSet<String>) -> Finding {
 /// Lower a wire [`Provenance`] to an AST [`Annotation`]. `proposed` records an
 /// origin tag; `hypothesis` scopes the claim to a fork-local hyp condition.
 ///
-/// `cited` has two internal lowerings; the served contract records citations:
-///
-/// - **At ≥ 1.3.0** (the authority scrub, DL-0054/DL-0058) it lowers to a real
-///   `decided` marker carrying the cited ids. The engine records what the caller
-///   states and verifies the one thing it can check — that each cited decision
-///   is declared. It does not ask *who* is citing: every caller is a machine,
-///   and a human ruling reaches the engine by a machine citing the
-///   consumer-ledger id that recorded it. Referential integrity stays
-///   fail-closed downstream: `dli-eval` sets a decision's variable true only
-///   when the corpus declares it, so a forged id leaves the variable open and
-///   the claim can never read certain.
-/// - **Below 1.3.0** `cited` is refused at the tool boundary
-///   ([`refuse_cited`]) and never reaches here. This arm is the fail-closed
-///   backstop for that era: a `cited` that somehow arrived flattens to a bare
-///   `proposed` with no citation — never `decided`/`ratified`/`provisional` —
-///   so no forged authority can be minted by a path that skipped the check.
-fn annotation(provenance: &Provenance, records_citations: bool) -> Annotation {
+/// A cited claim carries its recorded decisions; referential integrity is
+/// checked when the claim is staged and again before materialization.
+fn annotation(provenance: &Provenance) -> Annotation {
     match provenance {
-        Provenance::Cited { decisions, state } if records_citations => Annotation {
+        Provenance::Cited { decisions, state } => Annotation {
             marker: match state {
                 Some(ProvenanceState::Provisional) => ProvenanceMarker::Provisional,
                 Some(ProvenanceState::Ratified) => ProvenanceMarker::Ratified,
@@ -3010,13 +2830,6 @@ fn annotation(provenance: &Provenance, records_citations: bool) -> Annotation {
                 .iter()
                 .map(|id| CitationRef { id: ident(id) })
                 .collect(),
-            condition: None,
-            tags: Vec::new(),
-            span: Span::synthetic(),
-        },
-        Provenance::Cited { .. } => Annotation {
-            marker: ProvenanceMarker::Proposed,
-            citations: Vec::new(),
             condition: None,
             tags: Vec::new(),
             span: Span::synthetic(),
@@ -3154,7 +2967,6 @@ pub(super) fn defeat(
 pub(super) fn record_decision(
     store: &mut Store,
     params: &AuthorRecordDecisionParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
     let decision = params.decision.as_str();
     let ws0 = store.get(&params.workspace).ok_or_else(gone)?;
@@ -3168,18 +2980,12 @@ pub(super) fn record_decision(
             "recording a decision requires an attached lorestore",
         ));
     }
-    if let Some(provenance) = &params.provenance
-        && let Some(refusal) = refuse_cited(store, &params.workspace, provenance, records_citations)
-    {
-        return refusal;
-    }
-
     // The `ratify` carriage this op will write. Any `cited` provenance names the
     // prior decisions this ruling itself rests on; they ride in the body's typed
     // interior (`body.citations`) so the citation gate reads them the way it
     // reads a text `ratify … { cited … }`.
     let cited: Vec<String> = match &params.provenance {
-        Some(Provenance::Cited { decisions, .. }) if records_citations => decisions.clone(),
+        Some(Provenance::Cited { decisions, .. }) => decisions.clone(),
         _ => Vec::new(),
     };
     let ratify = Decl::Ratify(RatifyDecl {
@@ -3382,7 +3188,6 @@ pub(super) fn record_decision(
 pub(super) fn record_decisions(
     store: &mut Store,
     params: &AuthorRecordDecisionsParams,
-    records_citations: bool,
 ) -> Result<Value, ErrorBody> {
     if params.records.is_empty() {
         return Err(schema_error(
@@ -3486,18 +3291,8 @@ pub(super) fn record_decisions(
         } else {
             first_index.insert(record.decision.clone(), index);
         }
-        if !records_citations
-            && matches!(record.provenance.as_ref(), Some(Provenance::Cited { .. }))
-        {
-            let mut finding = cited_refused();
-            finding.data = Some(json!({
-                "record_index": index,
-                "decision": record.decision,
-            }));
-            findings.push(finding);
-        }
         let cited = match &record.provenance {
-            Some(Provenance::Cited { decisions, .. }) if records_citations => decisions.clone(),
+            Some(Provenance::Cited { decisions, .. }) => decisions.clone(),
             _ => Vec::new(),
         };
         let ratify = Decl::Ratify(RatifyDecl {
@@ -4189,32 +3984,6 @@ fn dedup(codes: impl IntoIterator<Item = String>) -> Vec<String> {
         .collect()
 }
 
-/// The pre-scrub refusal a claim-bearing tool returns when a caller supplies
-/// `cited` provenance (R3/B1): below contract 1.3.0, the authoring seam authors `proposed`
-/// or `hypothesis` only, so a citation is refused as an error-severity finding
-/// and **nothing is staged**.
-///
-/// `None` — stage normally — when the provenance is not `cited`, **or** when the
-/// negotiated version records citations as data (≥ 1.3.0, the authority scrub of
-/// DL-0054 as versioned by DL-0058). Keeping the refusal reachable rather than
-/// deleting it is what freezes `0.5.1` through `1.2.0`: those wires shipped this
-/// finding, released fixtures pin its bytes, and the `ls8_zero_x_parity` oracle
-/// replays them.
-fn refuse_cited(
-    store: &mut Store,
-    ws_id: &str,
-    provenance: &Provenance,
-    records_citations: bool,
-) -> Option<Result<Value, ErrorBody>> {
-    if records_citations || !matches!(provenance, Provenance::Cited { .. }) {
-        return None;
-    }
-    Some(match parts_mut(store, ws_id) {
-        Ok((_, ws)) => Ok(mutation(vec![cited_refused()], Vec::new(), &ws.digest)),
-        Err(body) => Err(body),
-    })
-}
-
 /// The decision ids in scope for a workspace — what a citation must resolve
 /// against. The engine verifies that a cited thing exists; it never invents one
 /// (DL-0054 clause 2).
@@ -4233,8 +4002,7 @@ pub(super) fn workspace_decisions(store: &Store, ws_id: &str) -> BTreeSet<String
 
 /// The referential-integrity findings a declaration's provenance raises: one per
 /// cited decision that is not declared in scope. Empty for every provenance that
-/// carries no citation — which, below the scrub version, is every provenance a
-/// staged declaration can carry, since `cited` is refused before it stages.
+/// carries no citation.
 fn citation_findings(decl: &Decl, decisions: &BTreeSet<String>) -> Vec<Finding> {
     // A recorded decision (`author.record_decision`, DL-0083) may itself rest on
     // prior decisions — its `provenance` citations, kept in the `ratify` body's
