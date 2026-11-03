@@ -86,7 +86,7 @@ tracking issue is labelled `release-1`, and each task below has its own issue.
 ### T2: Baseline gate run and tag
 - **Goal:** record engine test health before cutting anything, and tag the
   last former-consumer-bearing commit.
-- **Steps:** On green main, run the gate once with the short target dir and
+- **Steps:** On green main, run `CI=1 cargo xtask gate` once and
   note the pass/fail counts in the T2 issue. Then
   `git tag -a pre-fiction-reset -m "last commit with former private consumer, multi-version contract"`
   and push the tag.
