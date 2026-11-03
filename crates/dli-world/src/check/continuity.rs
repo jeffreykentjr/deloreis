@@ -2154,6 +2154,28 @@ fn direct_rule_witness(
     let mut budget = 25_000usize;
     let fact_index = witness_fact_index(&model.world);
     let row_index = witness_row_index(&model.world);
+    let mut target_index: BTreeMap<(&str, usize), Vec<_>> = BTreeMap::new();
+    for row in &model.world.derived {
+        if row.ann().status(valuation, theory) != Status::Certain {
+            continue;
+        }
+        let Some((raw_slot, value)) = ground_binary_slot(&row.atom) else {
+            continue;
+        };
+        if canon_slot(world, canon, &raw_slot)
+            != (violation.pred.clone(), violation.subject.clone())
+            || !violation.values.iter().any(|candidate| {
+                dli_core::fd::fd_value_key(candidate)
+                    == dli_core::fd::fd_value_key(dli_core::alias::canon(canon, &value))
+            })
+        {
+            continue;
+        }
+        target_index
+            .entry((&row.atom.pred, row.atom.args.len()))
+            .or_default()
+            .push(row);
+    }
     for (index, rule) in model.world.rules.iter().enumerate() {
         let Some(span) = model
             .rule_spans
@@ -2168,27 +2190,12 @@ fn direct_rule_witness(
         {
             continue;
         }
-        for row in row_index
+        for row in target_index
             .get(&(rule.head.pred.text.as_str(), rule.head.args.len()))
             .into_iter()
             .flatten()
         {
             budget = budget.checked_sub(1)?;
-            if row.ann().status(valuation, theory) != Status::Certain {
-                continue;
-            }
-            let Some((raw_slot, value)) = ground_binary_slot(&row.atom) else {
-                continue;
-            };
-            if canon_slot(world, canon, &raw_slot)
-                != (violation.pred.clone(), violation.subject.clone())
-                || !violation.values.iter().any(|candidate| {
-                    dli_core::fd::fd_value_key(candidate)
-                        == dli_core::fd::fd_value_key(dli_core::alias::canon(canon, &value))
-                })
-            {
-                continue;
-            }
             let mut head_bindings = BTreeMap::new();
             if !unify_witness(&rule.head, &row.atom, &mut head_bindings) {
                 continue;
