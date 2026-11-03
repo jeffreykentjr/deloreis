@@ -5,63 +5,69 @@ verdict: "De Lore Is checks and explains continuity in fictional worlds."
 
 # De Lore Is
 
-Wren lives in Thornfield. Three chapters later, someone says she lives in
-Ashby. If both are meant to be true at the same time, De Lore Is can catch the
-conflict before it becomes part of your story.
+De Lore Is helps you keep track of the facts, timelines, and rules of a
+fictional world. It checks the lore you record for contradictions and can
+explain which decisions support an answer.
 
-For example, here's part of a finding from the
-[Hollow walkthrough](examples/hollow/transcript.md):
+It's for writers, worldbuilders, and people building tools that work with
+fiction. You can write lore in `.dli` files and check it from the command line,
+or connect an MCP client to work with a local world through its authoring
+tools. The checks run locally and don't call a model.
 
-```json
-{
-  "citations": ["d-0001", "d-0002"],
-  "code": "continuity.fd-violation",
-  "data": {"pred": "home", "slot_key": "home/wren", "subject": "wren", "values": ["ashby", "thornfield"]},
-  "grade": "checked",
-  "message": "canon breaks the functional dependency on 'home': wren carries 2 distinct certain values [ashby, thornfield]",
-  "severity": "error"
-}
-```
+You decide what to record and which rules apply. De Lore Is checks structured
+lore; it doesn't read a manuscript and find plot holes on its own.
 
-The commit is refused until the conflict is resolved or discarded.
+## Try it
 
-De Lore Is keeps track of the people, places, events, and rules you give it.
-It can tell you which claims are settled, which are still in dispute, and why.
-When you change your mind, the old ruling stays in the record. You can explore
-an alternative without rewriting the original.
-
-It's useful for authors keeping a series bible and for people building tools
-that write or work with fiction. It checks structured lore, not manuscripts:
-you decide what to record and which rules matter in your world.
-It records when you add and rule on claims; it does not model what each
-character knew at a particular point in the story.
-
-## Install
-
-With Rust installed:
+Install from this repository with Rust 1.96 or later:
 
 ```sh
 cargo install --git https://github.com/jeffreykentjr/deloreis --locked deloreis
 ```
 
-Release archives will be available on the [releases page](https://github.com/jeffreykentjr/deloreis/releases) once published.
+Save the following as `story.dli`:
 
-## Get started
-
-Create a world:
-
-```sh
-deloreis init my-story
-cd my-story
+```dli
+scope story
+ratify d-1
+person arthur "Arthur" decided d-1
+place camelot "Camelot" decided d-1
+place avalon "Avalon" decided d-1
+functional home decided d-1
+fact arthur home camelot decided d-1
+fact arthur home avalon decided d-1
 ```
 
-The [quickstart](docs/quickstart.md) walks through connecting an MCP client,
-adding your first facts, and catching a contradiction. You can also read the
-[Hollow walkthrough](examples/hollow/transcript.md) for a complete example of
-a dispute, a retcon, and a what-if branch.
+Here `d-1` names the decision supporting the declarations and facts.
 
-- [Concepts](docs/concepts.md) — the terms you'll meet as you go.
-- [Agent guide](SKILL.md) — the authoring tools and how to use them.
-- [Contributing](AGENTS.md) — how to work on the project.
+Then run:
 
-The project is MIT licensed.
+```sh
+deloreis check story.dli
+```
+
+The finding lists both values: `[avalon, camelot]`. The `functional` line tells
+De Lore Is to treat home as single-valued;
+without that rule, the two statements aren't automatically a conflict. The
+command exits with status 1 because it found a problem.
+
+## Work with a world
+
+Create a project with `deloreis init my-story`. To work with it through an MCP
+client such as Claude Code, follow the [quickstart](docs/quickstart.md) to
+connect the local server, add facts, and catch a contradiction. The walkthrough
+shows how to ask the client to make the tool calls.
+
+In a project, De Lore Is keeps the decisions behind your claims, including
+claims you later revise. You can keep accounts unresolved, inspect why
+something is considered canon, and explore changes on a separate branch. The
+project records when claims and rulings were added; it does not model what each
+character knew at a particular point in the story.
+
+- [Hollow walkthrough](examples/hollow/transcript.md) — a dispute, a retcon,
+  and a what-if branch, with the actual calls and results.
+- [Concepts](docs/concepts.md) — the terms used by the tools.
+- [Agent guide](SKILL.md) — authoring tools and session workflow.
+- [Contributing](AGENTS.md) — working on the project.
+
+Release archives will be available on the [releases page](https://github.com/jeffreykentjr/deloreis/releases) once published. De Lore Is is MIT licensed.

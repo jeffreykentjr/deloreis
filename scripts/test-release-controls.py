@@ -88,6 +88,11 @@ class ReleaseControls(unittest.TestCase):
             with self.assertRaises(ValueError):
                 control.validate_published_release("v0.1.0", broken)
 
+    def test_crate_publish_job_uses_protected_environment(self):
+        root = Path(__file__).resolve().parent.parent
+        workflow = (root / ".github/workflows/publish-crates.yml").read_text()
+        self.assertIn("    environment: crates-io\n", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()

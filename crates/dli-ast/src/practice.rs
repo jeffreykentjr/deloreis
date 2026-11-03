@@ -143,7 +143,7 @@ pub enum GradeDirection {
     Grows,
 }
 
-/// A declared finite sort: `sort figure = the-tide | north-gate | …`, or a sort
+/// A declared finite sort: `sort figure = round-table | north-gate | …`, or a sort
 /// drawn wholesale from a consumed layer: `sort binder from lexicon.field-words`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct SortDef {

@@ -117,6 +117,12 @@ fn canonical_gate_runs_both_build_lanes() {
         }),
         "the canonical gate must exercise the parser-free acceptance build"
     );
+    assert!(
+        commands.iter().any(|command| {
+            command == "cargo test -p deloreis --no-default-features --no-run --locked"
+        }),
+        "the parser-free CLI tests must compile"
+    );
 
     // The syntax lane: the whole workspace, parser linked.
     assert!(

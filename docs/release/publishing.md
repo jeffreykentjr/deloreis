@@ -20,9 +20,10 @@ manually:
   Linux; the macOS job then waits for approval in the `macos-rc` environment.
   Do not start it without the owner's approval of that candidate.
 
-The `macos-rc` environment must have a required human reviewer configured.
-An environment name by itself does not provide a review gate. Never remove that
-protection or approve a run on the owner's behalf.
+The `macos-rc` and `crates-io` environments must each require the owner's
+review. Store `CARGO_REGISTRY_TOKEN` as a `crates-io` environment secret, not
+a repository secret. An environment name by itself does not provide a review
+gate. Never remove these protections or approve a run on the owner's behalf.
 
 When a candidate is ready:
 
@@ -44,8 +45,9 @@ When a candidate is ready:
    without modifying them; verify that the RC and stable tags name the same
    commit and that the copied archive's attestation still verifies.
 7. Check both archives and their checksums, then publish the stable release.
-   The `Publish crates` workflow verifies it and publishes the crates using the
-   `CARGO_REGISTRY_TOKEN` Actions secret. Prereleases do not start publication.
+   The `Publish crates` workflow waits for the owner's `crates-io` environment
+   review, then verifies and publishes the crates. Prereleases do not start
+   publication.
 8. Confirm `cargo install deloreis --locked` in a clean environment.
 
 For a partial crate publication, rerun `Publish crates` with the published tag

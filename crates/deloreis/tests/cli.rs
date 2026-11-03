@@ -1877,6 +1877,7 @@ fn init_refuses_to_overwrite_a_manifest() {
 }
 
 #[test]
+#[cfg(feature = "syntax")]
 fn import_ref_fence_refuses_a_second_writer() {
     let dir = tmp("import-ref-fence");
     let store = dli_lorestore::Lorestore::open(dir).unwrap();
