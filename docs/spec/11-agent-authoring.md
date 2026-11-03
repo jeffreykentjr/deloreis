@@ -264,8 +264,9 @@ When `river-speech` is configured in this workspace, a response can include:
 
 Assert a keyed value on one entity. Lowers to a binary atom `key(entity, value)`.
 Provenance required. A compact token renders as a symbol; whitespace or surface
-delimiter characters make the value a quoted string, so arbitrary caller data
-always materializes as parseable canonical text.
+delimiter characters make the value a quoted string. Fact objects remain the
+canonical form; a requested text rendering is refused if its provenance cannot
+be preserved.
 
 ```json
 { "op": "author.add_fact",

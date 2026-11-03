@@ -5,8 +5,9 @@ verdict: "Release-facing history of the De Lore Is contract and fiction reset."
 
 # Changelog
 
-## Unreleased: fiction reset
+## 0.1.0
 
+- The first fiction release ships on crates.io and as macOS and Linux archives.
 - Contract 2.0.0 is the sole served contract. Retired versions and operations
   are refused with a successor. The `pre-fiction-reset` tag preserves the
   previous integration surface.
@@ -18,6 +19,8 @@ verdict: "Release-facing history of the De Lore Is contract and fiction reset."
   values on functional slots receive a nonblocking warning.
 - The engine preserves contested accounts and retcons, including attacks on
   historical support carriers across metadata changes and export/import.
+- YAML files use a maintained parser, and the temporary advisory exception has
+  been removed.
 
 ## Previous contract history
 

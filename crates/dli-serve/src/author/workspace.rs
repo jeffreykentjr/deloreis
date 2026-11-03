@@ -253,6 +253,19 @@ impl Workspace {
         self.bump_structural_revision();
     }
 
+    /// Update durable names without changing the meaning of staged object IDs.
+    pub(super) fn align_interner(&mut self, names: Vec<String>, next_bundle: u32) {
+        if self.staged_fact_hashes.is_empty() && self.pending_decl_refs().next().is_none() {
+            self.interner = Interner::from_names(names);
+            self.bundle_counter = next_bundle;
+        } else {
+            for name in names {
+                self.interner.intern(&name);
+            }
+            self.bundle_counter = self.bundle_counter.max(next_bundle);
+        }
+    }
+
     /// Declarations not yet represented by the installed durable base.
     pub(super) fn is_pending_decl(&self, index: usize) -> bool {
         self.materialized_decls.get(index) == Some(&false)

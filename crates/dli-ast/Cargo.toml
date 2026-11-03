@@ -6,7 +6,7 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-publish = false
+publish = ["crates-io"]
 
 [dependencies]
 serde.workspace = true
@@ -14,10 +14,6 @@ serde_json.workspace = true
 schemars.workspace = true
 
 [dev-dependencies]
-# The parser lives in dli-syntax (which depends on dli-ast); a dev-only edge back
-# is a dev-dependency cycle Cargo permits, and it lets the golden-AST test assert
-# that a shipped example lowers into these types deterministically (SURF-1).
-dli-syntax.workspace = true
 insta.workspace = true
 
 [lints]

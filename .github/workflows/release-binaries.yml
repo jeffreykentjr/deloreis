@@ -1,0 +1,136 @@
+name: Build release archives
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Draft release tag, such as v0.1.0
+        required: true
+        type: string
+      commit:
+        description: Full commit SHA for the tag
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-binaries-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+          - runner: macos-14
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_COMMIT: ${{ inputs.commit }}
+      RELEASE_TARGET: ${{ matrix.target }}
+      GH_TOKEN: ${{ github.token }}
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check release, tag and version
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess, tomllib
+          tag, commit = os.environ['RELEASE_TAG'], os.environ['RELEASE_COMMIT']
+          if not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+', tag) or not re.fullmatch(r'[0-9a-f]{40}', commit):
+              raise SystemExit('expected vVERSION and a full commit SHA')
+          version = tomllib.load(open('Cargo.toml', 'rb'))['workspace']['package']['version']
+          if tag != 'v' + version:
+              raise SystemExit('tag and workspace version differ')
+          def git(*args):
+              return subprocess.check_output(['git', *args], text=True).strip()
+          if git('rev-parse', 'HEAD') != commit or git('rev-parse', f'refs/tags/{tag}^{{commit}}') != commit:
+              raise SystemExit('checkout, tag and qualified commit differ')
+          subprocess.run(['git', 'merge-base', '--is-ancestor', commit, 'origin/main'], check=True)
+          release = json.loads(subprocess.check_output(['gh', 'release', 'view', tag, '--json', 'tagName,isDraft'], text=True))
+          if release != {'tagName': tag, 'isDraft': True}:
+              raise SystemExit('archives must be built for the matching draft release')
+          PY
+      - name: Build and smoke-test
+        run: |
+          cargo build --release --locked -p deloreis
+          target/release/deloreis --version
+          target/release/deloreis check examples/camelot.dli
+          scratch="$(mktemp -d)"
+          target/release/deloreis init "$scratch/story"
+          target/release/deloreis mcp --help > /dev/null
+      - name: Package and checksum
+        run: |
+          name="deloreis-${RELEASE_TAG#v}-${RELEASE_TARGET}"
+          mkdir -p "dist/$name/bin"
+          cp target/release/deloreis "dist/$name/bin/"
+          cp LICENSE README.md "dist/$name/"
+          python3 scripts/third-party-notices.py --target "$RELEASE_TARGET" --output "dist/$name/THIRD-PARTY-NOTICES"
+          rustup component add rust-docs
+          cp "$(rustc --print sysroot)/share/doc/rust/COPYRIGHT-library.html" "dist/$name/RUST-STANDARD-LIBRARY-NOTICES.html"
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+          python3 - <<'PY'
+          import hashlib, os
+          from pathlib import Path
+          name = f"deloreis-{os.environ['RELEASE_TAG'][1:]}-{os.environ['RELEASE_TARGET']}.tar.gz"
+          archive = Path('dist') / name
+          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+          Path(str(archive) + '.sha256').write_text(f'{digest}  {name}\n')
+          PY
+      - name: Attest archive
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            dist/*.tar.gz
+            dist/*.tar.gz.sha256
+          if-no-files-found: error
+
+  attach:
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Verify and attach to the draft release
+        run: |
+          test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true
+          cd dist
+          for target in x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu x86_64-apple-darwin aarch64-apple-darwin; do
+            file="deloreis-${RELEASE_TAG#v}-${target}.tar.gz"
+            test -f "$file" && test -f "$file.sha256"
+            sha256sum -c "$file.sha256"
+          done
+          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" ./*.tar.gz ./*.tar.gz.sha256 --clobber

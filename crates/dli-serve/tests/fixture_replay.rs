@@ -30,12 +30,12 @@ fn fixtures_dir() -> PathBuf {
 fn registered_json_fixtures() -> Vec<PathBuf> {
     let fixtures = fixtures_dir();
     let contract = fixtures.parent().expect("contract directory");
-    let registry: serde_yaml_ng::Value = serde_yaml_ng::from_str(
+    let registry: serde_json::Value = serde_saphyr::from_str(
         &fs::read_to_string(contract.join("registry.yaml")).expect("read fixture registry"),
     )
     .expect("parse fixture registry");
     let mut paths: Vec<PathBuf> = registry["fixtures"]
-        .as_sequence()
+        .as_array()
         .expect("fixture registry list")
         .iter()
         .map(|entry| PathBuf::from(entry["path"].as_str().expect("registered fixture path")))

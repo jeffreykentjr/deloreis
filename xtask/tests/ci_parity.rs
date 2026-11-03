@@ -22,8 +22,8 @@ fn cargo_lines(run: &str) -> Vec<String> {
 fn ci_workflow_matches_the_canonical_gate() {
     let root = repo_root();
     let text = std::fs::read_to_string(root.join(".github/workflows/ci.yml")).unwrap();
-    let ci: serde_yaml_ng::Value = serde_yaml_ng::from_str(&text).unwrap();
-    let jobs = ci.get("jobs").and_then(|v| v.as_mapping()).unwrap();
+    let ci: serde_json::Value = serde_saphyr::from_str(&text).unwrap();
+    let jobs = ci.get("jobs").and_then(|v| v.as_object()).unwrap();
 
     let allow: BTreeSet<String> = xtask::gate::canonical_cargo_commands(true)
         .into_iter()
@@ -36,9 +36,9 @@ fn ci_workflow_matches_the_canonical_gate() {
 
     let mut saw_gate_job = false;
     for (name, job) in jobs {
-        let job_name = name.as_str().unwrap();
+        let job_name = name.as_str();
         let mut cargo_cmds: Vec<String> = Vec::new();
-        if let Some(steps) = job.get("steps").and_then(|v| v.as_sequence()) {
+        if let Some(steps) = job.get("steps").and_then(|v| v.as_array()) {
             for step in steps {
                 if let Some(run) = step.get("run").and_then(|v| v.as_str()) {
                     cargo_cmds.extend(cargo_lines(run));
@@ -139,16 +139,16 @@ fn canonical_gate_runs_both_build_lanes() {
 fn gate_job_has_no_conditional_or_continue_on_error_steps() {
     let root = repo_root();
     let text = std::fs::read_to_string(root.join(".github/workflows/ci.yml")).unwrap();
-    let ci: serde_yaml_ng::Value = serde_yaml_ng::from_str(&text).unwrap();
-    let jobs = ci.get("jobs").and_then(|v| v.as_mapping()).unwrap();
+    let ci: serde_json::Value = serde_saphyr::from_str(&text).unwrap();
+    let jobs = ci.get("jobs").and_then(|v| v.as_object()).unwrap();
 
     let gate_job = jobs
         .iter()
-        .find(|(k, _)| k.as_str() == Some("gate"))
+        .find(|(k, _)| k.as_str() == "gate")
         .map(|(_, v)| v)
         .expect("ci.yml must have a `gate` job");
 
-    if let Some(steps) = gate_job.get("steps").and_then(|v| v.as_sequence()) {
+    if let Some(steps) = gate_job.get("steps").and_then(|v| v.as_array()) {
         for (i, step) in steps.iter().enumerate() {
             let step_name = step
                 .get("name")
@@ -179,16 +179,16 @@ fn gate_job_steps_are_run_commands_only() {
 
     let root = repo_root();
     let text = std::fs::read_to_string(root.join(".github/workflows/ci.yml")).unwrap();
-    let ci: serde_yaml_ng::Value = serde_yaml_ng::from_str(&text).unwrap();
-    let jobs = ci.get("jobs").and_then(|v| v.as_mapping()).unwrap();
+    let ci: serde_json::Value = serde_saphyr::from_str(&text).unwrap();
+    let jobs = ci.get("jobs").and_then(|v| v.as_object()).unwrap();
 
     let gate_job = jobs
         .iter()
-        .find(|(k, _)| k.as_str() == Some("gate"))
+        .find(|(k, _)| k.as_str() == "gate")
         .map(|(_, v)| v)
         .expect("ci.yml must have a `gate` job");
 
-    if let Some(steps) = gate_job.get("steps").and_then(|v| v.as_sequence()) {
+    if let Some(steps) = gate_job.get("steps").and_then(|v| v.as_array()) {
         for (i, step) in steps.iter().enumerate() {
             if let Some(uses) = step.get("uses").and_then(|v| v.as_str()) {
                 let step_name = step
@@ -213,12 +213,12 @@ fn gate_job_steps_are_run_commands_only() {
 fn gate_job_has_no_job_level_if_condition() {
     let root = repo_root();
     let text = std::fs::read_to_string(root.join(".github/workflows/ci.yml")).unwrap();
-    let ci: serde_yaml_ng::Value = serde_yaml_ng::from_str(&text).unwrap();
-    let jobs = ci.get("jobs").and_then(|v| v.as_mapping()).unwrap();
+    let ci: serde_json::Value = serde_saphyr::from_str(&text).unwrap();
+    let jobs = ci.get("jobs").and_then(|v| v.as_object()).unwrap();
 
     let gate_job = jobs
         .iter()
-        .find(|(k, _)| k.as_str() == Some("gate"))
+        .find(|(k, _)| k.as_str() == "gate")
         .map(|(_, v)| v)
         .expect("ci.yml must have a `gate` job");
 
@@ -238,7 +238,7 @@ fn gate_job_has_no_job_level_if_condition() {
 fn ci_on_trigger_matches_expected_pattern() {
     let root = repo_root();
     let text = std::fs::read_to_string(root.join(".github/workflows/ci.yml")).unwrap();
-    let ci: serde_yaml_ng::Value = serde_yaml_ng::from_str(&text).unwrap();
+    let ci: serde_json::Value = serde_saphyr::from_str(&text).unwrap();
 
     let on = ci.get("on").expect("ci.yml must have an `on:` trigger");
     for trigger_name in ["push", "pull_request"] {
@@ -247,7 +247,7 @@ fn ci_on_trigger_matches_expected_pattern() {
             .unwrap_or_else(|| panic!("ci.yml must trigger on `{trigger_name}`"));
         let branches = trigger
             .get("branches")
-            .and_then(|v| v.as_sequence())
+            .and_then(|v| v.as_array())
             .unwrap_or_else(|| panic!("{trigger_name} trigger must have a `branches` list"));
         assert_eq!(
             branches

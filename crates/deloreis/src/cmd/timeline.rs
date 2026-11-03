@@ -237,7 +237,7 @@ fn run_order(args: &CorpusArgs) -> CmdResult {
 fn load_episodes(path: &PathBuf) -> Result<Vec<Episode>, String> {
     let text =
         fs::read_to_string(path).map_err(|err| format!("cannot read {}: {err}", path.display()))?;
-    serde_yaml_ng::from_str(&text)
+    serde_saphyr::from_str(&text)
         .map_err(|err| format!("the episode payload {} is malformed: {err}", path.display()))
 }
 

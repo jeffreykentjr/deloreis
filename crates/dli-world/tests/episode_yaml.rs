@@ -14,7 +14,7 @@ fn example_yaml() -> String {
 #[test]
 fn committed_episode_example_deserializes_and_folds() {
     let episodes: Vec<Episode> =
-        serde_yaml_ng::from_str(&example_yaml()).expect("the committed YAML matches the types");
+        serde_saphyr::from_str(&example_yaml()).expect("the committed YAML matches the types");
     assert_eq!(episodes.len(), 3, "the example carries three episodes");
 
     let flashbacks = episodes
@@ -31,7 +31,7 @@ fn committed_episode_example_deserializes_and_folds() {
 #[test]
 fn corrupted_enum_tag_is_a_clean_error() {
     let corrupted = example_yaml().replace("knower: Listener", "knower: Audience");
-    let outcome: Result<Vec<Episode>, _> = serde_yaml_ng::from_str(&corrupted);
+    let outcome: Result<Vec<Episode>, _> = serde_saphyr::from_str(&corrupted);
     assert!(
         outcome.is_err(),
         "an unknown knower tag must not deserialize"

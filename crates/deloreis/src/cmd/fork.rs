@@ -222,7 +222,7 @@ fn load_store(workspace: &Path) -> Result<StoredStore, String> {
     }
     let text = fs::read_to_string(&path)
         .map_err(|err| format!("cannot read fork store {}: {err}", path.display()))?;
-    serde_yaml_ng::from_str(&text)
+    serde_saphyr::from_str(&text)
         .map_err(|err| format!("the fork store {} is malformed: {err}", path.display()))
 }
 
@@ -232,7 +232,7 @@ fn save_store(workspace: &Path, store: &StoredStore) -> Result<(), String> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir).map_err(|err| format!("cannot create {}: {err}", dir.display()))?;
     }
-    let text = serde_yaml_ng::to_string(store)
+    let text = serde_saphyr::to_string(store)
         .map_err(|err| format!("cannot serialize the fork store: {err}"))?;
     fs::write(&path, text).map_err(|err| format!("cannot write {}: {err}", path.display()))
 }

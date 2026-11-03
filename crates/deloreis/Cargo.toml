@@ -1,12 +1,13 @@
 [package]
 name = "deloreis"
-description = "De Lore Is knowledge-language command-line toolchain and local worker."
+description = "Check continuity in fictional worlds."
+readme = "../../README.md"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-publish = false
+publish = ["crates-io"]
 
 [features]
 # Text authoring and rendering ship in the default build.
@@ -23,12 +24,12 @@ dli-ledger.workspace = true
 dli-world.workspace = true
 dli-lorestore.workspace = true
 dli-export.workspace = true
-dli-serve = { path = "../dli-serve", default-features = false }
+dli-serve = { path = "../dli-serve", version = "0.1.0", default-features = false }
 clap.workspace = true
 miette = { workspace = true, features = ["fancy"] }
 serde.workspace = true
 serde_json.workspace = true
-serde_yaml_ng.workspace = true
+serde_saphyr.workspace = true
 toml.workspace = true
 
 [dev-dependencies]

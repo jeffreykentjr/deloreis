@@ -777,19 +777,19 @@ struct RelRow {
 struct FactRow {
     entity: String,
     key: String,
-    value: serde_yaml_ng::Value,
+    value: serde_json::Value,
     #[serde(default)]
     status: String,
     #[serde(default)]
     decisions: Vec<String>,
 }
 
-fn render_value(value: &serde_yaml_ng::Value) -> String {
+fn render_value(value: &serde_json::Value) -> String {
     match value {
-        serde_yaml_ng::Value::String(s) => s.clone(),
-        serde_yaml_ng::Value::Bool(b) => b.to_string(),
-        serde_yaml_ng::Value::Number(n) => n.to_string(),
-        other => serde_yaml_ng::to_string(other)
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Bool(b) => b.to_string(),
+        serde_json::Value::Number(n) => n.to_string(),
+        other => serde_saphyr::to_string(other)
             .unwrap_or_default()
             .trim()
             .to_owned(),
@@ -889,7 +889,7 @@ facts:
   - {entity: anchor, key: gender, value: male, status: ratified, decisions: [D-1]}
 relations: []
 ";
-    serde_yaml_ng::from_str(source).expect("original test corpus parses")
+    serde_saphyr::from_str(source).expect("original test corpus parses")
 }
 
 #[test]
@@ -999,7 +999,7 @@ fn killed_tokens_load_from_an_original_registry() {
         scope: String,
     }
     let doc: KilledDoc =
-        serde_yaml_ng::from_str("killed:\n  - {token: ironkeep, match: word, decision: D-1}\n")
+        serde_saphyr::from_str("killed:\n  - {token: ironkeep, match: word, decision: D-1}\n")
             .expect("parse");
     let tokens = doc
         .killed
