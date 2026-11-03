@@ -1940,6 +1940,38 @@ fn cross_scope_collision_names_a_contributing_declaration() {
 }
 
 #[test]
+fn a_rule_with_an_absent_negative_premise_can_be_a_witness() {
+    let dir = tmp("negative-rule-witness");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nratify d-1\nfunctional home ratified d-1\npresent(wren) ratified d-1\nflooded(wren) ratified d-1\nrule blocked ratified d-1\n  home($who, shore) :- present($who), not flooded($who)\nrule shore ratified d-1\n  home($who, shore) :- present($who), not burning($who)\nrule marsh ratified d-1\n  home($who, marsh) :- present($who), not burning($who)\n").unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.derived-fd-violation"))
+        .expect(&text);
+    assert!(
+        line.contains(&format!("{}:9:", corpus.display()))
+            || line.contains(&format!("{}:11:", corpus.display())),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_possible_negative_premise_is_not_guessed_as_absent() {
+    let dir = tmp("possible-negative-rule-witness");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nratify d-1\nfunctional home ratified d-1\npresent(wren) ratified d-1\nflooded(wren) proposed report\nrule shore ratified d-1\n  home($who, shore) :- present($who), not flooded($who)\nrule marsh ratified d-1\n  home($who, marsh) :- present($who), not flooded($who)\n").unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.derived-fd-violation"))
+        .expect(&text);
+    assert!(!line.contains(&corpus.display().to_string()), "{text}");
+}
+
+#[test]
 fn a_recursive_rule_witness_is_not_guessed() {
     let dir = tmp("derived-continuity-unproven-rule");
     let corpus = dir.join("world.dli");
