@@ -18,7 +18,7 @@
     "op": "author.add_fact",
     "params": {
       "workspace": "ws-1",
-      "entity": "nara",
+      "entity": "lyra",
       "key": "home",
       "value": "riverside",
       "provenance": {

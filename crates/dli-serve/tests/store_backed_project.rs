@@ -1097,7 +1097,7 @@ fn the_corpus_pivot_round_trips_to_the_same_commit() {
         }),
     );
     decls.push(Decl::Dialect(dli_ast::decl::DialectDecl {
-        name: id("hedgerow"),
+        name: id("orchard-lane"),
         label: None,
         body: DialectBody::default(),
         provenance: Some(proposed()),
@@ -1107,7 +1107,7 @@ fn the_corpus_pivot_round_trips_to_the_same_commit() {
     decls.push(Decl::Fact(FactDecl {
         atom: AtomExpr {
             pred: id("keeps"),
-            args: vec![Term::Sym(id("bedivere")), Term::Sym(id("hedgerow"))],
+            args: vec![Term::Sym(id("bedivere")), Term::Sym(id("orchard-lane"))],
         },
         triple: false,
         provenance: Some(Annotation {
@@ -2041,7 +2041,7 @@ fn a_scope_less_dli_corpus_imports() {
 #[test]
 fn a_scope_less_corpus_round_trips_through_export() {
     let (root, mut sessions, mut store) = empty_corpus_server("corpus-scope-less-roundtrip");
-    let text = "person joren \"Joren\" proposed\nperson nara \"Nara\" proposed\n";
+    let text = "person joren \"Joren\" proposed\nperson lyra \"Lyra\" proposed\n";
     let imported = send(
         &serde_json::json!({"dli":"2.0.0","id":"1","op":"dli.corpus.import","params":{
             "document":"storybook","mode":"append",
@@ -2431,7 +2431,7 @@ fn new_workspace_reads_materialized_main_without_restarting_server() {
 fn naming_repair_uses_workspace_dialect_before_and_after_materialize() {
     use std::sync::Arc;
     let root = temp("workspace-dialect-repair");
-    seed_store(&root, "storybook", "nara");
+    seed_store(&root, "storybook", "lyra");
     write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
     let project = Arc::new(Project::load(&root).unwrap());
     let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
@@ -2499,7 +2499,7 @@ fn naming_repair_uses_workspace_dialect_before_and_after_materialize() {
 fn query_claim_ids_deduplicate_committed_sources_and_omit_staged_only() {
     use std::sync::Arc;
     let root = temp("query-committed-claim-ids");
-    seed_store(&root, "storybook", "nara");
+    seed_store(&root, "storybook", "lyra");
     write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
     let project = Arc::new(Project::load(&root).unwrap());
     let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
@@ -2514,7 +2514,7 @@ fn query_claim_ids_deduplicate_committed_sources_and_omit_staged_only() {
     for origin in ["account-one", "account-two"] {
         let added = send(
             &serde_json::json!({"dli":"2.0.0","id":"add","op":"author.add_fact",
-            "params":{"workspace":ws,"entity":"nara","key":"color","value":"red",
+            "params":{"workspace":ws,"entity":"lyra","key":"color","value":"red",
                 "provenance":{"kind":"proposed","origin":origin}}}),
             &mut sessions,
             &mut author,
@@ -2524,7 +2524,7 @@ fn query_claim_ids_deduplicate_committed_sources_and_omit_staged_only() {
     let query = |sessions: &mut _, author: &mut _| {
         send(
             &serde_json::json!({"dli":"2.0.0","id":"query","op":"author.query",
-        "params":{"workspace":ws,"goal_atom":{"pred":"color","args":[{"Sym":"nara"},{"Sym":"red"}]}}}),
+        "params":{"workspace":ws,"goal_atom":{"pred":"color","args":[{"Sym":"lyra"},{"Sym":"red"}]}}}),
             sessions,
             author,
         )
@@ -2566,7 +2566,7 @@ fn query_claim_ids_deduplicate_committed_sources_and_omit_staged_only() {
 fn conflicting_proposals_warn_and_survive_materialization_and_restart() {
     use std::sync::Arc;
     let root = temp("pending-conflict-persistence");
-    seed_store(&root, "storybook", "nara");
+    seed_store(&root, "storybook", "lyra");
     write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
     let project = Arc::new(Project::load(&root).unwrap());
     let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
@@ -2588,7 +2588,7 @@ fn conflicting_proposals_warn_and_survive_materialization_and_restart() {
     for value in ["captain", "admiral"] {
         let staged = send(
             &serde_json::json!({"dli":"2.0.0", "id":"add", "op":"author.add_fact",
-            "params":{"workspace":ws,"entity":"nara","key":"rank","value":value,
+            "params":{"workspace":ws,"entity":"lyra","key":"rank","value":value,
             "provenance":{"kind":"proposed","origin":"test"}}}),
             &mut sessions,
             &mut author,
@@ -2634,7 +2634,7 @@ fn conflicting_proposals_warn_and_survive_materialization_and_restart() {
 fn defeat_selects_the_ruled_support_when_a_proposal_shares_its_claim_id() {
     use std::sync::Arc;
     let root = temp("claim-with-multiple-supports");
-    seed_store(&root, "storybook", "nara");
+    seed_store(&root, "storybook", "lyra");
     write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
     let project = Arc::new(Project::load(&root).unwrap());
     let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
@@ -2648,7 +2648,7 @@ fn defeat_selects_the_ruled_support_when_a_proposal_shares_its_claim_id() {
     let ws = opened["result"]["workspace"].as_str().unwrap();
     let proposed = send(
         &serde_json::json!({"dli":"2.0.0","id":"propose","op":"author.add_fact",
-        "params":{"workspace":ws,"entity":"nara","key":"rank","value":"captain",
+        "params":{"workspace":ws,"entity":"lyra","key":"rank","value":"captain",
             "provenance":{"kind":"proposed","origin":"witness"}}}),
         &mut sessions,
         &mut author,
@@ -2670,7 +2670,7 @@ fn defeat_selects_the_ruled_support_when_a_proposal_shares_its_claim_id() {
     assert_eq!(recorded["ok"], true, "{recorded}");
     let ruled = send(
         &serde_json::json!({"dli":"2.0.0","id":"rule","op":"author.add_fact",
-        "params":{"workspace":ws,"entity":"nara","key":"rank","value":"captain",
+        "params":{"workspace":ws,"entity":"lyra","key":"rank","value":"captain",
             "provenance":{"kind":"cited","decisions":["d-0001"],"state":"provisional"}}}),
         &mut sessions,
         &mut author,
@@ -2722,7 +2722,7 @@ fn defeat_selects_the_ruled_support_when_a_proposal_shares_its_claim_id() {
     assert_eq!(defeated["ok"], true, "{defeated}");
     let why = send(
         &serde_json::json!({"dli":"2.0.0","id":"why","op":"author.why",
-        "params":{"workspace":ws,"goal_atom":{"pred":"rank","args":[{"Sym":"nara"},{"Sym":"captain"}]}}}),
+        "params":{"workspace":ws,"goal_atom":{"pred":"rank","args":[{"Sym":"lyra"},{"Sym":"captain"}]}}}),
         &mut sessions,
         &mut author,
     );
@@ -2740,7 +2740,7 @@ fn defeat_selects_the_ruled_support_when_a_proposal_shares_its_claim_id() {
 fn promotion_after_defeat_preserves_attack_history_and_reopens() {
     use std::sync::Arc;
     let root = temp("claim-defeat-before-promotion");
-    seed_store(&root, "storybook", "nara");
+    seed_store(&root, "storybook", "lyra");
     write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
     let project = Arc::new(Project::load(&root).unwrap());
     let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
@@ -2754,7 +2754,7 @@ fn promotion_after_defeat_preserves_attack_history_and_reopens() {
     let ws = opened["result"]["workspace"].as_str().unwrap();
     let proposed = send(
         &serde_json::json!({"dli":"2.0.0","id":"propose","op":"author.add_fact",
-        "params":{"workspace":ws,"entity":"nara","key":"rank","value":"captain",
+        "params":{"workspace":ws,"entity":"lyra","key":"rank","value":"captain",
             "provenance":{"kind":"proposed","origin":"witness"}}}),
         &mut sessions,
         &mut author,
@@ -2776,7 +2776,7 @@ fn promotion_after_defeat_preserves_attack_history_and_reopens() {
     assert_eq!(recorded["ok"], true, "{recorded}");
     let ruled = send(
         &serde_json::json!({"dli":"2.0.0","id":"rule","op":"author.add_fact",
-        "params":{"workspace":ws,"entity":"nara","key":"rank","value":"captain",
+        "params":{"workspace":ws,"entity":"lyra","key":"rank","value":"captain",
             "provenance":{"kind":"cited","decisions":["d-0001"],"state":"provisional"}}}),
         &mut sessions,
         &mut author,
@@ -2829,7 +2829,7 @@ fn promotion_after_defeat_preserves_attack_history_and_reopens() {
 
     let why = send(
         &serde_json::json!({"dli":"2.0.0","id":"why","op":"author.why",
-        "params":{"workspace":ws,"goal_atom":{"pred":"rank","args":[{"Sym":"nara"},{"Sym":"captain"}]}}}),
+        "params":{"workspace":ws,"goal_atom":{"pred":"rank","args":[{"Sym":"lyra"},{"Sym":"captain"}]}}}),
         &mut sessions,
         &mut author,
     );

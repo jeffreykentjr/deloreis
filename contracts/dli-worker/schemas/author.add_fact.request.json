@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorAddFactParams",
-  "description": "`author.add_fact` params: an attribute-intent fact that renders\n`entity.key = value` (e.g. `nara.home = riverside`).",
+  "description": "`author.add_fact` params: an attribute-intent fact that renders\n`entity.key = value` (e.g. `lyra.home = riverside`).",
   "type": "object",
   "properties": {
     "entity": {

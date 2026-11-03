@@ -459,7 +459,7 @@ mod tests {
             crate::ClaimId::from_label("test/standing"),
             dli_eval::world::GroundAtom {
                 pred: "person".to_owned(),
-                args: vec!["nara".to_owned()],
+                args: vec!["lyra".to_owned()],
             },
             PosBool::truth(),
             PosBool::FALSE,

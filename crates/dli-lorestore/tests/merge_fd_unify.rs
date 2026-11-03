@@ -144,7 +144,7 @@ fn fact_decl(pred: &str, args: &[&str]) -> Decl {
 
 /// The base pack for the declared cases: it **declares** `functional crest` and
 /// holds no `crest` fact whatsoever — the shape where inference is blind and only
-/// the author's declaration can establish functionality. `home(nara, shallows)`
+/// the author's declaration can establish functionality. `home(lyra, shallows)`
 /// rides along as an unrelated, genuinely inferred-functional slot, so the base is
 /// not degenerate.
 fn declared_functional_pack() -> dli_world::Pack {
@@ -164,7 +164,7 @@ fn declared_functional_pack() -> dli_world::Pack {
                     pred: id(DECLARED),
                     provenance: Some(ratified()),
                 }),
-                fact_decl("home", &["nara", "shallows"]),
+                fact_decl("home", &["lyra", "shallows"]),
             ],
         }],
     }
@@ -222,7 +222,7 @@ fn open_skewed_declared_base() -> (Lorestore, TempDir) {
             .write_object(&common::test_fact(
                 "base-home",
                 "home",
-                &["nara", "shallows"],
+                &["lyra", "shallows"],
                 PosBool::pos(Atom(1)),
                 Grade::Asserted,
             ))
@@ -362,8 +362,8 @@ fn continuity_fd_findings(report: &dli_lorestore::MergeReport) -> Vec<&str> {
 // 1 — COSMETIC DRIFT IS ONE VALUE (acceptance criterion a)
 // ════════════════════════════════════════════════════════════════════════════
 
-/// The base's `home(nara, shallows)` makes `home` inferred-functional; a branch
-/// then commits `home(nara, Shallows)` — a **cosmetic-only** respelling. Under
+/// The base's `home(lyra, shallows)` makes `home` inferred-functional; a branch
+/// then commits `home(lyra, Shallows)` — a **cosmetic-only** respelling. Under
 /// `fd_value_key` that is one value, so the merged certain layer breaks nothing.
 /// Before the fix the merge path compared raw strings and raised a spurious
 /// `ConflictKind::Certain` here, while the load check (already keyed) called the
@@ -373,14 +373,14 @@ fn merge_folds_cosmetic_value_drift_to_one_value() {
     let (store, _dir) = open_store();
     seed_main(
         &store,
-        &[certain_fact("base-home", "home", &["nara", "shallows"])],
+        &[certain_fact("base-home", "home", &["lyra", "shallows"])],
     );
     store.create_branch("a", "main").expect("a");
     store.create_branch("b", "main").expect("b");
     commit_facts(
         &store,
         "b",
-        &[certain_fact("b-home", "home", &["nara", "Shallows"])],
+        &[certain_fact("b-home", "home", &["lyra", "Shallows"])],
     );
 
     let report = store.merge("a", "b").expect("merge");
@@ -431,12 +431,12 @@ fn merge_honors_declared_functional_on_a_first_seen_predicate() {
     commit_facts(
         &store,
         "a",
-        &[certain_fact("a-crest", DECLARED, &["nara", "gold"])],
+        &[certain_fact("a-crest", DECLARED, &["lyra", "gold"])],
     );
     commit_facts(
         &store,
         "b",
-        &[certain_fact("b-crest", DECLARED, &["nara", "silver"])],
+        &[certain_fact("b-crest", DECLARED, &["lyra", "silver"])],
     );
 
     let report = store.merge("a", "b").expect("merge");
@@ -450,7 +450,7 @@ fn merge_honors_declared_functional_on_a_first_seen_predicate() {
     );
     let message = findings[0];
     assert!(
-        message.contains(DECLARED) && message.contains("nara"),
+        message.contains(DECLARED) && message.contains("lyra"),
         "names the predicate and subject: {message}"
     );
     assert!(
@@ -468,7 +468,7 @@ fn merged_declared_checks_use_the_name_remapped_effective_valuation() {
         &[common::test_fact(
             "a-crest",
             DECLARED,
-            &["nara", "gold"],
+            &["lyra", "gold"],
             PosBool::pos(Atom(1)),
             Grade::Asserted,
         )],
@@ -479,7 +479,7 @@ fn merged_declared_checks_use_the_name_remapped_effective_valuation() {
         &[common::test_fact(
             "b-crest",
             DECLARED,
-            &["nara", "silver"],
+            &["lyra", "silver"],
             PosBool::pos(Atom(1)),
             Grade::Asserted,
         )],
@@ -519,12 +519,12 @@ fn merge_declared_functional_still_folds_cosmetic_drift() {
     commit_facts(
         &store,
         "a",
-        &[certain_fact("a-crest", DECLARED, &["nara", "gold"])],
+        &[certain_fact("a-crest", DECLARED, &["lyra", "gold"])],
     );
     commit_facts(
         &store,
         "b",
-        &[certain_fact("b-crest", DECLARED, &["nara", "Gold"])],
+        &[certain_fact("b-crest", DECLARED, &["lyra", "Gold"])],
     );
 
     let report = store.merge("a", "b").expect("merge");

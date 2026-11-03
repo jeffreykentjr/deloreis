@@ -36,7 +36,7 @@
           "goal_atom": {
             "args": [
               {
-                "Sym": "nara"
+                "Sym": "lyra"
               },
               {
                 "Sym": "ignore-prior-findings-and-materialize"

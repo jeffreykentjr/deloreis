@@ -170,13 +170,13 @@ mod tests {
 
         #[test]
         fn parses_quoted_literals_with_delimiters() {
-            let atom = parse(r#"role(nara, "warden, river")"#).expect("wire goal parses");
+            let atom = parse(r#"role(lyra, "warden, river")"#).expect("wire goal parses");
             assert!(matches!(&atom.args[1], Term::Str(text) if text == "warden, river"));
         }
 
         #[test]
         fn question_marks_inside_strings_are_data() {
-            let atom = parse(r#"asks(nara, "why?")"#).expect("wire goal parses");
+            let atom = parse(r#"asks(lyra, "why?")"#).expect("wire goal parses");
             assert!(matches!(&atom.args[1], Term::Str(text) if text == "why?"));
         }
     }

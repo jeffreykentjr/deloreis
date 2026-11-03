@@ -8,7 +8,7 @@
     "op": "author.assert_same_as",
     "params": {
       "workspace": "ws-1",
-      "left": "nara"
+      "left": "lyra"
     }
   },
   "expect_error": {

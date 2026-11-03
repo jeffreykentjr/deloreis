@@ -1284,7 +1284,7 @@ pub struct AuthorAddEntityParams {
 // -- author.add_fact ---------------------------------------------------------
 
 /// `author.add_fact` params: an attribute-intent fact that renders
-/// `entity.key = value` (e.g. `nara.home = riverside`).
+/// `entity.key = value` (e.g. `lyra.home = riverside`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorAddFactParams {
@@ -1805,7 +1805,7 @@ pub struct AuthorDefeatParams {
 // -- author.query (read) -----------------------------------------------------
 
 /// `author.query` params: query the **staged** world (base + staged
-/// declarations). The agent asks "what holds about `nara` now?" over its
+/// declarations). The agent asks "what holds about `lyra` now?" over its
 /// in-progress work.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]

@@ -90,17 +90,17 @@ fn not_lit(pred: &str, args: &[&str]) -> Value {
     json!({ "atom": atom(pred, args), "negated": true })
 }
 
-/// A base declaring `D-1`, a person `nara` with a certain `rank(nara, gold)`
-/// on a `functional` predicate, plus an unrelated marker fact `special(nara)`
+/// A base declaring `D-1`, a person `lyra` with a certain `rank(lyra, gold)`
+/// on a `functional` predicate, plus an unrelated marker fact `special(lyra)`
 /// — enough for a harmless rule, an FD-breaking one, and a range-restriction
 /// probe.
 fn rule_base() -> Store {
     let source = "scope storybook\n\
         ratify D-1\n\
-        person nara \"Nara\"  ratified D-1\n\
+        person lyra \"Lyra\"  ratified D-1\n\
         functional rank  ratified D-1\n\
-        rank(nara, gold)  ratified D-1\n\
-        special(nara)  ratified D-1\n";
+        rank(lyra, gold)  ratified D-1\n\
+        special(lyra)  ratified D-1\n";
     let (document, diagnostics) = dli_syntax::parse_document(source);
     assert!(
         diagnostics.is_empty(),
@@ -217,7 +217,7 @@ fn add_rule_stages_cleanly_and_derives_through_the_staged_query() {
         "{rendered:?}"
     );
     assert_eq!(
-        query_status(&mut store, "1.7.0", &ws, "endorsed(nara)").as_deref(),
+        query_status(&mut store, "1.7.0", &ws, "endorsed(lyra)").as_deref(),
         Some("certain"),
         "the rule's own derivation is visible over the staged world immediately"
     );
@@ -265,9 +265,9 @@ fn negation_lowers_and_derives() {
         result(&response)
     );
     assert_eq!(
-        query_status(&mut store, "1.7.0", &ws, "unbadged(nara)").as_deref(),
+        query_status(&mut store, "1.7.0", &ws, "unbadged(lyra)").as_deref(),
         Some("certain"),
-        "no badged(nara) fact exists, so the negated literal never poisons"
+        "no badged(lyra) fact exists, so the negated literal never poisons"
     );
 }
 
@@ -319,7 +319,7 @@ fn an_empty_body_is_refused_without_staging() {
         "1.7.0",
         &ws,
         "vacuous-rule",
-        &atom("always", &["nara"]),
+        &atom("always", &["lyra"]),
         &json!([]),
         &proposed("s"),
     );
@@ -674,7 +674,7 @@ fn a_wire_authored_rule_matches_a_corpus_imported_one_on_the_same_query() {
         &cited("D-1"),
     );
     assert!(codes(result(&staged)).is_empty(), "{:?}", result(&staged));
-    let wire_status = query_status(&mut wire_store, "2.0.0", &wire_ws, "endorsed(nara)");
+    let wire_status = query_status(&mut wire_store, "2.0.0", &wire_ws, "endorsed(lyra)");
 
     // Path B: the identical logical corpus, rule included as `.dli` text,
     // imported through `dli.corpus.import`'s syntax-build text path. Corpus
@@ -705,10 +705,10 @@ fn a_wire_authored_rule_matches_a_corpus_imported_one_on_the_same_query() {
                     "id": "storybook",
                     "text": "scope storybook\n\
                         ratify D-1\n\
-                        person nara \"Nara\"  ratified D-1\n\
+                        person lyra \"Lyra\"  ratified D-1\n\
                         functional rank  ratified D-1\n\
-                        rank(nara, gold)  ratified D-1\n\
-                        special(nara)  ratified D-1\n\
+                        rank(lyra, gold)  ratified D-1\n\
+                        special(lyra)  ratified D-1\n\
                         rule endorsement  ratified D-1\n\
                         \x20 endorsed($x) :- rank($x, gold)\n"
                 }],
@@ -759,7 +759,7 @@ fn a_wire_authored_rule_matches_a_corpus_imported_one_on_the_same_query() {
         .expect("attach the imported lorestore");
 
     let import_ws = open_scope(&mut import_store, "2.0.0", "storybook");
-    let import_status = query_status(&mut import_store, "2.0.0", &import_ws, "endorsed(nara)");
+    let import_status = query_status(&mut import_store, "2.0.0", &import_ws, "endorsed(lyra)");
 
     assert_eq!(
         wire_status, import_status,
@@ -838,10 +838,10 @@ fn durable_defeat_of_a_rule_claim_kills_every_derivation_through_it() {
 
     ledger_result(dispatch(
         &ledger_request(
-            "nara",
+            "lyra",
             Op::AuthorAddEntity,
             json!({
-                "workspace": workspace, "kind": "person", "id": "nara", "name": "Nara",
+                "workspace": workspace, "kind": "person", "id": "lyra", "name": "Lyra",
                 "provenance": {"kind": "cited", "decisions": ["D-1"], "state": "ratified"}
             }),
         ),
@@ -852,14 +852,14 @@ fn durable_defeat_of_a_rule_claim_kills_every_derivation_through_it() {
             "special",
             Op::AuthorAddFact,
             json!({
-                "workspace": workspace, "entity": "nara", "key": "special", "value": "yes",
+                "workspace": workspace, "entity": "lyra", "key": "special", "value": "yes",
                 "provenance": {"kind": "cited", "decisions": ["D-1"], "state": "ratified"}
             }),
         ),
         &mut store,
     ));
     // The rule cites D-3 — a DIFFERENT decision than the base fact (D-1) —
-    // so defeating the rule alone leaves nara's own facts untouched.
+    // so defeating the rule alone leaves lyra's own facts untouched.
     let rule_added = ledger_result(dispatch(
         &ledger_request(
             "rule",
@@ -905,7 +905,7 @@ fn durable_defeat_of_a_rule_claim_kills_every_derivation_through_it() {
         &ledger_request(
             "q1",
             Op::AuthorQuery,
-            json!({ "workspace": workspace, "goal": "endorsed(nara)", "layer": "all" }),
+            json!({ "workspace": workspace, "goal": "endorsed(lyra)", "layer": "all" }),
         ),
         &mut store,
     ));
@@ -939,7 +939,7 @@ fn durable_defeat_of_a_rule_claim_kills_every_derivation_through_it() {
         &ledger_request(
             "q2",
             Op::AuthorQuery,
-            json!({ "workspace": workspace, "goal": "endorsed(nara)", "layer": "all" }),
+            json!({ "workspace": workspace, "goal": "endorsed(lyra)", "layer": "all" }),
         ),
         &mut store,
     ));
@@ -949,18 +949,18 @@ fn durable_defeat_of_a_rule_claim_kills_every_derivation_through_it() {
         "the durable defeat kills the rule's derivation through the wire: {after:?}"
     );
 
-    // The surface fact is untouched: nara's own `special` fact is still there.
+    // The surface fact is untouched: lyra's own `special` fact is still there.
     let surface = ledger_result(dispatch(
         &ledger_request(
             "q3",
             Op::AuthorQuery,
-            json!({ "workspace": workspace, "goal": "special(nara, yes)", "layer": "all" }),
+            json!({ "workspace": workspace, "goal": "special(lyra, yes)", "layer": "all" }),
         ),
         &mut store,
     ));
     let surface_rows = surface["rows"].as_array().expect("rows");
     assert!(
         !surface_rows.is_empty() && surface_rows[0]["status"] == "certain",
-        "nara's own fact never depended on the rule's citation: {surface:?}"
+        "lyra's own fact never depended on the rule's citation: {surface:?}"
     );
 }

@@ -266,7 +266,7 @@ pub fn compile_practice(decl: &PracticeDecl, env: &PracticeEnv) -> PracticeDef {
 /// scope magic
 /// cycle moon-phase(29) proposed
 /// practice tide-cycle proposed {
-///   kind figure = the-weir | the-drowned
+///   kind figure = north-gate | the-traveller
 ///   role reader : entity requires standing(reader)
 ///   resource spread : affine bounded nine-leaves
 ///   error overspread refines L6 resource-violation on spread signals scatter

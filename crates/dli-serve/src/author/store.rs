@@ -1485,7 +1485,7 @@ mod tests {
     fn batch_store() -> (tempfile::TempDir, Store, String, Arc<BatchStorageControl>) {
         let root = tempfile::tempdir().expect("temporary lorestore");
         let (document, diagnostics) =
-            dli_syntax::parse_document("scope demo\nperson nara \"Nara\" proposed seed\n");
+            dli_syntax::parse_document("scope demo\nperson lyra \"Lyra\" proposed seed\n");
         assert!(
             diagnostics
                 .iter()
@@ -1604,7 +1604,7 @@ mod tests {
                 op: crate::Op::AuthorAddFact,
                 params: json!({
                     "workspace": ws,
-                    "entity": "nara",
+                    "entity": "lyra",
                     "key": "rank",
                     "value": "silver",
                     "provenance": {"kind": "proposed", "origin": "atomicity-tooth"}
@@ -1649,7 +1649,7 @@ mod tests {
                 op: crate::Op::AuthorAddFact,
                 params: json!({
                     "workspace": ws,
-                    "entity": "nara",
+                    "entity": "lyra",
                     "key": "rank",
                     "value": "silver",
                     "provenance": {"kind": "proposed", "origin": "cas-race-tooth"}

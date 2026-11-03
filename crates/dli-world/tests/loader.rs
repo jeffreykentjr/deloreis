@@ -198,7 +198,7 @@ fn string_attributes_are_evaluable_facts() {
     let docs = vec![doc(
         "storybook",
         vec![Decl::Attr(AttrDecl {
-            subject: ident("nara"),
+            subject: ident("lyra"),
             attr: ident("role"),
             value: Term::Str("river warden".to_owned()),
             provenance: Some(ann(ProvenanceMarker::Proposed, &[])),
@@ -215,7 +215,7 @@ fn string_attributes_are_evaluable_facts() {
         .query(&Query {
             goal: AtomExpr {
                 pred: ident("role"),
-                args: vec![Term::Sym(ident("nara")), Term::Var(ident("value"))],
+                args: vec![Term::Sym(ident("lyra")), Term::Var(ident("value"))],
             },
         })
         .expect("attribute predicate is evaluable");
@@ -305,7 +305,7 @@ fn an_inert_state_declaration_surfaces_a_finding() {
 fn missing_provenance_is_a_finding_and_fail_closed() {
     let docs = vec![doc(
         "storybook",
-        vec![fact("lives-in", &["nara", "storybook"], true, None)],
+        vec![fact("lives-in", &["lyra", "storybook"], true, None)],
     )];
     let out = Loader::load(&docs);
     assert!(has_code(&out, "load.missing-provenance"));

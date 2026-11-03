@@ -15,9 +15,9 @@
       "id": "pre-2",
       "op": "author.add_entity",
       "params": {
-        "id": "nara",
+        "id": "lyra",
         "kind": "person",
-        "name": "Nara",
+        "name": "Lyra",
         "provenance": {
           "decisions": [
             "d-1"
@@ -100,7 +100,7 @@
       "id": "pre-7",
       "op": "author.add_state",
       "params": {
-        "id": "nara.status",
+        "id": "lyra.status",
         "provenance": {
           "decisions": [
             "d-1"
@@ -121,7 +121,7 @@
       "id": "pre-8",
       "op": "author.add_state",
       "params": {
-        "id": "nara.status",
+        "id": "lyra.status",
         "provenance": {
           "decisions": [
             "d-1"
@@ -165,8 +165,8 @@
             "d-1"
           ],
           "pred": "status",
-          "root_hash": "jcs:sha256:6d0a3f31c6552e6c7105c1febc434acb726b362b45a05ed6192bdbf55ad64d69",
-          "subject": "nara"
+          "root_hash": "jcs:sha256:7f72655443865854a2359f96edf3931dd80b29244472e8051fc85359aea079a3",
+          "subject": "lyra"
         }
       },
       "send": {
@@ -176,7 +176,7 @@
         "params": {
           "at": "the-reclaiming",
           "pred": "status",
-          "subject": "nara",
+          "subject": "lyra",
           "workspace": "ws-1"
         }
       }

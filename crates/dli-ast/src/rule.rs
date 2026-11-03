@@ -188,9 +188,9 @@ mod tests {
     #[test]
     fn renders_symbols_strings_and_integers() {
         let datalog = Datalog {
-            head: atom("rank", vec![sym("nara"), Term::Str("gold rank".to_owned())]),
+            head: atom("rank", vec![sym("lyra"), Term::Str("gold rank".to_owned())]),
             body: vec![BodyLiteral::pos(atom("count", vec![Term::Int(2)]))],
         };
-        assert_eq!(datalog.render(), "rank(nara, \"gold rank\") :- count(2)");
+        assert_eq!(datalog.render(), "rank(lyra, \"gold rank\") :- count(2)");
     }
 }

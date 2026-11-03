@@ -8,7 +8,7 @@
     "op": "author.entity_candidates",
     "params": {
       "workspace": "ws-1",
-      "surface": "nara"
+      "surface": "lyra"
     }
   },
   "expect_error": {

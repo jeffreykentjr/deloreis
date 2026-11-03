@@ -1632,7 +1632,7 @@ fn failed_at(practice: &PracticeDef, finding: &ProofFinding) -> ProofVerdict {
             (refining_error(practice, class, None), at.clone())
         }
         // A bad spoke is the phase equivalent of a bad instantiation (L4); it binds
-        // by class, like tide-cycle's `mislaid-leaf`.
+        // by class, like tide-cycle's `lost-page`.
         ProofFinding::UnknownSpoke { label, .. } => {
             (refining_error(practice, class, None), label.clone())
         }

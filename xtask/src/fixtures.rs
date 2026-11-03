@@ -644,6 +644,9 @@ fn reset_wire_fixture_correction(old: &[u8], new: &[u8]) -> bool {
         // and author fixtures while keeping the single fiction contract.
         || (old == "fb8f7ea9f47de40dbd3f849d47fc53edf23a487d7ea2c87956419985bcb273a3"
             && new == "942e8cbcc0ac3124c783eed54b9088cdc04c999092b256cee307f780fabb894a")
+        // DL-0117 reauthors the pre-release fiction examples.
+        || (old == "2a5e701d775c33c761d514465ec85ff927ec44813d88443b91284c2cf74c7148"
+            && new == "809fb34f09c684a0d619d30065a6cd507af186b11c9b1ed51ec3f74da2811bef")
 }
 
 #[cfg(test)]

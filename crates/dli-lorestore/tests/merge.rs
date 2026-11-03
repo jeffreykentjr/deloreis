@@ -393,14 +393,14 @@ fn seed_functional_dependency_violation() {
     let (store, _dir) = open_store();
     seed_main(
         &store,
-        &[certain_fact("base-home", "home", &["nara", "shallows"])],
+        &[certain_fact("base-home", "home", &["lyra", "shallows"])],
     );
     store.create_branch("a", "main").expect("a");
     store.create_branch("b", "main").expect("b");
     commit_facts(
         &store,
         "b",
-        &[certain_fact("b-home", "home", &["nara", "highlands"])],
+        &[certain_fact("b-home", "home", &["lyra", "highlands"])],
     );
 
     let report = store.merge("a", "b").expect("merge");
@@ -412,7 +412,7 @@ fn seed_functional_dependency_violation() {
     assert_eq!(certain.len(), 1, "one FD conflict: {:?}", report.conflicts);
     let c = certain[0];
     assert!(c.rendered.contains("home"), "names the predicate");
-    assert!(c.rendered.contains("nara"), "names the subject");
+    assert!(c.rendered.contains("lyra"), "names the subject");
     let blame = format!("{} {}", c.blame.0, c.blame.1);
     assert!(
         blame.contains("shallows") && blame.contains("highlands"),
@@ -434,7 +434,7 @@ fn seed_functional_dependency_violation() {
 #[test]
 fn seed_exclusivity_violation() {
     let source =
-        "scope canon\n\nquestion q-keeper \"Who keeps it?\"\n  option opt-fen\n  option opt-nara\n";
+        "scope canon\n\nquestion q-keeper \"Who keeps it?\"\n  option opt-fen\n  option opt-lyra\n";
     let (document, diagnostics) = dli_syntax::parse_document(source);
     assert!(diagnostics.is_empty(), "base parses clean: {diagnostics:?}");
     let pack = dli_world::Pack {
@@ -446,7 +446,7 @@ fn seed_exclusivity_violation() {
     store.create_branch("a", "main").expect("a");
     store.create_branch("b", "main").expect("b");
     set_branch_valuation(&store, "a", &[("opt-fen", true)]);
-    set_branch_valuation(&store, "b", &[("opt-nara", true)]);
+    set_branch_valuation(&store, "b", &[("opt-lyra", true)]);
 
     let report = store.merge("a", "b").expect("merge");
     let exclusivity: Vec<_> = report
@@ -726,12 +726,12 @@ fn merge_that_closes_a_negation_cycle_is_unstratifiable() {
     commit_decl(
         &store,
         "a",
-        &rule_decl("ra", "alive(nara) :- not dead(nara)"),
+        &rule_decl("ra", "alive(lyra) :- not dead(lyra)"),
     );
     commit_decl(
         &store,
         "b",
-        &rule_decl("rb", "dead(nara) :- not alive(nara)"),
+        &rule_decl("rb", "dead(lyra) :- not alive(lyra)"),
     );
 
     let report = store
@@ -1125,7 +1125,7 @@ fn dry_run_merge_writes_an_orphan_but_advances_no_ref() {
     // An exclusivity corpus: one question, two options, ruled differently on the
     // two branches, so the dry-run's scan surfaces a real conflict.
     let source =
-        "scope canon\n\nquestion q-keeper \"Who keeps it?\"\n  option opt-fen\n  option opt-nara\n";
+        "scope canon\n\nquestion q-keeper \"Who keeps it?\"\n  option opt-fen\n  option opt-lyra\n";
     let (document, diagnostics) = dli_syntax::parse_document(source);
     assert!(diagnostics.is_empty(), "base parses clean: {diagnostics:?}");
     let pack = dli_world::Pack {
@@ -1136,7 +1136,7 @@ fn dry_run_merge_writes_an_orphan_but_advances_no_ref() {
     store.create_branch("a", "main").expect("a");
     store.create_branch("b", "main").expect("b");
     set_branch_valuation(&store, "a", &[("opt-fen", true)]);
-    set_branch_valuation(&store, "b", &[("opt-nara", true)]);
+    set_branch_valuation(&store, "b", &[("opt-lyra", true)]);
 
     let target_before = store
         .branch_ref("a")

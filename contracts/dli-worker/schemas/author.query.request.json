@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorQueryParams",
-  "description": "`author.query` params: query the **staged** world (base + staged\ndeclarations). The agent asks \"what holds about `nara` now?\" over its\nin-progress work.",
+  "description": "`author.query` params: query the **staged** world (base + staged\ndeclarations). The agent asks \"what holds about `lyra` now?\" over its\nin-progress work.",
   "type": "object",
   "properties": {
     "goal": {

@@ -15,9 +15,9 @@
       "id": "pre-2",
       "op": "author.add_entity",
       "params": {
-        "id": "nara",
+        "id": "lyra",
         "kind": "person",
-        "name": "Nara",
+        "name": "Lyra",
         "provenance": {
           "decisions": [
             "d-1"
@@ -56,9 +56,9 @@
         "result": {
           "findings": [],
           "rendered": [
-            "same-as nara = moira proposed session-identity"
+            "same-as lyra = moira proposed session-identity"
           ],
-          "workspace_digest": "jcs:sha256:bc9b46765621e19ac6b9ffafded23fe96aaeb3181d2d074561ac6b18af3a0246"
+          "workspace_digest": "jcs:sha256:c930246d2a1608ad1aec237bc384e91efba243a9df651324ea2264782b0a7e04"
         }
       },
       "send": {
@@ -66,7 +66,7 @@
         "id": "1",
         "op": "author.assert_same_as",
         "params": {
-          "left": "nara",
+          "left": "lyra",
           "provenance": {
             "kind": "proposed",
             "origin": "session-identity"

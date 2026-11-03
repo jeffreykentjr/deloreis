@@ -147,9 +147,9 @@ fn findings_with_code<'a>(
 fn headline_fd_violation_names_both_values_and_the_identity_link() {
     let world = world(vec![
         functional("rank", "D-1"),
-        certain_fact("rank", "nara", "gold", "D-1"),
+        certain_fact("rank", "lyra", "gold", "D-1"),
         certain_fact("rank", "moira", "silver", "D-1"),
-        same_as("nara", "moira", Some(ratified("D-9"))),
+        same_as("lyra", "moira", Some(ratified("D-9"))),
     ]);
     let findings = check::run(&world);
     let fd = findings_with_code(&findings, "continuity.fd-violation");
@@ -179,9 +179,9 @@ fn headline_fd_violation_names_both_values_and_the_identity_link() {
 fn proposed_identity_does_not_trigger_an_fd_merge() {
     let world = world(vec![
         functional("rank", "D-1"),
-        certain_fact("rank", "nara", "gold", "D-1"),
+        certain_fact("rank", "lyra", "gold", "D-1"),
         certain_fact("rank", "moira", "silver", "D-1"),
-        same_as("nara", "moira", Some(proposed())),
+        same_as("lyra", "moira", Some(proposed())),
     ]);
     let findings = check::run(&world);
     assert!(
@@ -199,9 +199,9 @@ fn proposed_identity_does_not_trigger_an_fd_merge() {
 fn unratified_identity_citation_does_not_trigger_an_fd_merge() {
     let world = world(vec![
         functional("rank", "D-1"),
-        certain_fact("rank", "nara", "gold", "D-1"),
+        certain_fact("rank", "lyra", "gold", "D-1"),
         certain_fact("rank", "moira", "silver", "D-1"),
-        same_as("nara", "moira", Some(ratified("D-404"))), // D-404 is never `ratify`d
+        same_as("lyra", "moira", Some(ratified("D-404"))), // D-404 is never `ratify`d
     ]);
     let findings = check::run(&world);
     assert!(
@@ -248,7 +248,7 @@ fn fluent_combine_disjoint_spans_across_aliases_raise_nothing() {
     let world = world(vec![
         entity(EntityKind::Event, "coronation", "D-1"),
         state(
-            "nara.station",
+            "lyra.station",
             "commons",
             Some(TimeClause::Until(id("coronation"))),
             "D-1",
@@ -259,7 +259,7 @@ fn fluent_combine_disjoint_spans_across_aliases_raise_nothing() {
             Some(TimeClause::Since(id("coronation"))),
             "D-1",
         ),
-        same_as("nara", "moira", Some(ratified("D-9"))),
+        same_as("lyra", "moira", Some(ratified("D-9"))),
     ]);
     let findings = check::run(&world);
     assert!(
@@ -271,9 +271,9 @@ fn fluent_combine_disjoint_spans_across_aliases_raise_nothing() {
 #[test]
 fn fluent_combine_overlapping_certain_spans_raise_one_contradiction() {
     let world = world(vec![
-        state("nara.station", "commons", None, "D-1"),
+        state("lyra.station", "commons", None, "D-1"),
         state("moira.station", "throne", None, "D-1"),
-        same_as("nara", "moira", Some(ratified("D-9"))),
+        same_as("lyra", "moira", Some(ratified("D-9"))),
     ]);
     let findings = check::run(&world);
     let fluent = findings_with_code(&findings, "continuity.fluent-contradiction");
@@ -298,17 +298,17 @@ fn fluent_combine_overlapping_certain_spans_raise_one_contradiction() {
 fn intra_episode_fluent_skip_consults_every_class_member() {
     let world = world(vec![
         // moira.station is a fluent (has a `state` declaration and timeline);
-        // nara.station is not — but nara and moira are one bearer.
+        // lyra.station is not — but lyra and moira are one bearer.
         state("moira.station", "throne", None, "D-1"),
-        same_as("nara", "moira", Some(ratified("D-9"))),
+        same_as("lyra", "moira", Some(ratified("D-9"))),
     ]);
     // Two claims setting the (canon-merged) slot to two different values in one
     // draft would ordinarily be `continuity.intra-episode-contradiction` for a
     // single-valued slot — but the class holds a fluent member, so it must be
     // judged over intervals (fluent_contradictions), not flagged flatly here.
     let claims = vec![
-        atom("station", &["nara", "commons"]),
-        atom("station", &["nara", "throne"]),
+        atom("station", &["lyra", "commons"]),
+        atom("station", &["lyra", "throne"]),
     ];
     let findings = check::continuity::check_claims(&world, &claims);
     assert!(
@@ -363,7 +363,7 @@ fn killed_token_inside_a_same_as_argument_is_rejected_lore() {
         scope: "region name".to_owned(),
     }]);
     let world =
-        world(vec![same_as("nara", "irondale", Some(ratified("D-9")))]).with_killed_tokens(killed);
+        world(vec![same_as("lyra", "irondale", Some(ratified("D-9")))]).with_killed_tokens(killed);
     let findings = check::run(&world);
     let rejected = findings_with_code(&findings, "continuity.rejected-lore");
     assert_eq!(
@@ -381,13 +381,13 @@ fn killed_token_inside_a_same_as_argument_is_rejected_lore() {
 // ===========================================================================
 #[test]
 fn missing_provenance_fails_closed_with_a_finding() {
-    let world = world(vec![same_as("nara", "moira", None)]);
+    let world = world(vec![same_as("lyra", "moira", None)]);
     assert!(
         world
             .model
             .findings()
             .iter()
-            .any(|f| matches!(f, LoadFinding::MissingProvenance { decl, .. } if decl.contains("nara") || decl.contains("identity"))),
+            .any(|f| matches!(f, LoadFinding::MissingProvenance { decl, .. } if decl.contains("lyra") || decl.contains("identity"))),
         "a same-as with no provenance is a claim from nowhere, reported not dropped: {:?}",
         world.model.findings()
     );
@@ -417,7 +417,7 @@ fn malformed_provenance_fails_closed_with_a_finding() {
         tags: Vec::new(),
         span: Span::synthetic(),
     };
-    let world = world(vec![same_as("nara", "moira", Some(malformed))]);
+    let world = world(vec![same_as("lyra", "moira", Some(malformed))]);
     assert!(
         world
             .model
@@ -464,8 +464,8 @@ fn pending_conflicts_follow_certain_identity_but_not_proposed_identity() {
     let build = |link| {
         world(vec![
             functional("rank", "D-1"),
-            same_as("nara", "moira", Some(link)),
-            proposed_fact("nara", "captain"),
+            same_as("lyra", "moira", Some(link)),
+            proposed_fact("lyra", "captain"),
             proposed_fact("moira", "admiral"),
         ])
     };

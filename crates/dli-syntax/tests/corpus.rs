@@ -85,7 +85,7 @@ name linet \"Linet\"  person.given in elder-tongue-fringe
   = given-proto en + given-deutero fys
   bearer protagonist   ratified D-0134
 
-term hedgerow \"the hedgerow\"  ratified D-0143
+term orchard-lane \"the orchard-lane\"  ratified D-0143
 banned machine   D-0056  \"the allegory is structural, never lexical\"
 
 hypothesis h-elder-tongue \"the western fringe speaks a Brythonic-shaped tongue\"

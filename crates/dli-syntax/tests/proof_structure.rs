@@ -32,7 +32,7 @@ fn a_valid_proof_body_lowers_to_typed_ops() {
         "premise p3 debt(1) drawn-against p1",
         "step s1 instantiate ward-form with ground = door, fibre = withy",
         "step s2 chain from p1, s1 by give-and-take conclusion bound(ward, door)",
-        "step s3 read the-weir",
+        "step s3 read north-gate",
         "spend p3",
         "close bound(ward, door) expect holds",
     ]));

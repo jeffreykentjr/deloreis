@@ -39,6 +39,10 @@ pub const WORLD_TOKENS: &[&str] = &[
     "tegwen",
     "kes",
     "branwen",
+    "nara",
+    "hedgerow",
+    "mislaid-leaf",
+    "loan-words",
 ];
 
 fn contains_word(text: &str, token: &str) -> bool {
@@ -53,7 +57,9 @@ fn contains_word(text: &str, token: &str) -> bool {
             let before = text.as_bytes().get(start.wrapping_sub(1));
             let after = text.as_bytes().get(start + variant.len());
             before.is_none_or(|c| !c.is_ascii_alphanumeric())
-                && after.is_none_or(|c| !c.is_ascii_alphanumeric())
+                && (after.is_none_or(|c| !c.is_ascii_alphanumeric())
+                    || (token == ["plea", "ch"].concat()
+                        && text[start..].starts_with(&[token, "ed"].concat())))
         })
     })
 }
@@ -119,5 +125,7 @@ mod tests {
         assert!(contains_word("a Blue Bell rings", "blue-bell"));
         assert!(contains_word("blue_bell rings", "blue-bell"));
         assert!(!contains_word("blue belling", "blue-bell"));
+        let stem = ["plea", "ch"].concat();
+        assert!(contains_word(&format!("a {stem}ed path"), &stem));
     }
 }

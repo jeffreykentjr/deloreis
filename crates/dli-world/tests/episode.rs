@@ -267,7 +267,7 @@ fn episode_round_trips_through_json() {
             }),
         scenes: vec![reveal_scene(
             "s3",
-            "the-drowned-field",
+            "the-traveller-field",
             Some(
                 EpisodeAnchor::era("the-long-creep")
                     .after_event("protagonists-taking")

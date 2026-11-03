@@ -107,15 +107,15 @@ fn candidates_are_nearest_first_with_distances() {
     let mut store = base(concat!(
         "scope storybook\n",
         "ratify D-0001\n",
-        "place nara \"Nara\"  ratified D-0001\n",
+        "place lyra \"Lyra\"  ratified D-0001\n",
         "place mira \"Mira\"  ratified D-0001\n",
         "place keeper \"Keeper\"  ratified D-0001\n",
     ));
     let ws = open_scope(&mut store, V11, "storybook");
-    let out = candidates(&mut store, V11, &ws, "nara", 5);
+    let out = candidates(&mut store, V11, &ws, "lyra", 5);
     let out = result(&out);
     let names = names(out);
-    assert_eq!(names.first().map(String::as_str), Some("nara"), "{names:?}");
+    assert_eq!(names.first().map(String::as_str), Some("lyra"), "{names:?}");
     assert!(
         names.contains(&"mira".to_owned()),
         "near match present: {names:?}"
@@ -156,15 +156,15 @@ fn an_aliased_class_collapses_to_one_representative() {
     let mut store = base(concat!(
         "scope storybook\n",
         "ratify D-0001\n",
-        "place nara \"Nara\"  ratified D-0001\n",
+        "place lyra \"Lyra\"  ratified D-0001\n",
         "place sira \"Sira\"  ratified D-0001\n",
-        "same-as nara = sira decided D-0001\n",
+        "same-as lyra = sira decided D-0001\n",
     ));
     let ws = open_scope(&mut store, V11, "storybook");
     let out = candidates(&mut store, V11, &ws, "sira", 5);
     let names = names(result(&out));
     assert!(
-        names.contains(&"nara".to_owned()),
+        names.contains(&"lyra".to_owned()),
         "the canonical representative surfaces: {names:?}"
     );
     assert!(
@@ -204,7 +204,7 @@ fn the_read_stages_nothing() {
     let mut store = base(concat!(
         "scope storybook\n",
         "ratify D-0001\n",
-        "place nara \"Nara\"  ratified D-0001\n",
+        "place lyra \"Lyra\"  ratified D-0001\n",
     ));
     let ws = open_scope(&mut store, V11, "storybook");
     let declared = dispatch(
@@ -220,7 +220,7 @@ fn the_read_stages_nothing() {
     assert!(declared.ok, "stage a baseline decl: {declared:?}");
     let staged_before = store.get(&ws).expect("workspace open").decls.len();
 
-    let read = candidates(&mut store, V11, &ws, "nara", 5);
+    let read = candidates(&mut store, V11, &ws, "lyra", 5);
     assert!(read.ok, "the read answers: {read:?}");
 
     let staged_after = store.get(&ws).expect("workspace open").decls.len();

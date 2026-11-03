@@ -2975,7 +2975,7 @@
       ]
     },
     "SortDef": {
-      "description": "A declared finite sort: `sort figure = the-tide | the-weir | …`, or a sort\ndrawn wholesale from a consumed layer: `sort binder from lexicon.loan-words`.",
+      "description": "A declared finite sort: `sort figure = the-tide | north-gate | …`, or a sort\ndrawn wholesale from a consumed layer: `sort binder from lexicon.field-words`.",
       "type": "object",
       "properties": {
         "name": {

@@ -59,7 +59,7 @@ fn ident() -> impl Strategy<Value = Ident> {
 fn label() -> impl Strategy<Value = String> {
     prop::sample::select(vec![
         "The Weir".to_owned(),
-        "Nara of the Weirs".to_owned(),
+        "Lyra of the Weirs".to_owned(),
         "Old Fen".to_owned(),
         "salt".to_owned(),
     ])

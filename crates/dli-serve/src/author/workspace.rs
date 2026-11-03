@@ -972,7 +972,7 @@ mod tests {
     #[test]
     fn incremental_reseal_equals_whole_snapshot() {
         let mut ws = scope("storybook");
-        ws.push_decl(person("nara"));
+        ws.push_decl(person("lyra"));
         ws.push_decl(person("the-warden"));
         ws.suppositions.push("h".to_owned());
         ws.reseal();
@@ -1000,10 +1000,10 @@ mod tests {
     #[test]
     fn target_branch_moves_the_fence_and_is_absent_when_none() {
         let mut branchless = scope("storybook");
-        branchless.push_decl(person("nara"));
+        branchless.push_decl(person("lyra"));
 
         let mut branched = scope("storybook");
-        branched.push_decl(person("nara"));
+        branched.push_decl(person("lyra"));
         branched.target_branch = Some("rival".to_owned());
         branched.reseal();
 
@@ -1042,7 +1042,7 @@ mod tests {
     #[test]
     fn changing_the_base_moves_the_fence_and_preserves_canonical_encoding() {
         let mut ws = scope("storybook");
-        ws.push_decl(person("nara"));
+        ws.push_decl(person("lyra"));
         ws.set_base_root_hash(Some("sha256:first".to_owned()));
         let first = ws.digest.clone();
         ws.set_base_root_hash(Some("sha256:second".to_owned()));
@@ -1077,13 +1077,13 @@ mod tests {
     #[test]
     fn incremental_reseal_equals_from_scratch() {
         let mut built = scope("storybook");
-        built.push_decl(person("nara"));
+        built.push_decl(person("lyra"));
         built.push_decl(person("the-warden"));
         built.push_decl(person("perin"));
-        built.remove_decl(1); // drop the-warden → [nara, perin]
+        built.remove_decl(1); // drop the-warden → [lyra, perin]
 
         let mut fresh = scope("storybook");
-        fresh.push_decl(person("nara"));
+        fresh.push_decl(person("lyra"));
         fresh.push_decl(person("perin"));
 
         assert_eq!(built.decls.len(), 2);
@@ -1096,7 +1096,7 @@ mod tests {
     #[test]
     fn replace_matches_from_scratch() {
         let mut edited = scope("storybook");
-        edited.push_decl(person("nara"));
+        edited.push_decl(person("lyra"));
         edited.push_decl(person("the-warden"));
         edited.replace_decl(0, person("perin")); // [perin, the-warden]
 
@@ -1112,26 +1112,26 @@ mod tests {
     #[test]
     fn reseal_is_deterministic_and_sensitive() {
         let mut a = scope("storybook");
-        a.push_decl(person("nara"));
+        a.push_decl(person("lyra"));
         a.push_decl(person("the-warden"));
 
         let mut same = scope("storybook");
-        same.push_decl(person("nara"));
+        same.push_decl(person("lyra"));
         same.push_decl(person("the-warden"));
         assert_eq!(a.digest, same.digest, "same state → same fence");
 
         let mut reordered = scope("storybook");
         reordered.push_decl(person("the-warden"));
-        reordered.push_decl(person("nara"));
+        reordered.push_decl(person("lyra"));
         assert_ne!(a.digest, reordered.digest, "order moves the fence");
 
         let mut other_base = scope("riverside");
-        other_base.push_decl(person("nara"));
+        other_base.push_decl(person("lyra"));
         other_base.push_decl(person("the-warden"));
         assert_ne!(a.digest, other_base.digest, "the base moves the fence");
 
         let mut supposed = scope("storybook");
-        supposed.push_decl(person("nara"));
+        supposed.push_decl(person("lyra"));
         supposed.push_decl(person("the-warden"));
         supposed.suppositions.push("h-1".to_owned());
         supposed.reseal();
@@ -1168,21 +1168,21 @@ mod tests {
             vec!["old"]
         );
 
-        ws.push_decl(entity("nara", EntityKind::Person));
-        ws.push_decl(entity("nara", EntityKind::Place));
+        ws.push_decl(entity("lyra", EntityKind::Person));
+        ws.push_decl(entity("lyra", EntityKind::Place));
         ws.push_decl(ratify("d-stage"));
-        assert_eq!(ws.entity_sort("nara"), Some("place"));
-        assert_eq!(ws.entities_of_kind("person"), vec!["nara", "world"]);
-        assert_eq!(ws.entities_of_kind("place"), vec!["nara"]);
+        assert_eq!(ws.entity_sort("lyra"), Some("place"));
+        assert_eq!(ws.entities_of_kind("person"), vec!["lyra", "world"]);
+        assert_eq!(ws.entities_of_kind("place"), vec!["lyra"]);
         assert!(ws.known_decisions().contains("d-stage"));
 
         ws.remove_decl(1);
-        assert_eq!(ws.entity_sort("nara"), Some("person"));
+        assert_eq!(ws.entity_sort("lyra"), Some("person"));
         assert!(ws.entities_of_kind("place").is_empty());
 
-        ws.replace_decl(0, entity("nara", EntityKind::Thing));
-        assert_eq!(ws.entity_sort("nara"), Some("thing"));
-        assert!(!ws.entities_of_kind("person").contains(&"nara".to_owned()));
+        ws.replace_decl(0, entity("lyra", EntityKind::Thing));
+        assert_eq!(ws.entity_sort("lyra"), Some("thing"));
+        assert!(!ws.entities_of_kind("person").contains(&"lyra".to_owned()));
 
         ws.remove_decl(1);
         assert!(!ws.known_decisions().contains("d-stage"));

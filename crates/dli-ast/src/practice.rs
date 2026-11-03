@@ -143,8 +143,8 @@ pub enum GradeDirection {
     Grows,
 }
 
-/// A declared finite sort: `sort figure = the-tide | the-weir | …`, or a sort
-/// drawn wholesale from a consumed layer: `sort binder from lexicon.loan-words`.
+/// A declared finite sort: `sort figure = the-tide | north-gate | …`, or a sort
+/// drawn wholesale from a consumed layer: `sort binder from lexicon.field-words`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct SortDef {
     /// The sort name.

@@ -21,9 +21,9 @@
         "result": {
           "findings": [],
           "rendered": [
-            "term hedgerow proposed session-fx01"
+            "term orchard-lane proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:d21085b588c06b54e496a7211691620ddcb9c6191ac8a488783e3a98281e7faa"
+          "workspace_digest": "jcs:sha256:c7605ee25aaf67b7a6771474ec001587907c0a70b9e3d1a413fffa198e7c94e9"
         }
       },
       "send": {
@@ -31,7 +31,7 @@
         "id": "1",
         "op": "author.add_term",
         "params": {
-          "id": "hedgerow",
+          "id": "orchard-lane",
           "provenance": {
             "kind": "proposed",
             "origin": "session-fx01"
@@ -50,7 +50,7 @@
           "rendered": [
             "term ford proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:5f995d379badcc708ae3cac93ac72c54a585f1c2ae65d284fc5148f1275212b4"
+          "workspace_digest": "jcs:sha256:00647b1d3c9871478d35352a267d338751a0736d2794c4cdbe8b918e2dce51f2"
         }
       },
       "send": {
@@ -76,15 +76,15 @@
           "diff_rows": [],
           "findings": [],
           "rendered": [
-            "term hedgerow proposed session-fx01",
+            "term orchard-lane proposed session-fx01",
             "term ford proposed session-fx01"
           ],
           "root_hash": "sha256:1c711270ccdb40000091b36395baee1ca02ba46a40a51106212e5ce96916299c",
           "staged": [
             {
-              "key": "jcs:sha256:4c56d1392a556fc40580400490fa038c8dc1f6f7a7364f7657b4ddbfc26c835c",
+              "key": "jcs:sha256:bc794aabee3ad2a53febd1accfca1b867b798d0d7e6de37347229722a84b6237",
               "kind": "term",
-              "rendered": "term hedgerow proposed session-fx01"
+              "rendered": "term orchard-lane proposed session-fx01"
             },
             {
               "key": "jcs:sha256:1c19d8b33204ad46c499f793921eefb43d0ef366c67deeb6e9dd5ba4d092b1d6",
@@ -92,7 +92,7 @@
               "rendered": "term ford proposed session-fx01"
             }
           ],
-          "workspace_digest": "jcs:sha256:5f995d379badcc708ae3cac93ac72c54a585f1c2ae65d284fc5148f1275212b4"
+          "workspace_digest": "jcs:sha256:00647b1d3c9871478d35352a267d338751a0736d2794c4cdbe8b918e2dce51f2"
         }
       },
       "send": {
@@ -119,7 +119,7 @@
         "id": "4",
         "op": "author.discard",
         "params": {
-          "decl": "jcs:sha256:4c56d1392a556fc40580400490fa038c8dc1f6f7a7364f7657b4ddbfc26c835c",
+          "decl": "jcs:sha256:bc794aabee3ad2a53febd1accfca1b867b798d0d7e6de37347229722a84b6237",
           "workspace": "ws-1"
         }
       }

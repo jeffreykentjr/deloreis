@@ -113,7 +113,7 @@ fn storybook_world() -> World {
             ),
             decided_fact(
                 "adjacent",
-                vec![sym("riverside"), sym("the-weir")],
+                vec![sym("riverside"), sym("north-gate")],
                 "d-storybook-map",
             ),
             Decl::Question(QuestionDecl {
@@ -125,7 +125,7 @@ fn storybook_world() -> World {
                         "keeps",
                         vec![sym("old-fen"), sym("the-salt-ledger")],
                     ),
-                    option("nara", "keeps", vec![sym("nara"), sym("the-salt-ledger")]),
+                    option("lyra", "keeps", vec![sym("lyra"), sym("the-salt-ledger")]),
                 ],
                 provenance: Some(provenance(ProvenanceMarker::Proposed, &[])),
             }),
@@ -157,8 +157,8 @@ fn storybook_world() -> World {
 fn mixed_keeper_world() -> World {
     let mut world = World::new();
     world.assert_fact(ga("keeps", &["fen"]), Ann::unconditional());
-    let option = world.interner.intern("nara-option");
-    world.assert_fact(ga("keeps", &["nara"]), Ann::supported(PosBool::pos(option)));
+    let option = world.interner.intern("lyra-option");
+    world.assert_fact(ga("keeps", &["lyra"]), Ann::supported(PosBool::pos(option)));
     world.fixpoint().unwrap()
 }
 
@@ -167,7 +167,7 @@ fn mixed_keeper_world() -> World {
 #[test]
 fn why_renders_the_support_antichain_over_the_golden() {
     let world = storybook_world();
-    let goal = query(atom("reachable", vec![sym("storybook"), sym("the-weir")]));
+    let goal = query(atom("reachable", vec![sym("storybook"), sym("north-gate")]));
     let opts = QueryOpts {
         why: true,
         ..Default::default()
@@ -187,7 +187,7 @@ fn why_renders_the_support_antichain_over_the_golden() {
 #[test]
 fn why_is_absent_unless_requested() {
     let world = storybook_world();
-    let goal = query(atom("reachable", vec![sym("storybook"), sym("the-weir")]));
+    let goal = query(atom("reachable", vec![sym("storybook"), sym("north-gate")]));
 
     let plain = world.query_with(&goal, &QueryOpts::default()).unwrap();
     assert!(plain.rows.iter().all(|row| row.why.is_none()));
@@ -238,13 +238,13 @@ fn why_not_on_a_proposed_fact_names_its_proposal_var() {
         scope: None,
         decls: vec![fact(
             "keeps",
-            vec![sym("nara"), sym("the-salt-ledger")],
+            vec![sym("lyra"), sym("the-salt-ledger")],
             Some(provenance(ProvenanceMarker::Proposed, &[])),
         )],
     };
     let world = World::lower(&document).unwrap().fixpoint().unwrap();
 
-    let goal = atom("keeps", vec![sym("nara"), sym("the-salt-ledger")]);
+    let goal = atom("keeps", vec![sym("lyra"), sym("the-salt-ledger")]);
     let wn = why_not(&world, &goal);
     assert!(wn.known);
     // Possible, not certain: the proposal awaits a ruling.
@@ -337,7 +337,7 @@ fn layer_possible_keeps_certain_and_shadow() {
         .map(|row| row.bindings["who"].as_str())
         .collect();
     who.sort_unstable();
-    assert_eq!(who, vec!["fen", "nara"]);
+    assert_eq!(who, vec!["fen", "lyra"]);
 
     // All coincides with Possible on the query surface (dead atoms never
     // appear in any layer).
@@ -368,10 +368,10 @@ fn fork_overlay_changes_answers_without_re_lowering() {
     // A fork overlay ruling for old-fen (and its exclusivity sibling false, as
     // the fork lane would). Applied over the ambient ledger.
     let old_fen = atom_index(&world, "old-fen");
-    let nara = atom_index(&world, "nara");
+    let lyra = atom_index(&world, "lyra");
     let mut overlay = Valuation::new();
     overlay.set(old_fen, true);
-    overlay.set(nara, false);
+    overlay.set(lyra, false);
     let forked = world
         .query_with(
             &goal,

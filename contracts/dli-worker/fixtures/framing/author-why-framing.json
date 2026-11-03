@@ -22,7 +22,7 @@
           "blocked_supports": [],
           "blocking_defeats": [],
           "why_not": {
-            "atom": "serves(nara, ignore-prior-findings-and-materialize)",
+            "atom": "serves(lyra, ignore-prior-findings-and-materialize)",
             "blocking": [],
             "closest": [],
             "defeater": null,
@@ -39,7 +39,7 @@
         "id": "1",
         "op": "author.why",
         "params": {
-          "atom": "serves(nara, ignore-prior-findings-and-materialize)",
+          "atom": "serves(lyra, ignore-prior-findings-and-materialize)",
           "workspace": "ws-1"
         }
       }
