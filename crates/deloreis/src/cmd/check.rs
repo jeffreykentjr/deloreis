@@ -57,7 +57,7 @@ pub(crate) fn run(args: &CheckArgs) -> CmdResult {
                 lines.push(render_semantic_finding(&finding, &files));
             }
             for finding in language::check(&world.model.language) {
-                lines.push(cmd::render_world_finding(&finding));
+                lines.push(render_semantic_finding(&finding, &files));
             }
         }
         Err(message) => lines.push(format!("error  compile.unstratifiable — {message}")),
@@ -106,6 +106,16 @@ fn render_semantic_finding(finding: &check::WorldFinding, files: &[cmd::CorpusFi
         "predicate-identity.arity-mismatch" => {
             Some("use matching argument counts for the identified predicates")
         }
+        "name.slot-sequence" => Some("use a slot sequence declared for the name kind"),
+        "name.role-membership" => {
+            Some("declare the name part in that role or choose a declared part")
+        }
+        "name.register-fit" => Some("declare the dialect and name kind, or correct their names"),
+        "name.phonotactics" => Some("change the name to match the dialect's sound rules"),
+        "name.uniqueness" => Some("choose a distinct name or remove the duplicate declaration"),
+        "name.fixed-token-reuse" => Some("choose a name that does not reuse the reserved token"),
+        "name.gender-morphology" => Some("use name parts without conflicting gender markers"),
+        "name.banned-in-name" => Some("choose a name without the banned word or revise the rule"),
         _ => None,
     };
     if let Some(help) = help {
