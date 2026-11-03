@@ -103,8 +103,8 @@ const FAMILIES: &[Family] = &[
         emitter: "World check, CLI and authoring reads",
         owner: "dli-world :: check/entity.rs",
         severity_note: "Advisory; unknown references do not block a commit.",
-        sources: &["crates/dli-world/src/check/entity.rs"],
-        scrape: Scrape::Prefixed("entity."),
+        sources: &["../crates/dli-world/src/check/entity.rs"],
+        scrape: Scrape::Prefixed("entity"),
         codes: &[Code {
             code: "entity.undeclared",
             severity: "warn",

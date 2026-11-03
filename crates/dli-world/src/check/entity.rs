@@ -42,12 +42,22 @@ pub(super) fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
     }
     let mut findings = Vec::new();
     let mut seen = BTreeSet::new();
-    for atom in &world.model.atoms {
+    for (atom_index, atom) in world.model.atoms.iter().enumerate() {
         let Some(names) = names_by_pack.get(atom.pack.as_str()) else {
             continue;
         };
         for (index, term) in atom.atom.args.iter().enumerate() {
             let Term::Sym(id) = term else { continue };
+            // An undotted state lowers its value into argument zero; it is not
+            // a subject and must not be treated as one merely by position.
+            if index == 0
+                && world.model.temporal_atom_facts.contains_key(&atom_index)
+                && !(id.span.end > id.span.start
+                    && id.span == atom.atom.pred.span
+                    && id.span.end.saturating_sub(id.span.start) as usize > id.text.len())
+            {
+                continue;
+            }
             if names.contains(id.text.as_str()) {
                 continue;
             }
@@ -82,14 +92,29 @@ pub(super) fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
             } else {
                 format!("`{}` is not declared", id.text)
             };
-            let span = (id.span.end > id.span.start).then_some(id.span);
-            let mut finding = WorldFinding::warn("entity.undeclared", message).with_data(
+            let width = id.span.end.saturating_sub(id.span.start) as usize;
+            let span = if width == id.text.len() && width > 0 {
+                Some(id.span)
+            } else if index == 0
+                && id.span == atom.atom.pred.span
+                && width >= id.text.len() + 1 + atom.atom.pred.text.len()
+            {
+                u32::try_from(id.text.len()).ok().and_then(|length| {
+                    id.span
+                        .start
+                        .checked_add(length)
+                        .map(|end| dli_ast::span::Span { end, ..id.span })
+                })
+            } else {
+                None
+            };
+            let finding = WorldFinding::warn("entity.undeclared", message).with_data(
                 serde_json::json!({"entity": id.text, "candidates": candidates, "span": span}),
             );
-            if let Some(span) = span {
-                finding = finding.with_span(span);
-            }
-            findings.push(finding);
+            findings.push(match span {
+                Some(span) => finding.with_span(span),
+                None => finding,
+            });
         }
     }
     findings

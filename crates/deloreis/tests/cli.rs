@@ -2474,3 +2474,17 @@ fn entity_warning_handles_unknown_names_in_established_positions() {
     assert!(out.contains("`bartholomew` is not declared"), "{out}");
     assert!(!out.contains("`weather` is not declared"), "{out}");
 }
+
+#[test]
+fn undotted_state_values_are_not_mistaken_for_entity_subjects() {
+    let dir = tmp("state-value-is-not-entity");
+    let doc = dir.join("story.dli");
+    fs::write(
+        &doc,
+        "scope story\nperson ned \"Ned\" proposed author\nstate mood = red proposed author\n",
+    )
+    .unwrap();
+    let output = bin().arg("check").arg(&doc).output().unwrap();
+    let out = stdout(&output);
+    assert!(!out.contains("entity.undeclared"), "{out}");
+}
