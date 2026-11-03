@@ -705,8 +705,7 @@ impl Store {
                     bundle = bundle.max(value + 1);
                 }
             }
-            ws.interner = dli_core::atom::Interner::from_names(interner);
-            ws.bundle_counter = bundle;
+            ws.align_interner(interner, bundle);
             ws.set_base_root_hash(Some(head.to_string()));
             ws.base_ref_digest = branch_ref.digest().ok().map(|digest| digest.0);
             ws.base_valuation = named_valuation;
@@ -881,8 +880,7 @@ impl Store {
             .expect("prepared base belongs to a live workspace");
         ws.set_base_root_hash(Some(commit.to_string()));
         ws.base_ref_digest = Some(ref_digest.to_string());
-        ws.interner = dli_core::atom::Interner::from_names(interner);
-        ws.bundle_counter = bundle;
+        ws.align_interner(interner, bundle);
         ws.base_valuation = base_valuation;
         ws.base_unassigned = base_unassigned;
         ws.refresh_structure(&refreshed.world, &refreshed.documents);
