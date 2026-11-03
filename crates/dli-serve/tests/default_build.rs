@@ -19,8 +19,6 @@
 //! | `dli.query` with string `goal` | `schema-violation` naming `goal_atom` | answered |
 //! | `dli.fork.add` with `additions` | applied | applied |
 //! | `dli.fork.add` with `declarations` | `schema-violation` naming `additions` | applied |
-//! | `dli.check-draft` with a typed `continuity` row | checked | checked |
-//! | `dli.check-draft` with a string `continuity` row | `payload.runtime-continuity-invalid` | checked |
 //! | `author.*` mutation | staged; `rendered` empty | staged; `rendered` is the `.dli` line |
 //! | `author.diff` rows | present | present |
 //! | `author.materialize`, no lorestore | refused by name | the rendering IS the materialization |

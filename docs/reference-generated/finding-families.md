@@ -47,7 +47,7 @@ These finding codes are **disjoint** from the wire error-code registry (the 13 `
 
 ## continuity — the world-consistency battery
 
-- **Emitted by:** the continuity checks, run by `dli.check` (world-internal) and `check-draft` (claim-relative)
+- **Emitted by:** world-internal and claim-relative continuity checks
 - **Owner:** `dli-world :: check/continuity.rs (WorldFinding)`
 - **Severity:** All error: a continuity finding is a contradiction of canon or an assertion the claim may not make.
 
@@ -146,7 +146,7 @@ These finding codes are **disjoint** from the wire error-code registry (the 13 `
 
 ## factcheck — payload claim standing
 
-- **Emitted by:** the claim-relative certain-layer checks inside `check-draft` and the authoring seam
+- **Emitted by:** claim-relative certain-layer checks and the authoring seam
 - **Owner:** `dli-world :: check/factcheck.rs; dli-serve :: author/reads.rs + author/tools.rs`
 - **Severity:** All error: supported claims are silent; only contradicted and unsupported claims emit findings.
 

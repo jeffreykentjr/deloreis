@@ -193,7 +193,7 @@ const FAMILIES: &[Family] = &[
     Family {
         key: "continuity",
         title: "continuity — the world-consistency battery",
-        emitter: "the continuity checks, run by `dli.check` (world-internal) and `check-draft` (claim-relative)",
+        emitter: "world-internal and claim-relative continuity checks",
         owner: "dli-world :: check/continuity.rs (WorldFinding)",
         severity_note: "All error: a continuity finding is a contradiction of canon or an \
             assertion the claim may not make.",
@@ -582,7 +582,7 @@ const FAMILIES: &[Family] = &[
     Family {
         key: "factcheck",
         title: "factcheck — payload claim standing",
-        emitter: "the claim-relative certain-layer checks inside `check-draft` and the authoring seam",
+        emitter: "claim-relative certain-layer checks and the authoring seam",
         owner: "dli-world :: check/factcheck.rs; dli-serve :: author/reads.rs + author/tools.rs",
         severity_note: "All error: supported claims are silent; only contradicted and unsupported claims emit findings.",
         sources: &[
