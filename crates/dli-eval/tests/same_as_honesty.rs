@@ -349,7 +349,7 @@ fn proposed_identity_never_certain_suppose_flips_it() {
         .interner
         .names()
         .iter()
-        .find(|n| n.starts_with("proposal#"))
+        .find(|n| n.starts_with("h."))
         .cloned()
         .expect("one proposal bundle was minted for the bare `proposed` same-as");
     let mut supposed = world.clone();

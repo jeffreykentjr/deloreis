@@ -172,7 +172,7 @@ fn eval_functional_decl_touches_only_the_functional_set() {
     assert_eq!(with.facts.len(), 3, "three facts lowered");
     assert_eq!(
         with.interner.names().to_vec(),
-        vec!["D-1", "proposal#0", "proposal#1"],
+        vec!["D-1", "h.weir#0", "h.weir#1"],
         "one proposal variable per bare proposal — the functional decls mint none"
     );
 }

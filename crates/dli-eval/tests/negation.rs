@@ -131,7 +131,7 @@ fn possible_negated_literal_poisons_the_conclusion() {
         .filter_map(|lit| world.interner.resolve(lit.atom).map(ToOwned::to_owned))
         .collect();
     assert!(
-        names.iter().any(|n| n.contains("proposal")),
+        names.iter().any(|n| n.starts_with("h.")),
         "the defeater is b's proposal variable, got {names:?}"
     );
 }
@@ -251,7 +251,7 @@ fn ruling_the_poison_true_defeats_the_certain_conclusion() {
         .interner
         .names()
         .iter()
-        .position(|n| n.contains("proposal"))
+        .position(|n| n.starts_with("h."))
         .expect("b minted a proposal variable");
     let mut nu = world.valuation.clone();
     nu.set(dli_core::atom::Atom(u32::try_from(proposal).unwrap()), true);

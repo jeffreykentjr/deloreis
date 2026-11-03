@@ -39,7 +39,7 @@ fn golden_compile_loads_camelot_clean() {
     );
     assert_eq!(out.world.packs().len(), 1);
     assert_eq!(out.world.entities().len(), 3);
-    assert_eq!(out.world.world.facts.len(), 2);
+    assert_eq!(out.world.world.facts.len(), 5); // two facts and three entity claims
 }
 
 #[test]

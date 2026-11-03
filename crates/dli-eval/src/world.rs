@@ -364,6 +364,7 @@ impl World {
     pub fn lower(document: &Document) -> Result<World, EvalError> {
         let mut world = World::new();
         let mut proposal_seq: u32 = 0;
+        let scope = document.scope.as_ref().map_or("", |s| s.name.text.as_str());
         // First pass: the authoritative decision set — the ids a `ratify` decl
         // declares. Citing a decision asserts it exists; the kernel must not
         // take that on faith, so a citation naming anything outside this set
@@ -384,6 +385,7 @@ impl World {
                         fact.provenance.as_ref(),
                         &mut proposal_seq,
                         &known_decisions,
+                        scope,
                     );
                     world.facts.push(Fact {
                         atom,
@@ -392,7 +394,7 @@ impl World {
                     });
                 }
                 Decl::Attr(attr) => {
-                    world.lower_attr(attr, None, &mut proposal_seq, &known_decisions)?;
+                    world.lower_attr(attr, None, &mut proposal_seq, &known_decisions, scope)?;
                 }
                 Decl::Question(question) => world.lower_options(&question.options)?,
                 Decl::Fork(fork) => world.lower_options(&fork.options)?,
@@ -412,12 +414,34 @@ impl World {
                         world.time_point(&entity.name.text);
                         world.time_point(&era.text);
                     }
+                    let ann = world.lower_fact_annotation(
+                        entity.provenance.as_ref(),
+                        &mut proposal_seq,
+                        &known_decisions,
+                        scope,
+                    );
+                    let sort = entity.kind.keyword();
+                    let mut members = vec![&entity.name];
+                    if let Some(TimeClause::Order(chain)) = &entity.time {
+                        members.extend(chain);
+                    }
+                    for member in members {
+                        world.facts.push(Fact {
+                            atom: GroundAtom {
+                                pred: sort.to_owned(),
+                                args: vec![member.text.clone()],
+                            },
+                            ann: ann.clone(),
+                            grade: Grade::Asserted,
+                        });
+                    }
                     for slot in &entity.slots {
                         world.lower_attr(
                             slot,
                             entity.provenance.as_ref(),
                             &mut proposal_seq,
                             &known_decisions,
+                            scope,
                         )?;
                     }
                     if let Some(TimeClause::Order(chain)) = &entity.time {
@@ -444,7 +468,7 @@ impl World {
                     world.interner.intern(&hypothesis.name.text);
                 }
                 Decl::State(state) => {
-                    world.lower_state(state, &mut proposal_seq, &known_decisions)?;
+                    world.lower_state(state, &mut proposal_seq, &known_decisions, scope)?;
                 }
                 // A `functional <pred>` declaration carries no ground atom and
                 // interns no provenance (its provenance rides the durable carriage
@@ -472,6 +496,7 @@ impl World {
                         inertial.provenance.as_ref(),
                         &mut proposal_seq,
                         &known_decisions,
+                        scope,
                     );
                     or_inertial(&mut world.inertial_predicates, &inertial.pred.text, ann);
                 }
@@ -489,6 +514,7 @@ impl World {
                         same_as.provenance.as_ref(),
                         &mut proposal_seq,
                         &known_decisions,
+                        scope,
                     );
                     world.assert_same_as(&same_as.left.text, &same_as.right.text, ann);
                 }
@@ -500,6 +526,7 @@ impl World {
                         predicate_same_as.provenance.as_ref(),
                         &mut proposal_seq,
                         &known_decisions,
+                        scope,
                     );
                     world.assert_predicate_same_as(
                         &predicate_same_as.left.text,
@@ -571,6 +598,7 @@ impl World {
         inherit: Option<&Annotation>,
         proposal_seq: &mut u32,
         known_decisions: &BTreeSet<&str>,
+        scope: &str,
     ) -> Result<(), EvalError> {
         let atom = ground_atom(&AtomExpr {
             pred: attr.attr.clone(),
@@ -580,6 +608,7 @@ impl World {
             attr.provenance.as_ref().or(inherit),
             proposal_seq,
             known_decisions,
+            scope,
         );
         self.facts.push(Fact {
             atom,
@@ -604,6 +633,7 @@ impl World {
         state: &StateDecl,
         proposal_seq: &mut u32,
         known_decisions: &BTreeSet<&str>,
+        scope: &str,
     ) -> Result<(), EvalError> {
         let Some(pattern) = state.atom() else {
             self.findings.push(LowerFinding {
@@ -617,8 +647,12 @@ impl World {
             return Ok(());
         };
         let atom = ground_atom(&pattern)?;
-        let ann =
-            self.lower_fact_annotation(state.provenance.as_ref(), proposal_seq, known_decisions);
+        let ann = self.lower_fact_annotation(
+            state.provenance.as_ref(),
+            proposal_seq,
+            known_decisions,
+            scope,
+        );
         self.facts.push(Fact {
             atom,
             ann,
@@ -825,6 +859,7 @@ impl World {
         annotation: Option<&Annotation>,
         proposal_seq: &mut u32,
         known_decisions: &BTreeSet<&str>,
+        scope: &str,
     ) -> Ann {
         let Some(annotation) = annotation else {
             return Ann::supported(PosBool::FALSE);
@@ -839,9 +874,14 @@ impl World {
             // proposal variable when the claim carries no condition, which would
             // otherwise leave it unratifiable.
             ProvenanceMarker::Proposed => condition.unwrap_or_else(|| {
-                let name = format!("proposal#{proposal_seq}");
-                *proposal_seq += 1;
-                PosBool::pos(self.interner.intern(&name))
+                let key = if annotation.tags.is_empty() {
+                    let key = format!("{scope}#{proposal_seq}");
+                    *proposal_seq += 1;
+                    key
+                } else {
+                    annotation.tags.join("+")
+                };
+                PosBool::pos(self.interner.intern(&format!("h.{key}")))
             }),
             ProvenanceMarker::Decided
             | ProvenanceMarker::Ratified

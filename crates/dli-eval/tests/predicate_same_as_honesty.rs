@@ -192,7 +192,7 @@ fn proposed_identity_is_possible_until_its_support_is_ruled() {
         .interner
         .names()
         .iter()
-        .find(|name| name.starts_with("proposal#"))
+        .find(|name| name.starts_with("h."))
         .expect("the proposed identity has a support variable")
         .clone();
     let mut supposed = world.clone();

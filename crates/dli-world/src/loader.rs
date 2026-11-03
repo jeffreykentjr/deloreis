@@ -504,6 +504,31 @@ impl LoadCtx {
                 }
             })
             .or_insert_with(|| Some(sort.to_owned()));
+        // Entity declarations are claims as well as entries in the entity
+        // registry. Put their gated annotations in the evaluable relation so
+        // predicates such as `person(?who)` can be queried.
+        self.observe_predicate_arity(sort, 1, pack, entity.name.span);
+        self.wm.world.facts.push(Fact {
+            atom: ground_atom(&atom),
+            ann: compiled.ann.clone(),
+            grade: Grade::Asserted,
+        });
+        if let Some(TimeClause::Order(chain)) = &entity.time {
+            for member in chain {
+                let member_atom = AtomExpr {
+                    pred: Ident::synthetic(sort),
+                    args: vec![Term::Sym(member.clone())],
+                };
+                self.wm.world.facts.push(Fact {
+                    atom: ground_atom(&member_atom),
+                    ann: compiled.ann.clone(),
+                    grade: Grade::Asserted,
+                });
+                self.entities
+                    .entry(member.text.clone())
+                    .or_insert_with(|| Some(sort.to_owned()));
+            }
+        }
         self.push_atom(atom, compiled, pack, entity.name.span);
         for slot in &entity.slots {
             self.process_attr(slot, pack, entity.provenance.as_ref());

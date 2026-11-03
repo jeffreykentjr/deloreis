@@ -249,14 +249,12 @@ fn why_not_on_a_proposed_fact_names_its_proposal_var() {
     // Possible, not certain: the proposal awaits a ruling.
     assert_eq!(wn.status, Status::Possible);
     // Exactly the proposal variable blocks certainty, and it is named.
-    let proposal = atom_index(&world, "proposal#0");
+    let proposal = atom_index(&world, "h.#0");
     assert_eq!(wn.blocking, vec![ClaimId(proposal.0)]);
     assert_eq!(wn.closest, vec![ClaimId(proposal.0)]);
     assert_eq!(wn.defeater, None);
     assert!(
-        wn.rendered
-            .iter()
-            .any(|line| line == "awaits ruling: proposal#0"),
+        wn.rendered.iter().any(|line| line == "awaits ruling: h.#0"),
         "rendered was {:?}",
         wn.rendered
     );
