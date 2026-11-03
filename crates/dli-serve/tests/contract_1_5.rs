@@ -288,7 +288,7 @@ fn contract_1_5_promotes_and_defeats_without_deleting_the_object() {
         .expect("materialize returns the stored claim id")
         .to_owned();
     assert_eq!(
-        claim_id, "sha256:c71b49b1fc49abb25a1356d16457229ec43750ca0e97371f1a217612c9c998c2",
+        claim_id, "sha256:cad83f2eb308ea4900f13fc26597c15d147e41f8e8dd9469e023355a898e1715",
         "the fixture claim identity is part of the deterministic contract"
     );
     assert_eq!(

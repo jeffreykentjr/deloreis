@@ -233,7 +233,7 @@ fn t2_transitive_closure_reaches_the_weir() {
         .map(|row| row.bindings["Z"].clone())
         .collect();
     reached.sort();
-    assert_eq!(reached, vec!["riverside", "north-gate"]);
+    assert_eq!(reached, vec!["north-gate", "riverside"]);
     // Every hop rests on the ruled map decision, so the closure is certain.
     assert!(answer.rows.iter().all(|row| row.status == Status::Certain));
 }
