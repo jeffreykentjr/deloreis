@@ -1301,7 +1301,7 @@ fn slot_state_at_reports_derived_until_and_defeater_identity() {
     let dawn = point(&world, "dawn");
     let noon = point(&world, "noon");
 
-    let at_dawn = check::slot_state_at(&world, "status", "joren", dawn);
+    let at_dawn = check::slot_state_at(&world, "status", "joren", dawn).unwrap();
     assert_eq!(at_dawn.pred, "status");
     assert_eq!(at_dawn.subject, "joren");
     assert!(at_dawn.inertial, "{at_dawn:?}");
@@ -1323,7 +1323,7 @@ fn slot_state_at_reports_derived_until_and_defeater_identity() {
     assert_eq!(defeater.value, "enclosed");
     assert_eq!(defeater.since, Some(noon));
 
-    let at_noon = check::slot_state_at(&world, "status", "joren", noon);
+    let at_noon = check::slot_state_at(&world, "status", "joren", noon).unwrap();
     assert_eq!(at_noon.holdings.len(), 1, "{:?}", at_noon.holdings);
     let holding = &at_noon.holdings[0];
     assert_eq!(holding.value, "enclosed");
@@ -1358,7 +1358,7 @@ fn slot_state_at_is_byte_identical_to_state_at_when_not_inertial() {
     let world = compile(&pack("weir", decls)).expect("compiles");
     let noon = point(&world, "noon");
 
-    let projected = check::slot_state_at(&world, "status", "joren", noon);
+    let projected = check::slot_state_at(&world, "status", "joren", noon).unwrap();
     assert!(!projected.inertial, "{projected:?}");
     assert!(!projected.capping, "{projected:?}");
 
@@ -1395,7 +1395,7 @@ fn slot_state_at_of_a_non_fluent_slot_is_empty() {
         attr("joren", "rank", "gold", Some(ratified("D-1"))),
     ];
     let world = compile(&pack("weir", decls)).expect("compiles");
-    let projected = check::slot_state_at(&world, "rank", "joren", TimePoint(0));
+    let projected = check::slot_state_at(&world, "rank", "joren", TimePoint(0)).unwrap();
     assert!(!projected.inertial);
     assert!(!projected.capping);
     assert!(!projected.contested);
@@ -1434,7 +1434,7 @@ fn slot_state_at_reflects_defeat_without_recompile() {
     let mut world = compile(&pack("weir", decls)).expect("compiles");
     let noon = point(&world, "noon");
 
-    let before_defeat = check::slot_state_at(&world, "status", "joren", noon);
+    let before_defeat = check::slot_state_at(&world, "status", "joren", noon).unwrap();
     assert_eq!(
         before_defeat.holdings.len(),
         1,
@@ -1446,7 +1446,7 @@ fn slot_state_at_reflects_defeat_without_recompile() {
     let var = world.model.var_atom("D-2").expect("D-2 interned");
     world.model.world.valuation.set(var, false);
 
-    let after_defeat = check::slot_state_at(&world, "status", "joren", noon);
+    let after_defeat = check::slot_state_at(&world, "status", "joren", noon).unwrap();
     assert_eq!(
         after_defeat.holdings.len(),
         1,

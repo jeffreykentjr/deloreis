@@ -178,11 +178,11 @@ fixtures:
 - path: golden/timeline-knows-v1.json
   sha256: 4c7c944bdada6f396efab4e437aa1a769ddaa769962985c5ddde2c615c4a9a8b
 - path: golden/timeline-order-v1.json
-  sha256: 35bffd69b8b7127062141c112cda95929932ca77e8479ae6bd0392ca8e935afa
+  sha256: 0b0b65b4413f9f6c9b28960eedbfbc192e580d80094702d8c3e33ac3c804cab9
 - path: golden/timeline-phases-v1.json
   sha256: 1db495f58f63af1dd7b5b0fa9070aeade0f437eeab5b1c7b02be281c67331c36
 - path: golden/timeline-show-v1.json
-  sha256: 27361d2e0ed0ad1282cd8074cb74af0e42cc5b1bd9bf02adf66163e0c6c6b3cf
+  sha256: 5ad96d031baaf9754219d6b96e3978017e4865e684c5d434adba4a9406fd3ad1
 - path: golden/version-v1.json
   sha256: 22bf24bc1962edb5530d4274631b08ffb3458dfec39a5dddcd22efd3e5870804
 - path: negative/attest-missing-schema-violation.json

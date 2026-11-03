@@ -511,6 +511,16 @@ impl LoadCtx {
         if matches!(entity.kind, EntityKind::Era | EntityKind::Event) {
             self.time_point(&entity.name.text);
         }
+        if entity.kind == EntityKind::Era {
+            let mut eras = vec![&entity.name];
+            if let Some(TimeClause::Order(chain)) = &entity.time {
+                eras.extend(chain);
+            }
+            for era in eras {
+                let point = self.time_point(&era.text);
+                self.wm.era_points.insert(point.0);
+            }
+        }
         self.entities
             .entry(entity.name.text.clone())
             .and_modify(|slot| {
@@ -1283,6 +1293,7 @@ impl LoadCtx {
 
     fn finish(mut self) -> LoadOutcome {
         self.wm.temporal_sources_complete = true;
+        self.wm.era_points_complete = true;
         for reference in &self.temporal_refs {
             if self.temporal_decls.get(&reference.target) != Some(&reference.expected_kind) {
                 self.findings.push(LoadFinding::UnknownTemporalReference {

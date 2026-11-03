@@ -464,12 +464,22 @@ pub struct WorldModel {
     /// Event-in-era assertions, kept symbolic until read under a valuation.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub era_memberships: Vec<EraMembership>,
+    /// Time points declared as eras, independent of the entity's other sorts.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub era_points: BTreeSet<u32>,
+    /// Whether era points were collected from the full declaration stream.
+    #[serde(default)]
+    pub era_points_complete: bool,
     /// Source locations keyed by index in `era_memberships`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub era_membership_spans: BTreeMap<usize, dli_ast::span::Span>,
     /// Symbolic order among eras with event memberships.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inferred_era_edges: Vec<EraEdge>,
+    /// Revision of the derived era paths. Older serialized models have zero
+    /// and must derive paths from their authored chronology before use.
+    #[serde(default)]
+    pub era_inference_revision: u8,
     /// Per-slot fluent timelines, keyed by the `(pred, subject)` slot a `state`
     /// declaration lowers to. A `state s.p = v [since/until …]` pushes a
     /// [`Span`](dli_time::fluent::Span) here carrying `v`, its interval anchors,
@@ -529,6 +539,14 @@ pub struct WorldModel {
 }
 
 impl WorldModel {
+    pub(crate) fn inferred_era_paths(&self) -> std::borrow::Cow<'_, [EraEdge]> {
+        if self.era_inference_revision == crate::era_order::INFERENCE_REVISION {
+            std::borrow::Cow::Borrowed(&self.inferred_era_edges)
+        } else {
+            std::borrow::Cow::Owned(crate::era_order::infer(self))
+        }
+    }
+
     /// Visit inferred event edges, combining both memberships with the era path.
     fn for_each_inferred_edge(
         &self,
@@ -539,9 +557,10 @@ impl WorldModel {
         for member in &self.era_memberships {
             by_era.entry(member.era.0).or_default().push(member);
         }
-        for path in &self.inferred_era_edges {
+        for path in self.inferred_era_paths().iter() {
             for first in by_era.get(&path.earlier.0).into_iter().flatten() {
                 let prefix = conjoin_annotations(&first.ann, &path.ann);
+                visit(first.event, path.later, prefix.clone());
                 for second in by_era.get(&path.later.0).into_iter().flatten() {
                     visit(
                         first.event,
@@ -549,6 +568,13 @@ impl WorldModel {
                         conjoin_annotations(&prefix, &second.ann),
                     );
                 }
+            }
+            for second in by_era.get(&path.later.0).into_iter().flatten() {
+                visit(
+                    path.earlier,
+                    second.event,
+                    conjoin_annotations(&path.ann, &second.ann),
+                );
             }
         }
     }
@@ -635,6 +661,7 @@ impl WorldModel {
     ) -> Option<Ann> {
         use dli_core::ann::Status;
         use dli_eval::world::{conjoin_annotations, disjoin_annotations};
+        let paths = self.inferred_era_paths();
         let mut result: Option<Ann> = None;
         let mut add = |ann: Ann| {
             result = Some(
@@ -662,13 +689,23 @@ impl WorldModel {
                 .iter()
                 .filter(|member| member.event == later)
             {
-                for path in self
-                    .inferred_era_edges
+                for path in paths
                     .iter()
                     .filter(|edge| edge.earlier == first.era && edge.later == second.era)
                 {
                     let prefix = conjoin_annotations(&first.ann, &path.ann);
                     add(conjoin_annotations(&prefix, &second.ann));
+                }
+            }
+        }
+        for path in paths.iter() {
+            for member in &self.era_memberships {
+                if (member.event == earlier && path.later == later && member.era == path.earlier)
+                    || (path.earlier == earlier
+                        && member.event == later
+                        && member.era == path.later)
+                {
+                    add(conjoin_annotations(&member.ann, &path.ann));
                 }
             }
         }

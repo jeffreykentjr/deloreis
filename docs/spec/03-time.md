@@ -203,7 +203,14 @@ only the derived persistence and contradiction that depended on it.
 Point-in-time `dli.query` and CLI `query --as-of` project fluent facts with
 the same slot semantics as `author.as_of`, then recompute derived facts. A
 timeless assertion remains independent of a temporal assertion of the same
-atom. Unordered plain bounds remain possible and share consistent ordering
+atom. At an era cut, an event certainly placed in an earlier or later era is
+ordered on the corresponding side of the cut. An event in the cut era stays
+unordered relative to it; a possible membership does not establish an order.
+The era ordering must follow certain era-to-era edges. A path through an event
+can order two points without ordering the whole eras around them.
+If the inferred order makes a cycle, both query and `author.as_of` refuse the
+projection instead of treating both directions as certain.
+Unordered plain bounds remain possible and share consistent ordering
 assumptions across the query. If unresolved inertial ordering, a possible
 chronology ruling, or a cycle prevents a faithful projection of the query, it is
 refused with `temporal-indeterminate` rather than returning a guessed answer.
@@ -215,7 +222,10 @@ The current evaluator may leave a value possible when multiple alternative
 spans jointly cover every ordering; it does not promote their disjunction to
 certain solely for that reason.
 Compiled worlds serialized before temporal source mappings were recorded must
-be recompiled from their source or lorestore before point-in-time queries.
+be recompiled before point-in-time queries. Older compiled worlds with era
+memberships but no era-declaration mapping must also be recompiled from source
+or the lorestore before checking or projecting them: a model cannot safely
+recover an era declaration from a same-named ordinary fact.
 
 ---
 

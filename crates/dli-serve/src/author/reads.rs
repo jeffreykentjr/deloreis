@@ -188,7 +188,21 @@ pub(super) fn as_of(store: &Store, params: &AuthorAsOfParams) -> Result<Value, E
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let world = staged_world(store, ws).map_err(|err| staged_error(&err))?;
     let at = resolve_time_point(&world, &params.at)?;
-    let projected = check::slot_state_at(&world, &params.pred, &params.subject, at);
+    let projected =
+        check::slot_state_at(&world, &params.pred, &params.subject, at).map_err(|error| {
+            ErrorBody {
+                code: match &error {
+                    dli_world::check::continuity::TemporalQueryError::Indeterminate(_) => {
+                        ErrorCode::TemporalIndeterminate
+                    }
+                    dli_world::check::continuity::TemporalQueryError::Internal(_) => {
+                        ErrorCode::Internal
+                    }
+                },
+                message: error.to_string(),
+                data: None,
+            }
+        })?;
     let root_hash = Some(ws.digest.clone());
     Ok(value(&AuthorAsOfResult {
         pred: projected.pred,

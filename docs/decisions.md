@@ -386,3 +386,22 @@ validation continues to check the reference separately.
 
 **Rationale.** Predicate positions do not declare types, so a concept that
 happens to resemble an entity is not evidence of a misspelling.
+
+## DL-0121 — Correct era ordering before release
+
+*Date: 2026-11-04*
+
+**Attribution:** machine.
+
+**Ruling.** Derive event-to-era precedence from the event's membership and
+era ordering, preserving the support for each inference; only certain edges
+enter the certain chronology. The same
+chronology applies to checks, timeline reads, and point-in-time queries; an
+ordering cycle blocks projection. An event remains unordered relative to its
+own era. Recompute era-path caches written by earlier implementations. Permit
+the exact pre-release registry transition in the fixture checker for the two
+updated timeline fixtures, which must replay and pass schema validation.
+
+**Rationale.** A known event in an earlier era must not make a later-era query
+indeterminate, and the checker must detect contradictory chronology using the
+same ordering as reads.
