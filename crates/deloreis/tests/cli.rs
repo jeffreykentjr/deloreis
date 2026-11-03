@@ -864,6 +864,68 @@ fn check_proof_distinguishes_invalid_shape_from_unmet_expectation() {
 }
 
 #[test]
+fn resource_violations_name_the_actual_replay_operation() {
+    let dir = tmp("proof-resource-source");
+    let original = fs::read_to_string(repo().join("examples/norse/seidr.dli")).unwrap();
+    for (name, text, marker, last) in [
+        (
+            "double",
+            original.replace("  spend p3\n", "  spend p3\n  spend p3\n"),
+            "spend p3",
+            true,
+        ),
+        (
+            "unbalanced",
+            original.replace("  spend p3\n", ""),
+            "close foretold",
+            false,
+        ),
+        (
+            "over-capacity",
+            original
+                .replace("affine bounded body-limit", "affine bounded 2")
+                .replace("p3 orlog(1)", "p3 megin(3)"),
+            "premise p3",
+            false,
+        ),
+    ] {
+        let path = dir.join(format!("{name}.dli"));
+        let positions: Vec<_> = text
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(marker))
+            .map(|(line, _)| line + 1)
+            .collect();
+        let expected = if last {
+            positions.last()
+        } else {
+            positions.first()
+        }
+        .unwrap();
+        fs::write(&path, text).unwrap();
+        let output = bin()
+            .arg("check-proof")
+            .arg(&path)
+            .arg("--corpus")
+            .arg(&path)
+            .arg("--corpus")
+            .arg(repo().join("examples/norse/nine-realms.dli"))
+            .output()
+            .unwrap();
+        let text = stdout(&output);
+        let finding = text
+            .lines()
+            .find(|line| line.contains("proof.resource-violation"))
+            .expect(&text);
+        assert!(
+            finding.contains(&format!("{}:{expected}:", path.display())),
+            "{text}\n{}",
+            stderr(&output)
+        );
+    }
+}
+
+#[test]
 fn malformed_proof_child_blocks_check_replay_and_formatting() {
     let dir = tmp("proof-malformed-child");
     let proof_path = dir.join("malformed.dli");
@@ -1166,6 +1228,23 @@ fn bom_syntax_locations_and_repairs_are_consistent_across_commands() {
         assert!(text.contains(&corpus.display().to_string()), "{text}");
         assert!(text.contains("line 2:1"), "{text}");
         assert!(text.contains("fix:"), "{text}");
+    }
+}
+
+#[test]
+fn syntax_locations_count_unicode_characters() {
+    let dir = tmp("unicode-syntax-locations");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nperson wren \"é\" proposed “\n").unwrap();
+    for args in [vec!["check"], vec!["report", "--corpus"]] {
+        let output = bin().args(args).arg(&corpus).output().unwrap();
+        let text = stdout(&output);
+        assert!(text.contains("line 2:26"), "{text}");
+        assert!(
+            text.lines()
+                .any(|line| line.contains("^ ") && !line.contains("^^")),
+            "{text}"
+        );
     }
 }
 

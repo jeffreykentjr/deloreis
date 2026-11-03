@@ -9,7 +9,9 @@ use dli_ast::proof::{ProofOp, ProofStep};
 use dli_ast::span::Span;
 use dli_export::profile::{ExportTarget, Registry};
 use dli_export::{ExportOpts, export_with, source_fingerprint};
-use dli_ledger::ledger_check::{ProofFinding, ProofReport, ProofVerdict, check_proof};
+use dli_ledger::ledger_check::{
+    ProofFinding, ProofReport, ProofVerdict, check_proof_with_locations,
+};
 use dli_ledger::practice::{PracticeDef, compile_practices};
 use dli_syntax::{ladder, parse_document};
 use dli_world::scene_projection::project_scene;
@@ -135,9 +137,9 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
     // Project the certain-layer scene for the proof's speaker, then check.
     let speaker = proof.actor().map(ToOwned::to_owned);
     let scene = project_scene(&world, speaker.as_deref());
-    let report = check_proof(practice, proof, &scene);
+    let (report, locations) = check_proof_with_locations(practice, proof, &scene);
 
-    render_proof_report(&report, proof, &args.proof, &text);
+    render_proof_report(&report, &locations, proof, &args.proof, &text);
 
     if report.checks {
         Ok(EXIT_CLEAN)
@@ -148,7 +150,13 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
 
 /// Hand-render a checked proof: its header, per-step verdicts, structural
 /// findings, the reached verdict, and its weakest-link grade.
-fn render_proof_report(report: &ProofReport, proof: &ProofDecl, path: &Path, source: &str) {
+fn render_proof_report(
+    report: &ProofReport,
+    locations: &[Option<Span>],
+    proof: &ProofDecl,
+    path: &Path,
+    source: &str,
+) {
     let speaker = report
         .speaker
         .as_deref()
@@ -166,11 +174,17 @@ fn render_proof_report(report: &ProofReport, proof: &ProofDecl, path: &Path, sou
             note = step.note
         );
     }
-    for finding in &report.findings {
-        let location = proof_finding_span(proof, finding)
-            .and_then(|span| proof_source_position(source, span))
-            .map_or_else(String::new, |(line, column)| {
-                format!(" ({}:{line}:{column})", path.display())
+    for (finding, replay_span) in report.findings.iter().zip(locations) {
+        let location = replay_span
+            .or_else(|| proof_finding_span(proof, finding))
+            .and_then(|span| proof_source_position(source, span).map(|position| (span, position)))
+            .map_or_else(String::new, |(span, (line, column))| {
+                let scope = if span == proof.name.span {
+                    "in proof "
+                } else {
+                    ""
+                };
+                format!(" ({scope}{}:{line}:{column})", path.display())
             });
         outln!(
             "finding  {code} — {message}{location}\n  help: {help}",
@@ -228,7 +242,6 @@ fn proof_finding_span(proof: &ProofDecl, finding: &ProofFinding) -> Option<Span>
         (F::InvalidSpend { keyword, label }, ProofOp::Resource(resource)) => {
             keyword == resource.keyword.keyword() && label == &resource.label
         }
-        (F::ResourceViolation { at, .. }, ProofOp::Resource(resource)) => at == &resource.label,
         (
             F::CloseMismatch { .. } | F::ExpectationUnmet { .. } | F::UnknownExpectation { .. },
             ProofOp::Close(_),

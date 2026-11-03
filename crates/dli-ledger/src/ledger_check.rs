@@ -38,6 +38,7 @@ use serde::{Deserialize, Serialize};
 use dli_ast::decl::ProofDecl;
 use dli_ast::ident::Ident;
 use dli_ast::proof::{ProofBody, ProofOp, ProofPremise, ProofStep, ResourceKeyword};
+use dli_ast::span::Span;
 use dli_ast::term::Term;
 use dli_core::grade::Grade;
 
@@ -522,6 +523,19 @@ pub fn check_proof(
     proof: &ProofDecl,
     scene: &SceneProjection,
 ) -> ProofReport {
+    check_proof_with_locations(practice, proof, scene).0
+}
+
+/// Check a proof and return source spans for resource findings alongside the
+/// unchanged report. Locations are aligned with the report's findings and are
+/// absent where replay did not retain an exact source operation.
+#[must_use]
+#[expect(clippy::too_many_lines)]
+pub fn check_proof_with_locations(
+    practice: &PracticeDef,
+    proof: &ProofDecl,
+    scene: &SceneProjection,
+) -> (ProofReport, Vec<Option<Span>>) {
     let speaker = proof.actor().map(ToOwned::to_owned);
     let header_valid =
         proof.role().is_some() && proof.actor().is_some() && proof.practice().is_some();
@@ -564,7 +578,23 @@ pub fn check_proof(
     } else {
         None
     };
-    findings.extend(replay_resources(practice, scene, &deltas, &items));
+    let resource_findings = replay_resources(practice, scene, &deltas, &items);
+    let resource_locations: BTreeMap<String, Span> = resource_findings
+        .iter()
+        .filter_map(|(_, finding, source_pos)| {
+            let ProofFinding::ResourceViolation { resource, .. } = finding else {
+                return None;
+            };
+            items
+                .get(*source_pos)
+                .map(|item| (resource.clone(), item.span))
+        })
+        .collect();
+    findings.extend(
+        resource_findings
+            .into_iter()
+            .map(|(pos, finding, _)| (pos, finding)),
+    );
     findings.sort_by_key(|(pos, _)| *pos);
 
     // The verdict is the earliest structural failure; if none, the close must
@@ -613,18 +643,30 @@ pub fn check_proof(
         },
     );
 
-    ProofReport {
-        proof: proof.name.clone(),
-        speaker,
-        practice: practice_name,
-        steps,
-        findings: findings.into_iter().map(|(_, f)| f).collect(),
-        verdict,
-        expected,
-        expectation_met,
-        grade,
-        checks,
-    }
+    let locations = findings
+        .iter()
+        .map(|(_, finding)| match finding {
+            ProofFinding::ResourceViolation { resource, .. } => {
+                resource_locations.get(resource).copied()
+            }
+            _ => None,
+        })
+        .collect();
+    (
+        ProofReport {
+            proof: proof.name.clone(),
+            speaker,
+            practice: practice_name,
+            steps,
+            findings: findings.into_iter().map(|(_, f)| f).collect(),
+            verdict,
+            expected,
+            expectation_met,
+            grade,
+            checks,
+        },
+        locations,
+    )
 }
 
 /// Weigh the proof's well-formedness and its declared expectation against the
@@ -742,7 +784,7 @@ struct LedgerRun {
     grades: Vec<Grade>,
     established: BTreeSet<String>,
     /// Per-resource delta sequence, each tagged with the step label that applied it.
-    deltas: BTreeMap<String, Vec<(String, i64)>>,
+    deltas: BTreeMap<String, Vec<(String, i64, usize)>>,
     close: Option<(String, Expectation)>,
 }
 
@@ -762,7 +804,7 @@ fn run_ledger(
     let mut premises: BTreeMap<String, Premise> = BTreeMap::new();
     let mut seen_labels: BTreeSet<String> = BTreeSet::new();
     let mut established: BTreeSet<String> = BTreeSet::new();
-    let mut deltas: BTreeMap<String, Vec<(String, i64)>> = BTreeMap::new();
+    let mut deltas: BTreeMap<String, Vec<(String, i64, usize)>> = BTreeMap::new();
     let mut close: Option<(String, Expectation)> = None;
 
     for (pos, item) in items.iter().enumerate() {
@@ -830,7 +872,7 @@ fn run_ledger(
                             deltas
                                 .entry(name)
                                 .or_default()
-                                .push((label.to_owned(), amount));
+                                .push((label.to_owned(), amount, pos));
                         }
                         if let Some(finding) = finding {
                             findings.push((pos, finding));
@@ -894,7 +936,7 @@ fn run_premise(
     grades: &mut Vec<Grade>,
     seen_labels: &mut BTreeSet<String>,
     established: &mut BTreeSet<String>,
-    deltas: &mut BTreeMap<String, Vec<(String, i64)>>,
+    deltas: &mut BTreeMap<String, Vec<(String, i64, usize)>>,
     findings: &mut Vec<(usize, ProofFinding)>,
     steps: &mut Vec<StepVerdict>,
     premises: &mut BTreeMap<String, Premise>,
@@ -909,7 +951,7 @@ fn run_premise(
         deltas
             .entry(name)
             .or_default()
-            .push((premise.label.clone(), amount));
+            .push((premise.label.clone(), amount, pos));
     }
     if let Some(finding) = outcome.finding {
         findings.push((pos, finding));
@@ -1147,9 +1189,9 @@ fn bookkeeping_step(label: &str, keyword: &str, ok: bool) -> StepVerdict {
 fn replay_resources(
     practice: &PracticeDef,
     scene: &SceneProjection,
-    deltas: &BTreeMap<String, Vec<(String, i64)>>,
+    deltas: &BTreeMap<String, Vec<(String, i64, usize)>>,
     items: &[Item<'_>],
-) -> Vec<(usize, ProofFinding)> {
+) -> Vec<(usize, ProofFinding, usize)> {
     let mut findings = Vec::new();
     for (name, seq) in deltas {
         let Some(decl) = practice.resources.iter().find(|r| &r.name.text == name) else {
@@ -1158,7 +1200,7 @@ fn replay_resources(
         let Some(kind) = &decl.kind else { continue };
         let flat: Vec<Delta> = seq
             .iter()
-            .map(|(_, amount)| Delta {
+            .map(|(_, amount, _)| Delta {
                 resource: Ident {
                     text: name.clone(),
                     span: decl.span,
@@ -1178,8 +1220,16 @@ fn replay_resources(
         if let Some(v) = violation {
             let (at_label, at_pos) = seq.get(v.at).map_or_else(
                 || (name.clone(), items.len()),
-                |(label, _)| (label.clone(), position_of(items, label)),
+                |(label, _, _)| (label.clone(), position_of(items, label)),
             );
+            let source_pos = if v.code == ResourceViolationCode::NotConserved {
+                items
+                    .iter()
+                    .position(|item| item.keyword == "close")
+                    .unwrap_or(items.len())
+            } else {
+                seq.get(v.at).map_or(items.len(), |(_, _, pos)| *pos)
+            };
             findings.push((
                 at_pos,
                 ProofFinding::ResourceViolation {
@@ -1188,6 +1238,7 @@ fn replay_resources(
                     message: v.message,
                     at: at_label,
                 },
+                source_pos,
             ));
         }
     }
@@ -1203,6 +1254,7 @@ struct Item<'a> {
     keyword: &'a str,
     op: &'a ProofOp,
     text: &'a str,
+    span: Span,
 }
 
 /// Collect the recognized proof operations from the typed interior.
@@ -1219,6 +1271,7 @@ fn reassemble(body: &ProofBody) -> Vec<Item<'_>> {
                 keyword: op.keyword(),
                 op,
                 text: clause.clause.text.as_str(),
+                span: clause.clause.span,
             })
         })
         .collect()

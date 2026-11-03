@@ -150,10 +150,14 @@ impl MietteDiagnostic for Diagnostic {
 /// here. With `notes` empty the output is exactly the caret block.
 #[must_use]
 pub fn render_block(source: &str, diag: &Diagnostic, notes: &[String]) -> String {
-    let (line_no, col, line_text) = locate(source, diag.span.start as usize);
-    let caret_len = usize::try_from(diag.span.end.saturating_sub(diag.span.start))
-        .unwrap_or(0)
-        .max(1);
+    let (line_no, byte_col, line_text) = locate(source, diag.span.start as usize);
+    let col = line_text
+        .get(..byte_col)
+        .map_or(0, |prefix| prefix.chars().count());
+    let span_len = usize::try_from(diag.span.end.saturating_sub(diag.span.start)).unwrap_or(0);
+    let caret_len = line_text
+        .get(byte_col..byte_col.saturating_add(span_len).min(line_text.len()))
+        .map_or(1, |marked| marked.chars().count().max(1));
     let gutter = line_no.to_string();
     let pad = " ".repeat(gutter.len());
     let severity = if diag.class.is_error() {
