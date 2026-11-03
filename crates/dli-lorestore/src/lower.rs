@@ -1334,10 +1334,93 @@ pub fn reconstruct_pack(
         })
     };
 
-    Ok(dli_world::pack::Pack {
+    let pack = dli_world::pack::Pack {
         name: pack_name.to_owned(),
         documents: vec![Document { scope, decls }],
-    })
+    };
+    ensure_positional_proposals_survive(fact_objects, interner, &pack, pack_name)?;
+    Ok(pack)
+}
+
+/// Compare anonymous proposal gates by name after reconstruction. The source
+/// form remints these gates positionally, so omitted declarations or collapsed
+/// scopes can silently attach a fact to a different hypothesis.
+fn ensure_positional_proposals_survive(
+    objects: &[FactObject],
+    interner: &Interner,
+    pack: &Pack,
+    pack_name: &str,
+) -> Result<(), ReconstructError> {
+    fn positional(name: &str) -> bool {
+        name.strip_prefix("h.")
+            .and_then(|value| value.rsplit_once('#'))
+            .is_some_and(|(_, number)| {
+                !number.is_empty() && number.bytes().all(|b| b.is_ascii_digit())
+            })
+    }
+    type ProposalSignature = (dli_eval::world::GroundAtom, Vec<Vec<(String, Rail)>>);
+    fn collect(
+        objects: &[FactObject],
+        interner: &Interner,
+    ) -> Result<BTreeSet<ProposalSignature>, ReconstructError> {
+        let mut signatures = BTreeSet::new();
+        for object in objects.iter().filter(|object| object.expert_body.is_none()) {
+            let mut paths = Vec::new();
+            let mut has_positional = false;
+            for monomial in object.support.monomials() {
+                let mut literals = Vec::new();
+                for lit in monomial.lits() {
+                    let name =
+                        interner
+                            .resolve(lit.atom)
+                            .ok_or_else(|| ReconstructError::Unfaithful {
+                                atom: object.atom.render(),
+                                reason: "proposal support references an unknown variable"
+                                    .to_owned(),
+                            })?;
+                    has_positional |= positional(name);
+                    literals.push((name.to_owned(), lit.rail));
+                }
+                literals.sort();
+                paths.push(literals);
+            }
+            if has_positional {
+                paths.sort();
+                signatures.insert((object.atom.clone(), paths));
+            }
+        }
+        Ok(signatures)
+    }
+    let source = collect(objects, interner)?;
+    // A carried declaration can regenerate a proposal even when no matching
+    // fact object survives in the stream. Audit those too rather than assuming
+    // an empty source signature means there is no proposal to change.
+    if source.is_empty() && !pack.documents.iter().flat_map(|doc| &doc.decls).any(|decl| {
+        decl_provenance(decl).is_some_and(|annotation| annotation.marker == ProvenanceMarker::Proposed)
+            || matches!(decl, Decl::Entity(entity) if entity.slots.iter().any(|slot| slot.provenance.as_ref().is_some_and(|annotation| annotation.marker == ProvenanceMarker::Proposed)))
+    }) {
+        return Ok(());
+    }
+    let prefix = format!("h.{pack_name}#");
+    if source
+        .iter()
+        .flat_map(|(_, monomials)| monomials)
+        .flatten()
+        .any(|(name, _)| positional(name) && !name.starts_with(&prefix))
+    {
+        return Err(ReconstructError::Unfaithful {
+            atom: "proposal".to_owned(),
+            reason: "anonymous proposal belongs to a different source scope".to_owned(),
+        });
+    }
+    let (regenerated, names) = lower_pack(pack);
+    if collect(&regenerated, &Interner::from_names(names))? != source {
+        return Err(ReconstructError::Unfaithful {
+            atom: "proposal".to_owned(),
+            reason: "anonymous proposal identities change during reconstruction".to_owned(),
+        });
+    }
+    Ok(())
 }
 
 /// Lower a whole pack per-declaration, in document order — the store's write
