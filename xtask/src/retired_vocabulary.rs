@@ -111,22 +111,14 @@ fn is_allowlisted_file(rel: &str) -> bool {
 }
 
 fn is_allowlisted_line(rel: &str, _line: usize, text: &str) -> bool {
-    // The exact legacy wire code is intentionally retained in the two-row
-    // compatibility table in spec/11; all surrounding teaching prose uses the
-    // current citation-integrity vocabulary.
-    (rel == "docs/spec/11-agent-authoring.md"
-        && text.contains("| Below `1.3.0` | Refused with `provenance.cited-refused`"))
-        // Generated finding references must retain the exact legacy wire code;
-        // the surrounding prose is scrubbed and spec/11 carries the teaching table.
-        || (rel == "docs/reference-generated/finding-families.md"
-            && text.starts_with("| `provenance.cited-refused` |"))
-        // The "two doors"/"Door T" retirement itself is history DL-0004/DL-0043
-        // narrate by name — spec/11's "Historical note" and spec/01's retired
-        // section heading are DESCRIBING the old vocabulary, not using it as
-        // live terminology, the same exemption decisions.md and design-notes
-        // get structurally.
-        || (rel == "docs/spec/11-agent-authoring.md" && text.contains("*Historical note.*"))
-        || (rel == "docs/spec/11-agent-authoring.md"
-            && text.contains("writing `.dli` surface) and Door T (these tools)"))
-        || (rel == "docs/spec/01-syntax.md" && text.contains("The two doors (retired:"))
+    // These exact lines describe historical terminology, rather than teaching it.
+    match rel {
+        "docs/spec/11-agent-authoring.md" => {
+            text.contains("| Below `1.3.0` | Refused with `provenance.cited-refused`")
+                || text.contains("*Historical note.*")
+                || text.contains("writing `.dli` surface) and Door T (these tools)")
+        }
+        "docs/spec/01-syntax.md" => text.contains("The two doors (retired:"),
+        _ => false,
+    }
 }
