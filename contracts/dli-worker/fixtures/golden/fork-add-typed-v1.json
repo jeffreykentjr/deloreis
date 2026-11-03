@@ -1,6 +1,6 @@
 {
   "fixture": "golden/fork-add-typed-v1",
-  "note": "dli.fork.add's 0.6.3 typed successor additions (LS-7): typed ground atoms instead of rendered .dli declaration lines. The delta is byte-identical to golden/fork-add-v1's — the text path lowers to exactly these atoms, each asserted by fiat within the fork — and the empty declarations list is ignored because additions is present. The fork.list probe shows the one local atom actually landed.",
+  "note": "Add typed ground atoms to a fork and list the resulting local additions.",
   "steps": [
     {
       "expect": {

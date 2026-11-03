@@ -1,6 +1,6 @@
 {
   "fixture": "golden/author-expert-session-v1",
-  "note": "The DM-4 expert authoring surface end to end at contract 1.3.0: a dialect register, the morpheme it composes from, the name composed out of it and bound to its bearer, a glossary term, a banned word, a time-varying state, and an attestation request against a question opened in the same workspace. Each tool stages through the shared path, so each reply carries the graded findings, the rendered canonical line, and the advanced workspace digest.",
+  "note": "Stage expert declarations for language, state, and an attestation request against a question.",
   "precondition": [
     {
       "dli": "2.0.0",

@@ -1,7 +1,7 @@
 {
   "fixture": "framing/author-record-decisions-framing",
   "version": 1,
-  "note": "Paired framing for Contract 1.13 bulk decision recording. Instruction-shaped rationale remains inert review metadata and does not change the durable decision or response.",
+  "note": "Paired decision-recording requests verify that instruction-shaped rationale remains inert review metadata.",
   "marker": "__DLI_FRAME_ATTACK__",
   "cases": [
     {

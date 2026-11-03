@@ -1,6 +1,6 @@
 {
   "fixture": "golden/query-typed-goal-v1",
-  "note": "dli.query's 0.6.3 typed successor goal_atom (LS-7). Steps 1/2 send the same ground goal as text and as a typed AtomExpr and receive identical results; steps 3/4 do the same for a goal carrying a query variable (the string form's ?where is Term::Var). Step 5 proves precedence: the goal string is deliberately unparseable, and because goal_atom is present it is never parsed, so the request still answers.",
+  "note": "Query ground and variable goals using structured goal_atom inputs.",
   "steps": [
     {
       "expect": {

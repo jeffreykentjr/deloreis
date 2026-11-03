@@ -1,0 +1,18 @@
+{
+  "fixture": "negative/killed-author-query-goal",
+  "version": 1,
+  "note": "author.query refuses the retired string goal and names its typed goal_atom successor before workspace routing.",
+  "project": true,
+  "send": {
+    "dli": "2.0.0",
+    "id": "1",
+    "op": "author.query",
+    "params": {
+      "goal": "marker(baseline)",
+      "workspace": "ws-1"
+    }
+  },
+  "expect_error": {
+    "code": "killed-form"
+  }
+}
