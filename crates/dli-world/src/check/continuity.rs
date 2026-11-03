@@ -363,6 +363,37 @@ fn canon_slot(
     )
 }
 
+fn certain_slot_source_spans(
+    world: &CompiledWorld,
+    canon: &BTreeMap<String, String>,
+) -> BTreeMap<(String, String), BTreeMap<String, dli_ast::span::Span>> {
+    let predicates = world
+        .model
+        .predicate_identity
+        .certain_canon(&world.model.world.valuation, &world.model.world.theory);
+    let mut result: BTreeMap<(String, String), BTreeMap<String, dli_ast::span::Span>> =
+        BTreeMap::new();
+    for atom in world.model.atoms() {
+        if atom_status(world, atom) != Status::Certain || atom.span.end <= atom.span.start {
+            continue;
+        }
+        let Some(((pred, subject), value)) = slot_of(&atom.atom) else {
+            continue;
+        };
+        let slot = (
+            dli_core::alias::canon(&predicates, &pred).to_owned(),
+            dli_core::alias::canon(canon, &subject).to_owned(),
+        );
+        let value = dli_core::fd::fd_value_key(dli_core::alias::canon(canon, &value));
+        result
+            .entry(slot)
+            .or_default()
+            .entry(value)
+            .or_insert(atom.span);
+    }
+    result
+}
+
 /// Whether ANY raw `(pred, subject)` key of the world's fluent-timeline table
 /// canonicalizes into `slot` (already canonical) — the "fluent-skip consults
 /// any class member" rule: an identity-merged class is interval-sensitive as a
@@ -481,16 +512,20 @@ fn certain_rejected_lore(world: &CompiledWorld) -> Vec<WorldFinding> {
             .into_iter()
             .collect::<Vec<_>>()
             .join("; ");
-        out.push(
-            WorldFinding::error(
-                "continuity.rejected-lore",
-                format!(
-                    "certain fact '{}' realizes killed token ruling(s): {rejected}",
-                    atom.atom.pred.text
-                ),
-            )
-            .with_citations(citations),
-        );
+        let finding = WorldFinding::error(
+            "continuity.rejected-lore",
+            format!(
+                "certain fact '{}' realizes killed token ruling(s): {rejected}",
+                atom.atom.pred.text
+            ),
+        )
+        .with_citations(citations);
+        let finding = if atom.span.end > atom.span.start {
+            finding.with_span(atom.span)
+        } else {
+            finding
+        };
+        out.push(finding);
     }
     out
 }
@@ -1734,11 +1769,15 @@ fn fd_violations(world: &CompiledWorld, canon: &BTreeMap<String, String>) -> Vec
         !fluent_class_member(world, canon, &(pred.clone(), subject.clone()))
     });
     let functional_predicates = effective_functional_predicates(world);
-    fd_violations_over(certain, &functional_predicates)
-        .into_iter()
+    let violations = fd_violations_over(certain, &functional_predicates);
+    if violations.is_empty() {
+        return Vec::new();
+    }
+    let source_spans = certain_slot_source_spans(world, canon);
+    violations.into_iter()
         .map(|violation| {
             let slot = (violation.pred.clone(), violation.subject.clone());
-            WorldFinding::error(
+            let finding = WorldFinding::error(
                 "continuity.fd-violation",
                 format!(
                     "canon breaks the functional dependency on '{}': {} carries {} distinct certain values [{}]",
@@ -1752,7 +1791,11 @@ fn fd_violations(world: &CompiledWorld, canon: &BTreeMap<String, String>) -> Vec
             // merged it — so the finding names the identity assertion, not
             // only the two facts it brought together.
             .with_citations(slot_citations(world, canon, &slot))
-            .with_data(fd_violation_data(world, &violation))
+            .with_data(fd_violation_data(world, &violation));
+            let span = source_spans.get(&slot).and_then(|sources| {
+                violation.values.iter().find_map(|value| sources.get(&dli_core::fd::fd_value_key(value)).copied())
+            });
+            if let Some(span) = span { finding.with_span(span) } else { finding }
         })
         .collect()
 }
