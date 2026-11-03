@@ -483,6 +483,9 @@ impl LoadCtx {
         {
             let event = self.time_point(&entity.name.text);
             let era = self.time_point(&era.text);
+            self.wm
+                .era_membership_spans
+                .insert(self.wm.era_memberships.len(), entity.name.span);
             self.wm.era_memberships.push(crate::model::EraMembership {
                 event,
                 era,

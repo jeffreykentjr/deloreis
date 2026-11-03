@@ -1208,6 +1208,34 @@ fn chronology_cycle_reports_a_source_file_and_repair() {
 }
 
 #[test]
+fn inferred_chronology_cycle_points_to_an_actual_event_membership() {
+    let dir = tmp("inferred-chronology-cycle-source");
+    let first = dir.join("a.dli");
+    let second = dir.join("b.dli");
+    fs::write(&first, "scope storybook\nratify d-1\nera first < second ratified d-1\nevent comet during first ratified d-1\n").unwrap();
+    fs::write(
+        &second,
+        "scope storybook\nevent comet during second ratified d-1\n",
+    )
+    .unwrap();
+    let output = bin().arg("check").arg(&dir).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.chronology-cycle"))
+        .expect(&text);
+    assert!(
+        line.contains(&format!("{}:4:", first.display()))
+            || line.contains(&format!("{}:2:", second.display())),
+        "{text}"
+    );
+    assert!(
+        text.contains("help: correct an ordering in the reported cycle"),
+        "{text}"
+    );
+}
+
+#[test]
 fn semantic_findings_name_the_source_file_and_offer_repairs() {
     let dir = tmp("semantic-source-locations");
     let first = dir.join("a.dli");
