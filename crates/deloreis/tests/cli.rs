@@ -1713,3 +1713,49 @@ fn malformed_nested_naming_provenance_is_not_silent() {
         assert!(text.contains("line 3:3"), "{text}");
     }
 }
+
+#[test]
+fn conflicting_canon_names_a_source_and_a_repair() {
+    let dir = tmp("continuity-source-location");
+    let first = dir.join("a.dli");
+    let second = dir.join("b.dli");
+    fs::write(&first, "scope storybook\nratify d-0001\nfunctional home ratified d-0001\nfact wren home shore ratified d-0001\n").unwrap();
+    fs::write(
+        &second,
+        "scope storybook\nfact wren home hill ratified d-0001\n",
+    )
+    .unwrap();
+    let output = bin().arg("check").arg(&dir).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.fd-violation"))
+        .unwrap();
+    assert!(
+        line.contains(&format!("{}:4:", first.display()))
+            || line.contains(&format!("{}:2:", second.display())),
+        "{text}"
+    );
+    assert!(
+        text.contains("help: revise or defeat a conflicting value for the functional slot"),
+        "{text}"
+    );
+}
+
+#[test]
+fn conflicting_values_with_identity_aliases_keep_a_source_location() {
+    let dir = tmp("continuity-alias-location");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nratify d-0001\nfunctional home ratified d-0001\nsame-as a = z ratified d-0001\nsame-as b = y ratified d-0001\nfact wren home z ratified d-0001\nfact wren home y ratified d-0001\n").unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.fd-violation"))
+        .unwrap();
+    assert!(
+        line.contains(&format!("{}:6:", corpus.display()))
+            || line.contains(&format!("{}:7:", corpus.display())),
+        "{text}"
+    );
+}

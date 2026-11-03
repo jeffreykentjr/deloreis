@@ -116,6 +116,20 @@ fn render_semantic_finding(finding: &check::WorldFinding, files: &[cmd::CorpusFi
         "name.fixed-token-reuse" => Some("choose a name that does not reuse the reserved token"),
         "name.gender-morphology" => Some("use name parts without conflicting gender markers"),
         "name.banned-in-name" => Some("choose a name without the banned word or revise the rule"),
+        "continuity.chronology-cycle" => Some("correct an ordering in the reported cycle"),
+        "continuity.identity-temporal-unsupported" => {
+            Some("refer to one era or event instead of merging time points")
+        }
+        "continuity.rejected-lore" => Some("remove or replace the rejected term"),
+        "continuity.fluent-contradiction" => {
+            Some("adjust the time bounds or revise a conflicting state")
+        }
+        "continuity.fd-violation" => {
+            Some("revise or defeat a conflicting value for the functional slot")
+        }
+        "continuity.derived-fd-violation" => {
+            Some("revise a conflicting source claim or derivation rule")
+        }
         _ => None,
     };
     if let Some(help) = help {

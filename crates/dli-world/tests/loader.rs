@@ -27,6 +27,46 @@ fn ident(text: &str) -> Ident {
     Ident::synthetic(text)
 }
 
+#[test]
+fn functional_violation_uses_a_real_source_for_equivalent_values() {
+    let source = "scope storybook\nratify d-0001\nfunctional home ratified d-0001\nfact wren home Shore ratified d-0001\nfact wren home shore ratified d-0001\nfact wren home Hill ratified d-0001\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let mut world = dli_world::compile(&Pack {
+        name: "storybook".to_owned(),
+        documents: vec![document],
+    })
+    .unwrap();
+    for (index, atom) in world
+        .model
+        .atoms
+        .iter_mut()
+        .filter(|atom| atom.atom.pred.text == "home")
+        .enumerate()
+    {
+        if index != 1 {
+            atom.span = Span::synthetic();
+        }
+    }
+    let findings = dli_world::check::run(&world);
+    let finding = findings
+        .iter()
+        .find(|finding| finding.code == "continuity.fd-violation")
+        .unwrap();
+    let span = finding.span.unwrap();
+    let line = source[..span.start as usize]
+        .bytes()
+        .filter(|&byte| byte == b'\n')
+        .count()
+        + 1;
+    assert_eq!(line, 5);
+}
+
 /// Build a typed rule body from block-clause texts, exactly as the front end
 /// structures a captured `rule` body (LS-9): each datalog clause is pre-parsed,
 /// non-datalog clauses keep their text with a `None` datalog.
