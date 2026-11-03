@@ -19,6 +19,11 @@ verdict: "A fiction-oriented glossary for the continuity engine."
 | Branch / fork | A separate line of exploration. A diff shows its consequences without changing the main branch. |
 | Provenance | Where a claim came from and, for a ruled claim, which decisions support it. |
 
+For an authoring diff, use the structured `rows` to distinguish a missing
+claim from a defeated one. The older `consequences` summary uses `dead` as a
+placeholder for a missing side.
+
 The engine records the rulings and attribution supplied by its caller; review
-and permission policy belong to the application using it. Story-time knowledge
-of individual characters is not currently modeled as a general narrator view.
+and permission policy belong to the application using it. The record follows
+production order, not story order: it does not generally model what each
+character knew at a given moment or how an unreliable narrator understood it.

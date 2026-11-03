@@ -13,12 +13,13 @@ struct Server {
     input: ChildStdin,
     output: BufReader<ChildStdout>,
     id: u32,
+    calls: Vec<Value>,
 }
 
 impl Server {
     fn start(project: &Path) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_deloreis"))
-            .args(["mcp", "--project"])
+            .args(["mcp", "--tools", "all", "--project"])
             .arg(project)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -30,12 +31,14 @@ impl Server {
             output: BufReader::new(child.stdout.take().unwrap()),
             child,
             id: 0,
+            calls: Vec::new(),
         }
     }
 
     #[allow(clippy::needless_pass_by_value)]
     fn call(&mut self, name: &str, arguments: Value) -> Value {
         self.id += 1;
+        self.calls.push(json!({"tool":name,"arguments":arguments}));
         let frame = json!({"jsonrpc":"2.0", "id":self.id, "method":"tools/call",
             "params":{"name":name,"arguments":arguments}});
         writeln!(self.input, "{frame}").unwrap();
@@ -63,22 +66,6 @@ impl Drop for Server {
     }
 }
 
-fn copy_tree(source: &Path, target: &Path) {
-    fs::create_dir_all(target).unwrap();
-    for entry in fs::read_dir(source).unwrap() {
-        let entry = entry.unwrap();
-        if entry.file_name() == ".lock" {
-            continue;
-        }
-        let to = target.join(entry.file_name());
-        if entry.file_type().unwrap().is_dir() {
-            copy_tree(&entry.path(), &to);
-        } else {
-            fs::copy(entry.path(), to).unwrap();
-        }
-    }
-}
-
 fn atom(pred: &str, subject: &str, value: &str) -> Value {
     json!({"pred":pred,"args":[{"Sym":subject},{"Sym":value}]})
 }
@@ -103,12 +90,15 @@ fn why(server: &mut Server, workspace: &str, value: &str) -> Value {
     )
 }
 
-fn record(transcript: &mut String, title: &str, value: &Value) {
+fn record(transcript: &mut String, server: &mut Server, title: &str, value: &Value) {
     use std::fmt::Write as _;
     writeln!(
         transcript,
         "\n## {title}\n\n```json\n{}\n```",
-        serde_json::to_string_pretty(value).unwrap()
+        serde_json::to_string_pretty(
+            &json!({"calls":std::mem::take(&mut server.calls),"result":value})
+        )
+        .unwrap()
     )
     .unwrap();
 }
@@ -118,8 +108,17 @@ fn hollow_walkthrough_is_replayable_over_mcp() {
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let example = repo.join("examples/hollow");
     let temp = tempfile::tempdir().unwrap();
-    copy_tree(&example, temp.path());
-    let mut server = Server::start(temp.path());
+    let project = temp.path().join("story");
+    assert!(
+        Command::new(env!("CARGO_BIN_EXE_deloreis"))
+            .arg("init")
+            .arg(&project)
+            .output()
+            .unwrap()
+            .status
+            .success()
+    );
+    let mut server = Server::start(&project);
     let mut transcript = String::from(
         "---\nstatus: reference\nverdict: \"A replayed MCP walkthrough of The Hollow.\"\n---\n\n# The Hollow: a replayed authoring session\n\nThese excerpts come from the checked MCP driver.\n",
     );
@@ -128,12 +127,37 @@ fn hollow_walkthrough_is_replayable_over_mcp() {
         .as_str()
         .unwrap()
         .to_owned();
+    server.ok(
+        "author.record_decision",
+        json!({"workspace":workspace,"decision":"d-0001"}),
+    );
+    for (kind, id, name) in [
+        ("person", "wren", "Wren"),
+        ("place", "thornfield", "Thornfield"),
+        ("place", "ashby", "Ashby"),
+        ("person", "miller", "The Miller"),
+        ("era", "before-rain", "Before the Rain"),
+        ("era", "after-rain", "After the Rain"),
+    ] {
+        server.ok("author.add_entity", json!({"workspace":workspace,"kind":kind,"id":id,"name":name,"provenance":cited("d-0001")}));
+    }
+    server.ok(
+        "author.declare_functional",
+        json!({"workspace":workspace,"pred":"home","provenance":cited("d-0001")}),
+    );
+    server.ok("author.add_fact", json!({"workspace":workspace,"entity":"wren","key":"home","value":"thornfield","provenance":cited("d-0001")}));
+    server.ok("author.materialize", json!({"workspace":workspace}));
     let home = server.ok(
         "author.query",
         json!({"workspace":workspace,"goal_atom":atom("home","wren","thornfield")}),
     );
     assert_eq!(home["rows"][0]["status"], "certain");
-    record(&mut transcript, "1. Wren's home is canon", &home["rows"]);
+    record(
+        &mut transcript,
+        &mut server,
+        "1. Wren's home is canon",
+        &home["rows"],
+    );
     server.ok(
         "author.record_decision",
         json!({"workspace":workspace,"decision":"d-0002"}),
@@ -152,6 +176,7 @@ fn hollow_walkthrough_is_replayable_over_mcp() {
     assert_eq!(blocked["error"]["code"], "materialize-blocked");
     record(
         &mut transcript,
+        &mut server,
         "2. Conflicting canon is refused",
         &json!({"finding":conflict,"error":blocked["error"]}),
     );
@@ -190,6 +215,7 @@ fn hollow_walkthrough_is_replayable_over_mcp() {
     );
     record(
         &mut transcript,
+        &mut server,
         "3. Two witnesses, two possible accounts",
         &json!({
         "drowned":{"status":drowned["rows"][0]["status"],"why":why_drowned["why"]["rendered"]},
@@ -256,11 +282,15 @@ fn hollow_walkthrough_is_replayable_over_mcp() {
     server.ok("author.defeat", json!({"workspace":workspace,"claim_id":attacker,"decision":"d-0005","defeated_decision":"d-0004"}));
     let restored = query(&mut server, &workspace, "death", "drowned");
     assert_eq!(restored["rows"][0]["status"], "certain");
+    let overturned = query(&mut server, &workspace, "death", "poisoned");
+    assert_eq!(overturned["rows"][0]["status"], "possible");
     record(
         &mut transcript,
+        &mut server,
         "4. Retcon and restoration",
         &json!({"blocked_supports":blocked_why["blocked_supports"],
-        "after_retcon":retconned["rows"], "after_overturn":restored["rows"]}),
+        "after_retcon":retconned["rows"], "after_overturn":restored["rows"],
+        "overturned_account":overturned["rows"]}),
     );
 
     server.ok(
@@ -290,12 +320,13 @@ fn hollow_walkthrough_is_replayable_over_mcp() {
     );
     record(
         &mut transcript,
+        &mut server,
         "5. What if Wren stayed?",
-        &diff["consequences"]["newly_possible"],
+        &diff["rows"],
     );
     let before_restart = restored["rows"].clone();
     drop(server);
-    let mut server = Server::start(temp.path());
+    let mut server = Server::start(&project);
     let reopened = server.ok("author.open", json!({"scope":"world"}))["workspace"]
         .as_str()
         .unwrap()
@@ -305,7 +336,12 @@ fn hollow_walkthrough_is_replayable_over_mcp() {
         replay["rows"], before_restart,
         "restarting must replay the same answer"
     );
-    record(&mut transcript, "6. Replay after restart", &replay["rows"]);
+    record(
+        &mut transcript,
+        &mut server,
+        "6. Replay after restart",
+        &replay["rows"],
+    );
 
     let path = example.join("transcript.md");
     if std::env::var_os("DLI_BLESS_HOLLOW").is_some() {

@@ -192,7 +192,7 @@
               },
               "atom": "home(lyra, riverside)",
               "introduced": true,
-              "rendered": "home(lyra, riverside): dead (asserted) -> possible (asserted)",
+              "rendered": "home(lyra, riverside): absent -> possible (asserted)",
               "retracted": false
             },
             {
@@ -207,7 +207,7 @@
               },
               "atom": "person(lyra)",
               "introduced": true,
-              "rendered": "person(lyra): dead (asserted) -> possible (asserted)",
+              "rendered": "person(lyra): absent -> possible (asserted)",
               "retracted": false
             },
             {
@@ -222,7 +222,7 @@
               },
               "atom": "place(riverside)",
               "introduced": true,
-              "rendered": "place(riverside): dead (asserted) -> possible (asserted)",
+              "rendered": "place(riverside): absent -> possible (asserted)",
               "retracted": false
             }
           ],

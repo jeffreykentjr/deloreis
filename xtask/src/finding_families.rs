@@ -98,6 +98,21 @@ struct Family {
 
 const FAMILIES: &[Family] = &[
     Family {
+        key: "entity",
+        title: "Entity references",
+        emitter: "World check, CLI and authoring reads",
+        owner: "dli-world :: check/entity.rs",
+        severity_note: "Advisory; unknown references do not block a commit.",
+        sources: &["crates/dli-world/src/check/entity.rs"],
+        scrape: Scrape::Prefixed("entity."),
+        codes: &[Code {
+            code: "entity.undeclared",
+            severity: "warn",
+            repair: "candidates",
+            meaning: "a likely entity reference names no declared entity.",
+        }],
+    },
+    Family {
         key: "load",
         title: "load — the loader's fail-closed gate",
         emitter: "the world loader, run by `deloreis check` / `dli.check` before any query",

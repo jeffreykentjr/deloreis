@@ -536,3 +536,35 @@ fn read_tools_reject_unknown_fields() {
     assert!(!response.ok);
     assert_eq!(error_code(&response), "schema-violation");
 }
+
+#[test]
+fn author_check_reports_entity_typos_with_candidates_and_source() {
+    let source = "scope storybook\nperson wren \"Wren\" proposed author\nwrne.home = ashby proposed author\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    let mut store = Store::with_pack(Pack {
+        name: "storybook".to_owned(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let workspace = open_scope(&mut store, "storybook");
+    let response = send(
+        &mut store,
+        "check-typo",
+        Op::AuthorCheck,
+        json!({"workspace":workspace}),
+    );
+    let finding = result(&response)["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|finding| finding["code"] == "entity.undeclared")
+        .expect("typo should be reported");
+    assert_eq!(finding["severity"], "warn");
+    assert_eq!(finding["repair"]["entity"], "wrne");
+    assert_eq!(finding["repair"]["candidates"], json!(["wren"]));
+    assert!(
+        finding["repair"]["span"]["end"].as_u64().unwrap()
+            > finding["repair"]["span"]["start"].as_u64().unwrap()
+    );
+}
