@@ -5,7 +5,7 @@
   "type": "object",
   "properties": {
     "diff_rows": {
-      "description": "Structured per-fact diff rows with before/after standing — the\nmachine-readable review surface. 0.6.0 only.",
+      "description": "Structured per-fact diff rows with before/after standing — the\nmachine-readable review surface.",
       "type": [
         "array",
         "null"
@@ -29,14 +29,14 @@
       }
     },
     "root_hash": {
-      "description": "The lorestore commit the workspace was opened against — pinned at\n`author.open`, advanced by this workspace's own `materialize`, never\nthe moving global head. Absent on a `0.5.1` request or when no\nlorestore is attached. 0.6.0 only.",
+      "description": "The lorestore commit the workspace was opened against — pinned at\n`author.open`, advanced by this workspace's own `materialize`, never\nthe moving global head. Absent when no lorestore is attached.",
       "type": [
         "string",
         "null"
       ]
     },
     "staged": {
-      "description": "The staged declarations and the structural key that names each one —\nwhat `author.discard` takes to reject a single declaration. Contract\n1.3.0 and above only; below it, the key had no wire surface and\nper-declaration discard named the rendered line instead (DL-0058).",
+      "description": "The staged declarations and the structural key that names each one —\nwhat `author.discard` takes to reject a single declaration.",
       "type": [
         "array",
         "null"

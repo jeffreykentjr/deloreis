@@ -5,7 +5,7 @@
   "type": "object",
   "properties": {
     "attacks": {
-      "description": "Conditional decision-attack objects exported by a contract 1.13+\nstore. Default-empty so every older import frame remains valid.",
+      "description": "Conditional decision-attack objects to import. Defaults to empty.",
       "type": "array",
       "items": true
     },

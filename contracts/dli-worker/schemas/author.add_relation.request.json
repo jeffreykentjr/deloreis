@@ -53,7 +53,7 @@
               "const": "cited"
             },
             "state": {
-              "description": "The requested standing on contract 1.5 and above.",
+              "description": "The requested standing for the cited claim.",
               "anyOf": [
                 {
                   "$ref": "#/$defs/ProvenanceState"
@@ -111,7 +111,7 @@
       ]
     },
     "ProvenanceState": {
-      "description": "The stored standing requested for a cited authoring operation.\n\nThe field is optional here so pre-1.5 wire frames remain decodable. The\n1.5 request boundary requires it for `kind: cited`.",
+      "description": "The stored standing requested for a cited authoring operation.\n\nCited provenance requires this field at the request boundary.",
       "oneOf": [
         {
           "description": "Open to later revision.",

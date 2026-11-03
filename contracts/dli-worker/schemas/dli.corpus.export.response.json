@@ -5,7 +5,7 @@
   "type": "object",
   "properties": {
     "attacks": {
-      "description": "Folded conditional decision attacks at this commit (contract 1.13+).",
+      "description": "Folded conditional decision attacks at this commit.",
       "type": "array",
       "items": true
     },

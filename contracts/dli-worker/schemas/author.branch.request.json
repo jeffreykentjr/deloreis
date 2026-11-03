@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorBranchParams",
-  "description": "`author.branch` params. `name`/`from` apply to `create`; `name` alone\napplies to `delete`; `list` ignores both. `expected_ref` fences `create`'s\nFROM branch or `delete`'s target branch (WS-3, ≥ contract 1.7.0 — a schema\nviolation below it).",
+  "description": "`author.branch` params. `name`/`from` apply to `create`; `name` alone\napplies to `delete`; `list` ignores both. `expected_ref` fences `create`'s\nFROM branch or `delete`'s target branch.",
   "type": "object",
   "properties": {
     "action": {

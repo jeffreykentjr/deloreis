@@ -5,7 +5,7 @@
   "type": "object",
   "properties": {
     "branch": {
-      "description": "Open against a named branch head instead of `main` (WS-3, ≥ contract\n1.7.0). Requires `scope` (branch + fork is refused); defined only from\n1.7.0 up — a schema violation below it.",
+      "description": "Open against a named branch head instead of `main`. Requires `scope`;\nbranch and fork cannot be combined.",
       "type": [
         "string",
         "null"

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorEntityCandidatesResult",
-  "description": "`author.entity_candidates` result: the nearest candidate entities to the\nsurface form, nearest first, each with its edit distance. Contract 1.11.0\nreturns declared entities only.",
+  "description": "`author.entity_candidates` result: the nearest candidate entities to the\nsurface form, nearest first, each with its edit distance. Only declared\nentities are returned.",
   "type": "object",
   "properties": {
     "candidates": {

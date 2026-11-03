@@ -5,7 +5,7 @@
   "type": "object",
   "properties": {
     "decl": {
-      "description": "The single staged declaration to discard, named by its rendered canonical\nline. Omit to discard the whole workspace.",
+      "description": "The single staged declaration to discard, named by its structural key\nfrom `author.status` or, when a renderer is available, by its rendered\ncanonical line. Omit to discard the whole workspace.",
       "type": [
         "string",
         "null"

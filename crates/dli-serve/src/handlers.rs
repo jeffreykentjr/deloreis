@@ -1468,11 +1468,8 @@ pub(crate) fn first_unknown_field(input: &Value, normalized: &Value) -> Option<S
     }
 }
 
-/// Resolve a query goal from the dual-mode pair `(goal_atom, goal)`: the 0.6.3
-/// typed successor wins when the caller sent it, and the rendered string is
-/// parsed only when it did not. The string form is a registered field-level
-/// killed form (`serve::KILLED_FIELDS`) whose retirement lands at
-/// contract 1.0; until then both are accepted and the text path is unchanged.
+/// Resolve a query goal from `(goal_atom, goal)`: the typed goal takes
+/// precedence when present; otherwise parse the rendered string.
 fn goal_atom(typed: Option<&AtomExpr>, text: &str) -> Result<AtomExpr, Fault> {
     match typed {
         Some(atom) => Ok(atom.clone()),
