@@ -29,10 +29,10 @@ character knew at a particular point in the story.
 With Rust installed:
 
 ```sh
-cargo install deloreis --locked
+cargo install --git https://github.com/jeffreykentjr/deloreis --locked deloreis
 ```
 
-Or download a macOS or Linux archive from the [releases page](https://github.com/jeffreykentjr/deloreis/releases). Each archive has a checksum alongside it.
+Release archives will be available on the [releases page](https://github.com/jeffreykentjr/deloreis/releases) once published.
 
 ## Get started
 

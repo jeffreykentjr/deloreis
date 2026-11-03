@@ -15,6 +15,7 @@
 //!     refs/
 //!       main                        ← a Ref JSON doc
 //!     .lock                         ← advisory file lock
+//!     .temp-lock                    ← protects active temporary files from cleanup
 //! ```
 
 use std::fs::{self, File, OpenOptions};
@@ -390,7 +391,16 @@ impl FilesystemStorage {
 
     /// Publish bytes to a path atomically: write to `.tmp`, fsync, rename,
     /// fsync parent dir.
-    fn publish_atomic(path: &Path, bytes: &[u8]) -> Result<(), StoreError> {
+    fn publish_atomic(&self, path: &Path, bytes: &[u8]) -> Result<(), StoreError> {
+        self.publish_atomic_with(path, bytes, |_| {})
+    }
+
+    fn publish_atomic_with(
+        &self,
+        path: &Path,
+        bytes: &[u8],
+        before_rename: impl FnOnce(&Path),
+    ) -> Result<(), StoreError> {
         // Unique per writer (pid + a process-local counter — no clock, no
         // randomness): two concurrent writers of the same object must never
         // share a temp path, or one can rename the other's half-written
@@ -398,6 +408,9 @@ impl FilesystemStorage {
         // leftovers are swept by `cleanup_orphans` at open time.
         static TEMP_NONCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
+        // Writers may run outside the commit lock. Keep their temporary files
+        // alive until publication, even while another process opens the store.
+        let _temp_lock = self.temp_lock(false)?;
         let parent = path.parent().expect("path has a parent directory");
         std::fs::create_dir_all(parent).map_err(|e| StoreError::Io {
             path: parent.display().to_string(),
@@ -438,6 +451,7 @@ impl FilesystemStorage {
                 source: e,
             })?;
 
+        before_rename(&temp_path);
         // Atomic rename: either the old or the new file is visible, never torn.
         fs::rename(&temp_path, path).map_err(|e| StoreError::Io {
             path: path.display().to_string(),
@@ -450,6 +464,29 @@ impl FilesystemStorage {
             Self::sync_dir(grandparent)?;
         }
         Ok(())
+    }
+
+    /// Shared by publishers, exclusive for the orphan sweep. This is separate
+    /// from the commit lock because callers may already hold that lock.
+    fn temp_lock(&self, exclusive: bool) -> Result<File, StoreError> {
+        let path = self.root.join(".temp-lock");
+        let file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .truncate(false)
+            .open(&path)
+            .map_err(|source| StoreError::Io {
+                path: path.display().to_string(),
+                source,
+            })?;
+        if exclusive {
+            file.lock_exclusive()
+        } else {
+            fs2::FileExt::lock_shared(&file)
+        }
+        .map_err(|e| StoreError::Lock(e.to_string()))?;
+        Ok(file)
     }
 }
 
@@ -487,7 +524,7 @@ impl Storage for FilesystemStorage {
             return Ok(hash);
         }
 
-        Self::publish_atomic(&path, bytes)?;
+        self.publish_atomic(&path, bytes)?;
         Ok(hash)
     }
 
@@ -525,7 +562,7 @@ impl Storage for FilesystemStorage {
 
         // Write the new ref atomically.
         let ref_bytes = jcs_bytes(new)?;
-        Self::publish_atomic(&path, &ref_bytes)?;
+        self.publish_atomic(&path, &ref_bytes)?;
         Ok(true)
     }
 
@@ -682,6 +719,14 @@ impl Storage for FilesystemStorage {
     }
 
     fn cleanup_orphans(&self) -> Result<usize, StoreError> {
+        self.cleanup_orphans_with(|| {})
+    }
+}
+
+impl FilesystemStorage {
+    fn cleanup_orphans_with(&self, after_lock: impl FnOnce()) -> Result<usize, StoreError> {
+        let _temp_lock = self.temp_lock(true)?;
+        after_lock();
         let mut count = 0;
         let objects_dir = self.root.join("objects");
         if !objects_dir.exists() {
@@ -753,5 +798,82 @@ impl Storage for FilesystemStorage {
             }
         }
         Ok(count)
+    }
+}
+
+#[cfg(test)]
+mod temp_lock_tests {
+    use super::{FilesystemStorage, Storage};
+    use std::sync::mpsc;
+
+    #[test]
+    fn cleanup_waits_for_active_publishers_and_then_removes_orphans() {
+        let dir = tempfile::tempdir().expect("temporary store");
+        let store = FilesystemStorage::new(dir.path());
+        let object_dir = dir.path().join("objects/ab");
+        std::fs::create_dir_all(&object_dir).expect("object directory");
+        let orphan = object_dir.join(".ab.orphan.tmp");
+        std::fs::write(&orphan, b"orphan").expect("orphan file");
+        let object = object_dir.join("published.json");
+        let (written, observed) = mpsc::channel();
+        let (resume, released) = mpsc::channel();
+        let publisher = store.clone();
+        let destination = object.clone();
+        let writer = std::thread::spawn(move || {
+            publisher
+                .publish_atomic_with(&destination, b"active", |temporary| {
+                    written.send(temporary.to_owned()).expect("send temp path");
+                    released.recv().expect("resume writer");
+                })
+                .expect("publish object");
+        });
+        let temporary = observed.recv().expect("receive temp path");
+        assert!(temporary.exists());
+        let contender = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(dir.path().join(".temp-lock"))
+            .expect("open temp lock");
+        assert!(fs2::FileExt::try_lock_exclusive(&contender).is_err());
+
+        let (started, ready) = mpsc::channel();
+        let cleaner = store.clone();
+        let task = std::thread::spawn(move || {
+            started.send(()).expect("start cleanup");
+            cleaner.cleanup_orphans().expect("cleanup")
+        });
+        ready.recv().expect("cleanup started");
+        assert!(temporary.exists());
+        resume.send(()).expect("release writer");
+        writer.join().expect("writer finished");
+        assert_eq!(task.join().expect("cleanup finished"), 1);
+        assert!(!temporary.exists());
+        assert!(!orphan.exists());
+        assert_eq!(std::fs::read(object).expect("published object"), b"active");
+    }
+
+    #[test]
+    fn cleanup_holds_exclusive_lock_during_sweep() {
+        let dir = tempfile::tempdir().expect("temporary store");
+        let store = FilesystemStorage::new(dir.path());
+        let (locked, observed) = mpsc::channel();
+        let (resume, released) = mpsc::channel();
+        let task = std::thread::spawn(move || {
+            store
+                .cleanup_orphans_with(|| {
+                    locked.send(()).expect("report lock");
+                    released.recv().expect("resume cleanup");
+                })
+                .expect("cleanup");
+        });
+        observed.recv().expect("cleanup has lock");
+        let contender = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(dir.path().join(".temp-lock"))
+            .expect("open temp lock");
+        assert!(fs2::FileExt::try_lock_shared(&contender).is_err());
+        resume.send(()).expect("release cleanup");
+        task.join().expect("cleanup finished");
     }
 }

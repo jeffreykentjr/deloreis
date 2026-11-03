@@ -110,8 +110,8 @@ impl Lorestore {
 
         // The whole first-open sequence runs under the advisory lock: two
         // processes racing the genesis both observe-and-write atomically
-        // (audit A11), and crash garbage is swept while no writer can be
-        // mid-flight.
+        // (audit A11). The sweep separately synchronizes with publishers,
+        // including staged writes that do not hold this lock.
         {
             let _lock = storage.acquire_lock()?;
             let _ = storage.cleanup_orphans()?;

@@ -23,6 +23,7 @@ concurrency:
 
 jobs:
   publish:
+    if: github.event_name != 'release' || !github.event.release.prerelease
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -39,7 +40,7 @@ jobs:
       - name: Check published release and commit
         run: |
           python3 - <<'PY'
-          import json, os, re, subprocess, tomllib
+          import json, os, re, runpy, subprocess, tomllib
           tag, commit = os.environ['RELEASE_TAG'], os.environ['RELEASE_COMMIT']
           if not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+', tag) or not re.fullmatch(r'[0-9a-f]{40}', commit):
               raise SystemExit('expected vVERSION and a full commit SHA')
@@ -51,9 +52,8 @@ jobs:
           if git('rev-parse', 'HEAD') != commit or git('rev-parse', f'refs/tags/{tag}^{{commit}}') != commit:
               raise SystemExit('checkout, tag and qualified commit differ')
           subprocess.run(['git', 'merge-base', '--is-ancestor', commit, 'origin/main'], check=True)
-          release = json.loads(subprocess.check_output(['gh', 'release', 'view', tag, '--json', 'tagName,isDraft,publishedAt'], text=True))
-          if release.get('tagName') != tag or release.get('isDraft') or not release.get('publishedAt'):
-              raise SystemExit('crate publication requires the matching published release')
+          release = json.loads(subprocess.check_output(['gh', 'release', 'view', tag, '--json', 'tagName,isDraft,isPrerelease,publishedAt'], text=True))
+          runpy.run_path('scripts/release-control.py')['validate_published_release'](tag, release)
           PY
       - name: Check publication controls
         run: python3 scripts/test-publish-crates.py
