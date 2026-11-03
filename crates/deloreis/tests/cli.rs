@@ -2048,6 +2048,36 @@ fn a_blocked_chained_rule_does_not_claim_the_conflict() {
 }
 
 #[test]
+fn unrelated_predicates_do_not_exhaust_rule_witness_search() {
+    use std::fmt::Write as _;
+    let dir = tmp("rule-witness-unrelated-predicates");
+    let corpus = dir.join("world.dli");
+    let mut source = String::from("scope storybook\nratify d-1\nfunctional home ratified d-1\n");
+    for index in 0..180 {
+        writeln!(source, "seed{index}(wren) ratified d-1\nrule noise{index} ratified d-1\n  noise{index}($who) :- seed{index}($who)").unwrap();
+    }
+    source.push_str(
+        "root(wren) ratified d-1\nrule present ratified d-1\n  present($who) :- root($who)\n",
+    );
+    let shore_line = source.lines().count() + 2;
+    source.push_str("rule shore ratified d-1\n  home($who, shore) :- present($who)\n");
+    let marsh_line = source.lines().count() + 2;
+    source.push_str("rule marsh ratified d-1\n  home($who, marsh) :- present($who)\n");
+    fs::write(&corpus, source).unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.derived-fd-violation"))
+        .expect(&text);
+    assert!(
+        line.contains(&format!("{}:{shore_line}:", corpus.display()))
+            || line.contains(&format!("{}:{marsh_line}:", corpus.display())),
+        "{text}"
+    );
+}
+
+#[test]
 fn a_grounded_recursive_chain_can_locate_the_conflicting_rule() {
     let dir = tmp("recursive-rule-witness");
     let corpus = dir.join("world.dli");

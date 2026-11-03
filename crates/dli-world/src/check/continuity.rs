@@ -2113,9 +2113,36 @@ fn derived_fd_violations(
         .collect()
 }
 
+fn witness_fact_index(
+    world: &dli_eval::world::World,
+) -> BTreeMap<(&str, usize), Vec<&dli_eval::world::Fact>> {
+    let mut index: BTreeMap<(&str, usize), Vec<_>> = BTreeMap::new();
+    for fact in &world.facts {
+        index
+            .entry((&fact.atom.pred, fact.atom.args.len()))
+            .or_default()
+            .push(fact);
+    }
+    index
+}
+
+fn witness_row_index(
+    world: &dli_eval::world::World,
+) -> BTreeMap<(&str, usize), Vec<&dli_eval::world::Derived>> {
+    let mut index: BTreeMap<(&str, usize), Vec<_>> = BTreeMap::new();
+    for row in &world.derived {
+        index
+            .entry((&row.atom.pred, row.atom.args.len()))
+            .or_default()
+            .push(row);
+    }
+    index
+}
+
 /// Find a direct, certain rule application that produces a conflicting row
 /// from certain input facts, applying the evaluator's negative-premise poison
 /// to each candidate path. Unproven cases remain unlocated.
+#[allow(clippy::too_many_lines)]
 fn direct_rule_witness(
     world: &CompiledWorld,
     canon: &BTreeMap<String, String>,
@@ -2125,6 +2152,8 @@ fn direct_rule_witness(
     let valuation = &model.world.valuation;
     let theory = &model.world.theory;
     let mut budget = 25_000usize;
+    let fact_index = witness_fact_index(&model.world);
+    let row_index = witness_row_index(&model.world);
     for (index, rule) in model.world.rules.iter().enumerate() {
         let Some(span) = model
             .rule_spans
@@ -2139,7 +2168,11 @@ fn direct_rule_witness(
         {
             continue;
         }
-        for row in &model.world.derived {
+        for row in row_index
+            .get(&(rule.head.pred.text.as_str(), rule.head.args.len()))
+            .into_iter()
+            .flatten()
+        {
             budget = budget.checked_sub(1)?;
             if row.ann().status(valuation, theory) != Status::Certain {
                 continue;
@@ -2164,7 +2197,11 @@ fn direct_rule_witness(
             for literal in rule.body.iter().filter(|literal| !literal.negated) {
                 let mut next = Vec::new();
                 for (state, support) in states {
-                    for fact in &model.world.facts {
+                    for fact in fact_index
+                        .get(&(literal.atom.pred.text.as_str(), literal.atom.args.len()))
+                        .into_iter()
+                        .flatten()
+                    {
                         budget = budget.checked_sub(1)?;
                         if fact.ann.status(valuation, theory) != Status::Certain {
                             continue;
@@ -2190,7 +2227,11 @@ fn direct_rule_witness(
                 }
                 let mut poison = dli_core::posbool::PosBool::FALSE;
                 for literal in rule.body.iter().filter(|literal| literal.negated) {
-                    for candidate in &model.world.derived {
+                    for candidate in row_index
+                        .get(&(literal.atom.pred.text.as_str(), literal.atom.args.len()))
+                        .into_iter()
+                        .flatten()
+                    {
                         budget = budget.checked_sub(1)?;
                         let mut candidate_bindings = bindings.clone();
                         if unify_witness(&literal.atom, &candidate.atom, &mut candidate_bindings) {
@@ -2276,12 +2317,20 @@ fn chained_rule_witness(
         .filter(|row| row.ann().status(valuation, theory) == Status::Certain)
         .map(|row| row.atom.clone())
         .collect();
+    let row_index = witness_row_index(&model.world);
     loop {
         let mut changed = false;
         let snapshot: Vec<(GroundAtom, Ann)> = known
             .iter()
             .flat_map(|(atom, paths)| paths.iter().map(|path| (atom.clone(), path.clone())))
             .collect();
+        let mut snapshot_index: BTreeMap<(&str, usize), Vec<_>> = BTreeMap::new();
+        for (atom, annotation) in &snapshot {
+            snapshot_index
+                .entry((&atom.pred, atom.args.len()))
+                .or_default()
+                .push((atom, annotation));
+        }
         for (index, rule) in model.world.rules.iter().enumerate() {
             if rule.ann.status(valuation, theory) != Status::Certain
                 || dli_eval::world::unbound_variable(&rule.head, &rule.body).is_some()
@@ -2292,7 +2341,11 @@ fn chained_rule_witness(
             for literal in rule.body.iter().filter(|literal| !literal.negated) {
                 let mut next = Vec::new();
                 for (state, support) in states {
-                    for (atom, annotation) in &snapshot {
+                    for (atom, annotation) in snapshot_index
+                        .get(&(literal.atom.pred.text.as_str(), literal.atom.args.len()))
+                        .into_iter()
+                        .flatten()
+                    {
                         budget = budget.checked_sub(1)?;
                         let mut bindings = state.clone();
                         if unify_witness(&literal.atom, atom, &mut bindings) {
@@ -2312,7 +2365,11 @@ fn chained_rule_witness(
             for (bindings, support) in states {
                 let mut poison = dli_core::posbool::PosBool::FALSE;
                 for literal in rule.body.iter().filter(|literal| literal.negated) {
-                    for candidate in &model.world.derived {
+                    for candidate in row_index
+                        .get(&(literal.atom.pred.text.as_str(), literal.atom.args.len()))
+                        .into_iter()
+                        .flatten()
+                    {
                         budget = budget.checked_sub(1)?;
                         let mut candidate_bindings = bindings.clone();
                         if unify_witness(&literal.atom, &candidate.atom, &mut candidate_bindings) {
