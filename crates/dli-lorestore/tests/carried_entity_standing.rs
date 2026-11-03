@@ -204,3 +204,174 @@ fn a_standing_revision_survives_reopen_without_rewriting_history() {
     assert_eq!(atom.kind, dli_world::model::Provenance::Provisional);
     assert_eq!(atom.ann.support, original.support);
 }
+
+#[test]
+fn carried_entity_and_slot_revisions_remain_independent() {
+    let (document, findings) = dli_syntax::parse_document(
+        "scope story\nratify d-1\nperson wren \"Wren\" decided d-1\n  wren.home = hollow\n  wren.trade = baker decided d-1\n",
+    );
+    assert!(
+        findings.iter().all(|finding| !finding.class.is_error()),
+        "{findings:?}"
+    );
+    let (mut objects, names) = lower_pack(&Pack {
+        name: "story".into(),
+        documents: vec![document],
+    });
+    let home = objects
+        .iter_mut()
+        .find(|object| object.atom.pred == "home")
+        .unwrap();
+    home.provenance.as_mut().unwrap().marker = Some(ProvenanceMarker::Provisional);
+    let restored = reconstruct_pack(
+        &objects,
+        &Interner::from_names(names),
+        &["d-1".to_owned()].into_iter().collect(),
+        "story",
+    )
+    .unwrap();
+    let entity = restored
+        .documents
+        .iter()
+        .flat_map(|doc| &doc.decls)
+        .find_map(|decl| match decl {
+            Decl::Entity(entity) => Some(entity),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(
+        entity.provenance.as_ref().unwrap().marker,
+        ProvenanceMarker::Decided
+    );
+    assert_eq!(
+        entity.slots[0].provenance.as_ref().unwrap().marker,
+        ProvenanceMarker::Provisional
+    );
+    assert_eq!(
+        entity.slots[1].provenance.as_ref().unwrap().marker,
+        ProvenanceMarker::Decided
+    );
+}
+
+#[test]
+fn a_slot_standing_revision_survives_reopen_and_preserves_old_revision() {
+    let directory = tempfile::tempdir().unwrap();
+    let (document, findings) = dli_syntax::parse_document(
+        "scope story\nratify d-1\nperson wren \"Wren\" decided d-1\n  wren.home = hollow\n",
+    );
+    assert!(
+        findings.iter().all(|finding| !finding.class.is_error()),
+        "{findings:?}"
+    );
+    let pack = Pack {
+        name: "story".into(),
+        documents: vec![document],
+    };
+    let store = dli_lorestore::Lorestore::open(directory.path().to_path_buf()).unwrap();
+    let old = store.import_pack(&pack).unwrap();
+    let original = store
+        .fact_hashes_from(&old)
+        .unwrap()
+        .iter()
+        .map(|hash| {
+            store
+                .read_object::<dli_lorestore::FactObject>(hash)
+                .unwrap()
+                .unwrap()
+        })
+        .find(|object| object.atom.pred == "home")
+        .unwrap();
+    let mut revised = original.clone();
+    revised.provenance.as_mut().unwrap().marker = Some(ProvenanceMarker::Provisional);
+    let revised_hash = store.write_object(&revised).unwrap();
+    let head = store
+        .commit(
+            store.head_interner().unwrap(),
+            vec![revised_hash],
+            vec![],
+            vec![],
+            vec!["d-1".into()],
+            "story".into(),
+        )
+        .unwrap();
+    drop(store);
+    let reopened = dli_lorestore::Lorestore::open(directory.path().to_path_buf()).unwrap();
+    let get = |hash| {
+        reopened
+            .reconstruct_at_uncached(hash)
+            .unwrap()
+            .documents
+            .into_iter()
+            .flat_map(|doc| doc.decls)
+            .find_map(|decl| match decl {
+                Decl::Entity(entity) => Some((
+                    entity.provenance.unwrap().marker,
+                    entity.slots[0].provenance.as_ref().map(|ann| ann.marker),
+                )),
+                _ => None,
+            })
+            .unwrap()
+    };
+    assert_eq!(get(&old), (ProvenanceMarker::Decided, None));
+    assert_eq!(
+        get(&head),
+        (
+            ProvenanceMarker::Decided,
+            Some(ProvenanceMarker::Provisional)
+        )
+    );
+    let compiled = reopened.compile().unwrap();
+    let home = compiled
+        .model
+        .atoms()
+        .iter()
+        .find(|atom| atom.atom.pred.text == "home")
+        .unwrap();
+    assert_eq!(home.kind, dli_world::model::Provenance::Provisional);
+    assert_eq!(home.ann.support, original.support);
+}
+
+#[test]
+fn an_independent_adjacent_slot_support_is_not_consumed() {
+    let (document, findings) = dli_syntax::parse_document(
+        "scope story\nratify d-1\nratify d-2\nperson wren \"Wren\" decided d-1\n  wren.home = hollow decided d-1\n",
+    );
+    assert!(
+        findings.iter().all(|finding| !finding.class.is_error()),
+        "{findings:?}"
+    );
+    let (mut objects, names) = lower_pack(&Pack {
+        name: "story".into(),
+        documents: vec![document],
+    });
+    let mut interner = Interner::from_names(names);
+    let alternative_index = objects
+        .iter()
+        .position(|object| object.atom.pred == "home")
+        .unwrap();
+    let mut alternative = objects[alternative_index].clone();
+    alternative.support = PosBool::pos(interner.intern("d-2"));
+    alternative.provenance.as_mut().unwrap().marker = Some(ProvenanceMarker::Ratified);
+    objects.insert(alternative_index, alternative);
+    let restored = reconstruct_pack(
+        &objects,
+        &interner,
+        &["d-1".to_owned(), "d-2".to_owned()].into_iter().collect(),
+        "story",
+    )
+    .unwrap();
+    let world = compile(&restored).unwrap();
+    let supports: BTreeSet<_> = world
+        .model
+        .atoms()
+        .iter()
+        .filter(|atom| atom.atom.pred.text == "home")
+        .map(|atom| render_polynomial(&atom.ann.support, world.model.interner()))
+        .collect();
+    assert_eq!(
+        supports,
+        ["{+d-1}".to_owned(), "{+d-2}".to_owned()]
+            .into_iter()
+            .collect()
+    );
+}
