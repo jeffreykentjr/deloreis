@@ -894,3 +894,35 @@ fn a_lone_era_reaches_the_timeline_even_with_no_edge() {
         "a lone era must be interned into the time-point table"
     );
 }
+
+#[test]
+fn era_chain_members_keep_source_and_upgrade_prior_mentions() {
+    let source = "scope story\nratify d-1\nmentions(wren, noon) ratified d-1\nera dawn < noon < dusk ratified d-1\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics.iter().all(|d| !d.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let compiled = dli_world::compile(&Pack {
+        name: "story".into(),
+        documents: vec![document],
+    })
+    .unwrap();
+    for member in ["noon", "dusk"] {
+        assert!(
+            compiled
+                .model
+                .facts_about(member)
+                .iter()
+                .any(|atom| atom.atom.pred.text == "era" && atom.span.end > atom.span.start),
+            "missing source for {member}"
+        );
+        let entity = compiled
+            .model
+            .entities()
+            .iter()
+            .find(|entry| entry.name == member)
+            .unwrap();
+        assert_eq!(entity.sort.as_deref(), Some("era"));
+    }
+}

@@ -234,6 +234,7 @@ impl IncrementalLoad {
 
 /// The compiled provenance of one declaration: its annotation, how it entered,
 /// and its rendered citations.
+#[derive(Clone)]
 struct Compiled {
     ann: Ann,
     kind: Provenance,
@@ -418,6 +419,7 @@ impl LoadCtx {
         self.wm.world.theory.add_exclusive(family);
     }
 
+    #[allow(clippy::too_many_lines)]
     fn process_entity(&mut self, entity: &EntityDecl, pack: &str) {
         let sort = entity.kind.keyword();
         if matches!(entity.kind, EntityKind::Era | EntityKind::Event) {
@@ -513,6 +515,7 @@ impl LoadCtx {
             ann: compiled.ann.clone(),
             grade: Grade::Asserted,
         });
+        self.push_atom(atom, compiled.clone(), pack, entity.name.span);
         if let Some(TimeClause::Order(chain)) = &entity.time {
             for member in chain {
                 let member_atom = AtomExpr {
@@ -526,10 +529,15 @@ impl LoadCtx {
                 });
                 self.entities
                     .entry(member.text.clone())
+                    .and_modify(|slot| {
+                        if slot.is_none() {
+                            *slot = Some(sort.to_owned());
+                        }
+                    })
                     .or_insert_with(|| Some(sort.to_owned()));
+                self.push_atom(member_atom, compiled.clone(), pack, member.span);
             }
         }
-        self.push_atom(atom, compiled, pack, entity.name.span);
         for slot in &entity.slots {
             self.process_attr(slot, pack, entity.provenance.as_ref());
         }
