@@ -451,9 +451,11 @@ workspace install. A refusal writes nothing and reports the offending
 `record_index` where applicable.
 
 Both return the new lorestore `root_hash` and the unchanged staged-state
-`workspace_digest`. Canon export excludes dead claims and refuses
-`evidence-corrupt` when the commit decision list differs from stored `Ratify`
-carriage objects.
+`workspace_digest`. Canon export groups non-dead fact objects (including possible
+claims) by predicate and supplies the interner, decisions, and attacks needed
+to interpret their support. Dead claims remain in the store and ordinary object
+export. Canon refuses `evidence-corrupt` when the commit decision list differs
+from stored `Ratify` carriage objects.
 
 ### 3.11 Constraint declarations
 

@@ -438,7 +438,7 @@ impl KilledTokens {
 }
 
 /// Lowercase, and fold every non-alphanumeric run to a single space, collapsing
-/// whitespace — so `doom-wight` and `Doom Wight` match alike. This is the liberal
+/// whitespace — so `shade-walker` and `Shade Walker` match alike. This is the liberal
 /// fold the killed-token guardrail matches against (ban-evasion resistance); the
 /// FD/contradiction path uses the stricter `fd_value_key`
 /// ([`dli_core::fd::fd_value_key`], re-exported as [`crate::check::fd_value_key`])

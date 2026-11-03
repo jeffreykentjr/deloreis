@@ -6,10 +6,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use dli_ast::annot::{Annotation, CitationRef, ProvenanceMarker};
-use dli_ast::decl::{Decl, Document, EntityDecl, EntityKind, RatifyDecl, ScopeHeader};
+use dli_ast::decl::{Decl, Document, EntityDecl, EntityKind, FactDecl, RatifyDecl, ScopeHeader};
 use dli_ast::ident::Ident;
 use dli_ast::language::RatifyBody;
 use dli_ast::span::Span;
+use dli_ast::term::{AtomExpr, Term};
 use dli_serve::author::dispatch;
 use dli_serve::author::store::Store;
 use dli_serve::project::Project;
@@ -185,6 +186,50 @@ fn skewed_canon_store() -> tempfile::TempDir {
 }
 
 #[test]
+fn canon_exports_arbitrary_predicates_without_private_interpretation() {
+    let root = tempfile::tempdir().expect("temporary project root");
+    std::fs::write(
+        root.path().join("deloreis.toml"),
+        "version = 1\nname = \"canon-fiction\"\n\n[documents.demo]\nstore = \"lorestore/demo\"\n",
+    )
+    .expect("write manifest");
+    let mut world = pack();
+    for (pred, subject, value) in [
+        ("tends_garden", "nara", "orchard"),
+        ("killed-token-registry", "ordinary", "value"),
+    ] {
+        world.documents[0].decls.push(Decl::Fact(FactDecl {
+            atom: AtomExpr {
+                pred: id(pred),
+                args: vec![Term::Sym(id(subject)), Term::Sym(id(value))],
+            },
+            triple: true,
+            provenance: Some(ratified_to("D-1")),
+        }));
+    }
+    let mut store = Store::with_pack(world).expect("compile fiction pack");
+    store
+        .attach_lorestore(root.path().join("lorestore"))
+        .expect("attach store");
+    let first = canon(root.path());
+    assert_eq!(first, canon(root.path()), "canon replay is deterministic");
+    for (pred, subject, value) in [
+        ("tends_garden", "nara", "orchard"),
+        ("killed-token-registry", "ordinary", "value"),
+    ] {
+        let rows = first["by_pred"][pred].as_array().expect("predicate bucket");
+        assert!(
+            rows.iter()
+                .any(|row| row["atom"]["args"] == json!([subject, value])
+                    && row["support"]["monomials"].is_array())
+        );
+    }
+    assert!(first["interner"].is_array());
+    assert!(first["decisions"].is_array());
+    assert!(first["attacks"].is_array());
+}
+
+#[test]
 #[allow(clippy::too_many_lines)]
 fn contract_1_5_promotes_and_defeats_without_deleting_the_object() {
     let (root, mut store, path) = temp_store();
@@ -258,11 +303,12 @@ fn contract_1_5_promotes_and_defeats_without_deleting_the_object() {
     let before = materialized["root_hash"].as_str().unwrap().to_owned();
     let provisional_canon = canon(root.path());
     assert!(
-        provisional_canon["characters"]["person"]
+        provisional_canon["by_pred"]["person"]
             .as_array()
             .expect("person rows")
             .iter()
-            .any(|row| row["id"] == "nara" && row["status"] == "provisional"),
+            .any(|row| row["atom"]["args"][0] == "nara"
+                && row["provenance"]["marker"] == "Provisional"),
         "1.5 cited provisional authoring must reach canon: {provisional_canon}"
     );
 
@@ -424,11 +470,9 @@ fn contract_1_5_promotes_and_defeats_without_deleting_the_object() {
     );
     let defeated_canon = canon(root.path());
     assert!(
-        defeated_canon["characters"]["person"]
+        defeated_canon["by_pred"]["person"]
             .as_array()
-            .expect("person rows")
-            .iter()
-            .all(|row| row["id"] != "nara"),
+            .is_none_or(|rows| rows.iter().all(|row| row["atom"]["args"][0] != "nara")),
         "canon excludes the dead claim while the object remains stored: {defeated_canon}"
     );
 }
@@ -457,15 +501,15 @@ fn canon_applies_a_post_compile_durable_overlay_by_exact_name() {
     );
 
     let exported = canon(root.path());
-    let people = exported["characters"]["person"]
+    let people = exported["by_pred"]["person"]
         .as_array()
         .expect("canon person rows");
     assert!(
-        people.iter().all(|row| row["id"] != "nara"),
+        people.iter().all(|row| row["atom"]["args"][0] != "nara"),
         "the exact-name false ruling removes only its supported claim: {exported}"
     );
     assert!(
-        people.iter().any(|row| row["id"] == "moira"),
+        people.iter().any(|row| row["atom"]["args"][0] == "moira"),
         "the independently true named control survives: {exported}"
     );
 }

@@ -909,6 +909,14 @@ fn self_mutual_and_odd_cycles_are_possible_end_to_end() {
                 assert!(response.ok, "{response:?}");
                 let value = response.result.unwrap();
                 let attacks = if format == "canon" {
+                    assert!(
+                        value["canon"]["by_pred"]["rank"]
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .any(|fact| fact["atom"]["args"] == json!(["nara", "gold"])),
+                        "possible claims remain in canon: {value}"
+                    );
                     &value["canon"]["attacks"]
                 } else {
                     &value["attacks"]

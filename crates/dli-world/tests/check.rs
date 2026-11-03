@@ -209,18 +209,18 @@ fn killed_tokens_match_by_word_and_phrase() {
             scope: "region name".to_owned(),
         },
         KilledToken {
-            token: "doom-wight".to_owned(),
+            token: "shade-walker".to_owned(),
             mode: MatchMode::Phrase,
             decision: "D-0097".to_owned(),
-            scope: "hound name".to_owned(),
+            scope: "spirit name".to_owned(),
         },
     ]);
     assert!(killed.hit("the road to Irondale").is_some());
-    assert!(killed.hit("Doom Wight rises").is_some()); // hyphen/space fold
-    assert!(killed.hit("Doomwight rises").is_some()); // run-together fold
+    assert!(killed.hit("Shade Walker rises").is_some()); // hyphen/space fold
+    assert!(killed.hit("Shadewalker rises").is_some()); // run-together fold
     assert!(killed.hit("the ironclad gate").is_none()); // word boundary, not substring
     assert!(killed.hit("the iron dale gate").is_none()); // adjacent words do not merge
-    assert!(killed.hit("a do omwight rises").is_none()); // arbitrary fragments do not merge
+    assert!(killed.hit("a sh adewalker rises").is_none()); // arbitrary fragments do not merge
 }
 
 #[test]

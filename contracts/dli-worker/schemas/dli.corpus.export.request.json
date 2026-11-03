@@ -40,7 +40,7 @@
           "const": "rendered"
         },
         {
-          "description": "The canon-normalized projection: fact objects folded into the\nper-domain normalized maps that `parity.json` carries (`facts`,\n`timeline`, `characters`, `names`, `dialects`, `killed-tokens`), the\nstore-read equivalent of `compile_lore_dli.py`'s `products()` (LS-7,\nDL-0041). Omitted from the result unless `format: canon` was requested.",
+          "description": "Live fact objects grouped by predicate, with the interner, decisions,\nand conditional attacks needed to interpret their support. Dead facts\nremain available in the ordinary object export and store history.",
           "type": "string",
           "const": "canon"
         }
