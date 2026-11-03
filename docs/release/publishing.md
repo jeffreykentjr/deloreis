@@ -17,8 +17,9 @@ contract has its own version.
 3. Tag the checked main commit `vVERSION` and push the tag. Create a draft
    GitHub release for that tag.
 4. Run the `Build release archives` workflow with the tag and full commit SHA.
-   It builds and smoke-tests Intel and ARM archives on Linux and macOS, records
-   attestations, checks the SHA-256 files, and attaches them to the draft.
+   It builds and smoke-tests Intel and ARM archives on Linux and macOS, includes
+   dependency and Rust standard-library notices, records attestations, checks
+   the SHA-256 files, and attaches them to the draft.
 5. Check the draft, install an archive in a clean environment, and publish the
    release. The `Publish crates` workflow verifies the same tag and commit,
    then publishes the crates using the `CARGO_REGISTRY_TOKEN` Actions secret.

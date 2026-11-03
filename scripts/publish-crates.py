@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Adapted from Chelis-Lang/sail; see scripts/SAIL-LICENSE.
 """Verify and publish the explicitly enabled De Lore Is workspace packages together.
 
 Use --dry-run without credentials. Initial publication accepts --token-file;

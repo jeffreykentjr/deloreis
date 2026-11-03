@@ -87,6 +87,9 @@ jobs:
           mkdir -p "dist/$name/bin"
           cp target/release/deloreis "dist/$name/bin/"
           cp LICENSE README.md "dist/$name/"
+          python3 scripts/third-party-notices.py --target "$RELEASE_TARGET" --output "dist/$name/THIRD-PARTY-NOTICES"
+          rustup component add rust-docs
+          cp "$(rustc --print sysroot)/share/doc/rust/COPYRIGHT-library.html" "dist/$name/RUST-STANDARD-LIBRARY-NOTICES.html"
           tar -C dist -czf "dist/$name.tar.gz" "$name"
           python3 - <<'PY'
           import hashlib, os
