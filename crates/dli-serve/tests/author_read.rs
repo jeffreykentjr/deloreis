@@ -597,3 +597,37 @@ fn entity_repair_span_in_a_state_covers_only_the_subject() {
     let end = usize::try_from(span["end"].as_u64().unwrap()).unwrap();
     assert_eq!(&source[start..end], "wrne");
 }
+
+#[test]
+fn synthetic_dotted_state_subject_gets_a_candidate_without_a_fake_span() {
+    let source = "scope storybook\nperson wren \"Wren\" proposed author\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    let mut store = Store::with_pack(Pack {
+        name: "storybook".to_owned(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let workspace = open_scope(&mut store, "storybook");
+    let staged = send(
+        &mut store,
+        "state",
+        Op::AuthorAddState,
+        json!({"workspace":workspace,"id":"wrne.home","value":"ashby","provenance":proposed()}),
+    );
+    assert!(staged.ok, "{staged:?}");
+    let response = send(
+        &mut store,
+        "check-state",
+        Op::AuthorCheck,
+        json!({"workspace":workspace}),
+    );
+    let finding = result(&response)["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|finding| finding["code"] == "entity.undeclared")
+        .expect("synthetic state typo should be reported");
+    assert_eq!(finding["repair"]["candidates"], json!(["wren"]));
+    assert!(finding["repair"]["span"].is_null());
+}

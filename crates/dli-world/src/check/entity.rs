@@ -52,6 +52,7 @@ pub(super) fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
             // a subject and must not be treated as one merely by position.
             if index == 0
                 && world.model.temporal_atom_facts.contains_key(&atom_index)
+                && atom.atom.args.len() == 1
                 && !(id.span.end > id.span.start
                     && id.span == atom.atom.pred.span
                     && id.span.end.saturating_sub(id.span.start) as usize > id.text.len())
@@ -92,22 +93,7 @@ pub(super) fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
             } else {
                 format!("`{}` is not declared", id.text)
             };
-            let width = id.span.end.saturating_sub(id.span.start) as usize;
-            let span = if width == id.text.len() && width > 0 {
-                Some(id.span)
-            } else if index == 0
-                && id.span == atom.atom.pred.span
-                && width >= id.text.len() + 1 + atom.atom.pred.text.len()
-            {
-                u32::try_from(id.text.len()).ok().and_then(|length| {
-                    id.span
-                        .start
-                        .checked_add(length)
-                        .map(|end| dli_ast::span::Span { end, ..id.span })
-                })
-            } else {
-                None
-            };
+            let span = subject_span(id, &atom.atom.pred, index);
             let finding = WorldFinding::warn("entity.undeclared", message).with_data(
                 serde_json::json!({"entity": id.text, "candidates": candidates, "span": span}),
             );
@@ -118,6 +104,26 @@ pub(super) fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
         }
     }
     findings
+}
+
+fn subject_span(
+    id: &dli_ast::ident::Ident,
+    pred: &dli_ast::ident::Ident,
+    index: usize,
+) -> Option<dli_ast::span::Span> {
+    let width = id.span.end.saturating_sub(id.span.start) as usize;
+    if width == id.text.len() && width > 0 {
+        Some(id.span)
+    } else if index == 0 && id.span == pred.span && width > id.text.len() + pred.text.len() {
+        u32::try_from(id.text.len()).ok().and_then(|length| {
+            id.span
+                .start
+                .checked_add(length)
+                .map(|end| dli_ast::span::Span { end, ..id.span })
+        })
+    } else {
+        None
+    }
 }
 
 /// Levenshtein distance capped at three. Only the diagonal band within two
