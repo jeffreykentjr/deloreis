@@ -5,7 +5,7 @@
   "type": "object",
   "properties": {
     "additions": {
-      "description": "The proposed facts as typed ground atoms — the 0.6.3 typed successor to\n[`Self::declarations`]. When present it is used and `declarations` is\nignored; when absent the declaration lines are parsed and lowered\nexactly as before.\n\nA ground atom is the whole of what the string path can express: both a\nfact line and a slot line lower to a ground fact, and every lowered\naddition is asserted by fiat with an unconditional annotation, so the\ntyped form reaches exactly the same additions the text form did.",
+      "description": "Proposed facts as typed ground atoms, asserted in the fork.",
       "type": [
         "array",
         "null"
@@ -15,7 +15,7 @@
       }
     },
     "declarations": {
-      "description": "The rendered proposed declarations to add. The 0.6.3 typed successor is\n[`Self::additions`]; this string form is a registered field-level killed\nform, refused from contract 1.0 and still accepted — and still\n**required** — before it.\n\n`default` is what lets a 1.0 caller send [`Self::additions`] alone; the\npre-1.0 requirement is restored verbatim by\n`serve::required_retired_field`.",
+      "description": "Retired text form; use [`Self::additions`].",
       "type": "array",
       "default": [],
       "items": {
