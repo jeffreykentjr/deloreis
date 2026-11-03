@@ -68,6 +68,78 @@ impl Drop for Server {
 }
 
 #[test]
+fn blank_world_materializes_each_output_mode_and_survives_restart() {
+    for mode in ["plain", "decision", "rendered"] {
+        let temp = tempfile::tempdir().unwrap();
+        let project = temp.path().join("story");
+        assert!(
+            Command::new(env!("CARGO_BIN_EXE_deloreis"))
+                .arg("init")
+                .arg(&project)
+                .output()
+                .unwrap()
+                .status
+                .success()
+        );
+        let mut server = Server::start(&project, false);
+        let workspace = server.ok("author.open", json!({"scope":"world"}))["workspace"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        server.ok("author.add_entity", json!({"workspace":workspace,"kind":"person","id":"wren","name":"Wren","provenance":{"kind":"proposed","origin":"test"}}));
+        server.ok("author.add_fact", json!({"workspace":workspace,"entity":"wren","key":"rank","value":"captain","provenance":{"kind":"proposed","origin":"test"}}));
+        if mode == "decision" {
+            server.ok(
+                "author.record_decision",
+                json!({"workspace":workspace,"decision":"d-1"}),
+            );
+        }
+        let mut args = json!({"workspace":workspace});
+        if mode == "decision" {
+            args["decision"] = json!("d-1");
+        } else if mode == "rendered" {
+            args["rendered"] = json!(true);
+        }
+        let result = server.ok("author.materialize", args);
+        assert!(
+            result["facts"]
+                .as_array()
+                .is_some_and(|facts| !facts.is_empty()),
+            "{mode}: {result}"
+        );
+        if mode == "decision" {
+            assert!(
+                result["facts"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|fact| fact["provenance"]["marker"] == "Ratified"),
+                "{result}"
+            );
+        }
+        if mode == "rendered" {
+            assert!(
+                result["rendered"]
+                    .as_array()
+                    .is_some_and(|lines| !lines.is_empty()),
+                "{result}"
+            );
+        }
+        drop(server);
+        let mut restarted = Server::start(&project, false);
+        let fresh = restarted.ok("author.open", json!({"scope":"world"}))["workspace"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let query = restarted.ok("author.query", json!({"workspace":fresh,"goal_atom":{"pred":"rank","args":[{"Sym":"wren"},{"Sym":"captain"}]}}));
+        assert!(
+            !query["rows"].as_array().unwrap().is_empty(),
+            "{mode}: {query}"
+        );
+    }
+}
+
+#[test]
 fn quickstart_preserves_staged_claims_when_a_decision_is_recorded() {
     for bulk in [false, true] {
         let temp = tempfile::tempdir().unwrap();

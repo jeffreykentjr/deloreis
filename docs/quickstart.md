@@ -38,6 +38,7 @@ command and arguments; point `--project` at the directory containing
 Ask your client to make the following tool calls, in order. Substitute the
 returned workspace ID for `WORKSPACE`. Read the findings returned by each call.
 The blocks show tool arguments, not shell commands.
+An automated test runs these examples against a new project.
 
 1. Open `author.open` with `{"scope":"world"}`.
 2. Call `author.add_entity` three times, using `WORKSPACE`:

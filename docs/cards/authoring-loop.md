@@ -5,11 +5,13 @@ verdict: "Follow a checked authoring session through The Hollow."
 
 # The authoring loop
 
-This session starts with a new world and makes a first ruling that Wren lives
-in Thornfield. The complete [transcript](../../examples/hollow/transcript.md)
-is generated and checked by the MCP driver using `--tools all`. Each block below is the arguments
-object for a `tools/call`; replace `WORKSPACE` with the ID returned by
-`author.open`.
+Start with a new world and make the first ruling that Wren lives in Thornfield,
+following steps 1–6 of the [quickstart](../quickstart.md). Then use the calls
+below to continue the session. The complete
+[transcript](../../examples/hollow/transcript.md) is generated and checked by
+the MCP driver using `--tools all`; use that profile for this walkthrough.
+Each block below is the arguments object for a `tools/call`; replace
+`WORKSPACE` with the ID returned by `author.open`.
 
 ## Read the existing ruling
 
@@ -73,13 +75,39 @@ that both explanations survive.
 ## Retcon and explore
 
 Record `d-0003`, add the drowning claim with that citation, and materialize it.
-The returned fact has a claim ID. Pass it to `author.defeat`, along with
-`d-0004` and `defeated_decision: d-0003`, then add the poisoned account under
-`d-0004`. Defeating that retcon with `d-0005` restores the drowning claim;
-the rival account becomes possible again.
+Query `death(miller, drowned)` with `layer: all` to get its claim ID. Then call
+`author.defeat`, replacing `CLAIM_ID` with that ID:
 
-Create a branch with `author.branch`, open it with `author.open`, and stage
-the alternative there. `author.diff` shows the new claim and its consequences
-without changing main. The transcript shows the exact calls and their results.
-Finally, restart the server and query the original claim again: the same ruling
-and explanation are still available.
+```json
+{"workspace":"WORKSPACE","claim_id":"CLAIM_ID","decision":"d-0004","defeated_decision":"d-0003"}
+```
+
+Add the poisoned account under `d-0004` and materialize it. The transcript
+then defeats that retcon under `d-0005`; the drowning claim becomes certain
+again, and the rival account becomes possible.
+
+Create a branch with `author.branch`:
+
+```json
+{"workspace":"WORKSPACE","action":"create","from":"main","name":"never-left"}
+```
+
+Open it using `author.open` with `{"scope":"world","branch":"never-left"}`.
+On the returned workspace, stage the alternative with `author.add_fact`:
+
+```json
+{"workspace":"BRANCH_WORKSPACE","entity":"wren","key":"journey","value":"stayed","provenance":{"kind":"proposed","origin":"what-if"}}
+```
+
+The transcript adds a rule on the branch, then calls `author.diff` with
+`{"workspace":"BRANCH_WORKSPACE"}` to see the claim and its consequences
+without changing main.
+
+Finally, restart the server, open the main world, and call `author.query`:
+
+```json
+{"workspace":"WORKSPACE","goal_atom":{"pred":"death","args":[{"Sym":"miller"},{"Sym":"drowned"}]},"layer":"all"}
+```
+
+The original ruling is still certain. The transcript records each call and
+its result.
