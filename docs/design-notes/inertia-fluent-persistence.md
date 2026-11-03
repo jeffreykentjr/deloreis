@@ -194,8 +194,7 @@ like every other declaration. The verdict is reachable wire-only:
 carry, for an inertial slot, an enriched `Finding.data`: `"inertial": true` and
 each value's **derived** `since`/`until` (the defeater's `since`, or `null` for
 an unbounded value), keeping the order-undeclared `repair.candidates`. The data
-rides the existing `has_finding_data` (1.7.0) floor — a pre-1.8.0 caller can
-never create an inertial slot — so no new version threading is needed.
+is included in the current contract's structured findings.
 
 ```json
 {

@@ -85,11 +85,7 @@ pub(crate) fn workspace_language(
 /// `?` or `?name` is a query variable that enumerates matches; a bare symbol is a
 /// ground constant. An unknown predicate over the staged world is not a fault — it
 /// is "asked and answered, nothing matched" (spec 10 §2.1), returned as no rows.
-pub(super) fn query(
-    store: &Store,
-    params: &AuthorQueryParams,
-    v2: bool,
-) -> Result<Value, ErrorBody> {
+pub(super) fn query(store: &Store, params: &AuthorQueryParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     ws.note_query();
     // The 0.6.3 typed successor wins when the caller sent it; the rendered string
@@ -114,17 +110,11 @@ pub(super) fn query(
     // 0.6.0: the replay context. The staged world is workspace state, so its
     // anchor is the workspace digest (jcs regime); the valuation is the full
     // ruled map — explicit falses included.
-    let (root_hash, valuation) = if v2 {
-        (
-            Some(ws.digest.clone()),
-            Some(valuation_entries(
-                &world.model.world.valuation,
-                world.model.interner(),
-            )),
-        )
-    } else {
-        (None, None)
-    };
+    let root_hash = Some(ws.digest.clone());
+    let valuation = Some(valuation_entries(
+        &world.model.world.valuation,
+        world.model.interner(),
+    ));
     let claim_ids = if !answer.rows.is_empty()
         && let (Some(ls), Some(root)) = (store.workspace_lorestore(&ws.id), &ws.base_root_hash)
     {
@@ -194,16 +184,12 @@ pub(super) fn query(
 /// continuity check's `continuity.fluent-contradiction`/`continuity.fluent-
 /// order-undeclared` findings already derive their boundary from, so this
 /// read and those findings can never disagree.
-pub(super) fn as_of(
-    store: &Store,
-    params: &AuthorAsOfParams,
-    v2: bool,
-) -> Result<Value, ErrorBody> {
+pub(super) fn as_of(store: &Store, params: &AuthorAsOfParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let world = staged_world(store, ws).map_err(|err| staged_error(&err))?;
     let at = resolve_time_point(&world, &params.at)?;
     let projected = check::slot_state_at(&world, &params.pred, &params.subject, at);
-    let root_hash = v2.then(|| ws.digest.clone());
+    let root_hash = Some(ws.digest.clone());
     Ok(value(&AuthorAsOfResult {
         pred: projected.pred,
         subject: projected.subject,
@@ -287,7 +273,6 @@ fn point_name(world: &CompiledWorld, point: TimePoint) -> String {
 pub(super) fn predicates(
     store: &Store,
     params: &AuthorPredicatesParams,
-    v2: bool,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let world = staged_world(store, ws).map_err(|err| staged_error(&err))?;
@@ -312,7 +297,7 @@ pub(super) fn predicates(
             arity,
         })
         .collect();
-    let root_hash = v2.then(|| ws.digest.clone());
+    let root_hash = Some(ws.digest.clone());
     Ok(value(&AuthorPredicatesResult {
         predicates,
         root_hash,
@@ -328,19 +313,15 @@ pub(super) fn predicates(
 const ENTITY_CANDIDATE_CEILING: usize = 100;
 
 /// Entities near a surface form, nearest first, bounded by the caller's `limit`
-/// (capped at [`ENTITY_CANDIDATE_CEILING`]). Contract 1.11.0 and later filter
-/// fact-only symbols before ranking (GH #88); the released 1.10.0 path retains
-/// its original all-symbol result semantics for replay compatibility. The
-/// selected universe is then folded through the SAME identity canon the
-/// FD/continuity check uses ([`check::identity_canon`]) BEFORE scoring, so an
+/// (capped at [`ENTITY_CANDIDATE_CEILING`]). Fact-only symbols are filtered
+/// before ranking. The selected universe is then folded through the same identity
+/// canon the FD/continuity check uses ([`check::identity_canon`]) BEFORE scoring, so an
 /// aliased class collapses to its one canonical representative — the budget is
 /// never spent twice on one class, and a surfaced candidate keys the way
 /// `continuity.fd-violation` would.
 pub(super) fn entity_candidates(
     store: &Store,
     params: &AuthorEntityCandidatesParams,
-    v2: bool,
-    declared_only: bool,
 ) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     let world = staged_world(store, ws).map_err(|err| staged_error(&err))?;
@@ -353,7 +334,7 @@ pub(super) fn entity_candidates(
         .model
         .entities()
         .iter()
-        .filter(|entity| !declared_only || entity.sort.is_some())
+        .filter(|entity| entity.sort.is_some())
     {
         sort_of.insert(entity.name.clone(), entity.sort.clone());
         reps.insert(dli_core::alias::canon(&canon, &entity.name).to_owned());
@@ -370,7 +351,7 @@ pub(super) fn entity_candidates(
             }
         })
         .collect();
-    let root_hash = v2.then(|| ws.digest.clone());
+    let root_hash = Some(ws.digest.clone());
     Ok(value(&AuthorEntityCandidatesResult {
         candidates,
         root_hash,
@@ -385,13 +366,9 @@ pub(super) fn entity_candidates(
 /// contradictions ([`factcheck`]) over the staged claims. A new proposed claim is
 /// legitimately *unsupported*, so only *contradictions* surface here; unsupported
 /// is silent (it is candidate lore, not a defect). Findings are deduplicated.
-pub(super) fn check(
-    store: &Store,
-    params: &AuthorCheckParams,
-    carries_data: bool,
-) -> Result<Value, ErrorBody> {
+pub(super) fn check(store: &Store, params: &AuthorCheckParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let findings = workspace_report(store, ws, carries_data).findings;
+    let findings = workspace_report(store, ws, true).findings;
     let ok = findings
         .iter()
         .all(|finding| finding.severity != Severity::Error);
@@ -411,7 +388,7 @@ pub(super) struct WorkspaceReport {
 
 /// Compile and check one workspace without mutating it. `carries_data` gates
 /// whether a raised [`WorldFinding`]'s structured payload rides across as
-/// `Finding.data` (WS-2, `≥1.7.0` only — [`crate::has_finding_data`]).
+/// `Finding.data`.
 pub(super) fn workspace_report(
     store: &Store,
     ws: &Workspace,
@@ -516,12 +493,7 @@ pub(super) fn materialize_candidate_findings(
 /// certain / why dead / why possible), plus the support antichain when the world
 /// derives it. The agent asks "why can't this be certain yet?" and gets the exact
 /// blocker — an unruled hypothesis, an unknown entity, or a defeater.
-pub(super) fn why(
-    store: &Store,
-    params: &AuthorWhyParams,
-    records_decisions: bool,
-    explains_active_support: bool,
-) -> Result<Value, ErrorBody> {
+pub(super) fn why(store: &Store, params: &AuthorWhyParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
     ws.note_why();
     // The typed successor wins when the caller sent it; the rendered string is
@@ -542,11 +514,9 @@ pub(super) fn why(
     // filtered to the workspace's known-decision set, the same filter the
     // continuity findings' `ann_citations` uses. The auditability affordance:
     // it names which recorded decisions a certain fact rests on, so a caller can
-    // confirm it reached certainty the designed way. Floor-gated: below 1.9.0
-    // the field stays empty and, being `skip_serializing_if = Vec::is_empty`,
-    // absent — so pre-1.9.0 `author.why` responses stay byte-identical.
-    let supporting_decisions = match (records_decisions, derived) {
-        (true, Some(derived)) => {
+    // confirm it reached certainty the designed way.
+    let supporting_decisions = match derived {
+        Some(derived) => {
             let known = super::tools::workspace_decisions(store, &params.workspace);
             let mut out = Vec::new();
             for monomial in derived.support.monomials() {
@@ -563,58 +533,55 @@ pub(super) fn why(
         }
         _ => Vec::new(),
     };
-    let (active_supporting_decision_paths, blocking_defeats, blocked_supports) =
-        if explains_active_support {
-            let known = super::tools::workspace_decisions(store, &params.workspace);
-            let attacks = store
-                .workspace_decision_attacks(&params.workspace)
-                .map_err(|message| ErrorBody {
-                    code: ErrorCode::EvidenceCorrupt,
-                    message,
-                    data: None,
-                })?;
-            let (active, blocked, symbolic_path_count, attack_blocked_path_count) = derived
-                .map_or_else(
-                    || (Vec::new(), Vec::new(), 0, 0),
-                    |derived| {
-                        let symbolic_path_count = derived.support.monomials().count();
-                        let (active, blocked, attack_blocked_path_count, work) =
-                            explain_support_paths(inner, derived, &known, &attacks);
-                        ws.note_attack_explanation(
-                            work.endpoint_resolutions,
-                            work.incidence_visits,
-                            work.valuation_copies,
-                        );
-                        (
-                            active,
-                            blocked,
-                            symbolic_path_count,
-                            attack_blocked_path_count,
-                        )
-                    },
-                );
-            // The conclusion itself is attack-blocked only when every symbolic
-            // support monomial is accounted for by a structured blocked entry.
-            // A merely open/possible or otherwise-dead alternative prevents a
-            // direct attack from being reported as the global cause.
-            let blockers = if active.is_empty()
-                && symbolic_path_count > 0
-                && attack_blocked_path_count == symbolic_path_count
-            {
-                let mut blockers: Vec<_> = blocked
-                    .iter()
-                    .flat_map(|support| support.blocking_defeats.iter().cloned())
-                    .collect();
-                blockers.sort();
-                blockers.dedup();
-                blockers
-            } else {
-                Vec::new()
-            };
-            (Some(active), Some(blockers), Some(blocked))
+    let (active_supporting_decision_paths, blocking_defeats, blocked_supports) = {
+        let known = super::tools::workspace_decisions(store, &params.workspace);
+        let attacks = store
+            .workspace_decision_attacks(&params.workspace)
+            .map_err(|message| ErrorBody {
+                code: ErrorCode::EvidenceCorrupt,
+                message,
+                data: None,
+            })?;
+        let (active, blocked, symbolic_path_count, attack_blocked_path_count) = derived
+            .map_or_else(
+                || (Vec::new(), Vec::new(), 0, 0),
+                |derived| {
+                    let symbolic_path_count = derived.support.monomials().count();
+                    let (active, blocked, attack_blocked_path_count, work) =
+                        explain_support_paths(inner, derived, &known, &attacks);
+                    ws.note_attack_explanation(
+                        work.endpoint_resolutions,
+                        work.incidence_visits,
+                        work.valuation_copies,
+                    );
+                    (
+                        active,
+                        blocked,
+                        symbolic_path_count,
+                        attack_blocked_path_count,
+                    )
+                },
+            );
+        // The conclusion itself is attack-blocked only when every symbolic
+        // support monomial is accounted for by a structured blocked entry.
+        // A merely open/possible or otherwise-dead alternative prevents a
+        // direct attack from being reported as the global cause.
+        let blockers = if active.is_empty()
+            && symbolic_path_count > 0
+            && attack_blocked_path_count == symbolic_path_count
+        {
+            let mut blockers: Vec<_> = blocked
+                .iter()
+                .flat_map(|support| support.blocking_defeats.iter().cloned())
+                .collect();
+            blockers.sort();
+            blockers.dedup();
+            blockers
         } else {
-            (None, None, None)
+            Vec::new()
         };
+        (Some(active), Some(blockers), Some(blocked))
+    };
     Ok(value(&AuthorWhyResult {
         why_not,
         why,
@@ -742,13 +709,9 @@ fn named_decision_path(
 /// pre-flight of what `author.materialize` would refuse on, each carrying its
 /// typed repair. This is the exact set the materialize gate reads, so
 /// `materializable` answers "could I materialize now?".
-pub(super) fn findings(
-    store: &Store,
-    params: &AuthorFindingsParams,
-    carries_data: bool,
-) -> Result<Value, ErrorBody> {
+pub(super) fn findings(store: &Store, params: &AuthorFindingsParams) -> Result<Value, ErrorBody> {
     let ws = store.get(&params.workspace).ok_or_else(gone)?;
-    let all = workspace_report(store, ws, carries_data).findings;
+    let all = workspace_report(store, ws, true).findings;
     let (errors, warnings): (Vec<Finding>, Vec<Finding>) = all
         .into_iter()
         .partition(|finding| finding.severity == Severity::Error);
@@ -765,12 +728,8 @@ pub(super) fn findings(
 /// agent to recover which workspaces it has open and where each stands. Total: a
 /// store-level read that never fails.
 ///
-/// `branch_writes` gates the row's `branch` field (WS-3, ≥ 1.7.0): this list
-/// can surface workspaces a DIFFERENT caller opened, so — unlike
-/// `author.open`'s own result, where a pre-1.7.0 caller could never have set
-/// `branch` on its own workspace in the first place — a 1.6.0-or-earlier
-/// caller here needs the field actively suppressed, not just naturally absent.
-pub(super) fn list_workspaces(store: &Store, branch_writes: bool) -> Value {
+/// List open workspaces and their target branches.
+pub(super) fn list_workspaces(store: &Store) -> Value {
     let workspaces = store
         .workspaces()
         .map(|ws| WorkspaceDigest {
@@ -779,7 +738,7 @@ pub(super) fn list_workspaces(store: &Store, branch_writes: bool) -> Value {
             mode: wire_mode(ws.mode),
             staged: ws.decls.len(),
             workspace_digest: ws.digest.clone(),
-            branch: branch_writes.then(|| ws.target_branch.clone()).flatten(),
+            branch: ws.target_branch.clone(),
         })
         .collect();
     value(&AuthorListWorkspacesResult { workspaces })
@@ -1117,7 +1076,7 @@ fn parse_goal(text: &str) -> Result<AtomExpr, ErrorBody> {
 /// Map a kernel [`WorldFinding`] onto the wire [`Finding`] (the same mapping the
 /// batch `dli.check` handler uses; the read surface carries no repair for a
 /// world-internal finding). `data` rides across only when `carries_data`
-/// (WS-2, `≥1.7.0` — [`crate::has_finding_data`]).
+/// (WS-2).
 fn world_finding(finding: &WorldFinding, carries_data: bool) -> Finding {
     Finding {
         severity: match finding.severity {
@@ -1317,10 +1276,10 @@ mod cache_tests {
             goal_atom: Some(missing_goal()),
         };
 
-        query(&store, &query_params, true).expect("first query");
-        why(&store, &why_params, true, true).expect("why hit");
-        query(&store, &query_params, true).expect("second query hit");
-        why(&store, &why_params, true, true).expect("second why hit");
+        query(&store, &query_params).expect("first query");
+        why(&store, &why_params).expect("why hit");
+        query(&store, &query_params).expect("second query hit");
+        why(&store, &why_params).expect("second why hit");
 
         assert_eq!(
             store.get("ws-1").expect("workspace").compile_cache_stats(),
@@ -1438,20 +1397,20 @@ mod cache_tests {
                 atom: String::new(),
                 goal_atom: Some(missing_goal()),
             };
-            let enabled_query = query(&store, &query_params, true).expect("enabled query");
-            let enabled_why = why(&store, &why_params, true, true).expect("enabled why");
+            let enabled_query = query(&store, &query_params).expect("enabled query");
+            let enabled_why = why(&store, &why_params).expect("enabled why");
 
             ws.set_compile_cache_enabled(false);
             let disabled = staged_world(&store, ws).expect("disabled compile");
             assert_eq!(enabled, disabled, "{mode:?}");
             assert_eq!(
                 enabled_query,
-                query(&store, &query_params, true).expect("disabled query"),
+                query(&store, &query_params).expect("disabled query"),
                 "{mode:?} query"
             );
             assert_eq!(
                 enabled_why,
-                why(&store, &why_params, true, true).expect("disabled why"),
+                why(&store, &why_params).expect("disabled why"),
                 "{mode:?} why"
             );
 
@@ -1708,10 +1667,10 @@ mod cache_tests {
                         ws.base_unassigned = unassigned.clone();
                         for _ in 0..logical_queries {
                             let started = Instant::now();
-                            query(&store, &query_params, true).expect("profile query");
+                            query(&store, &query_params).expect("profile query");
                             query_time += started.elapsed();
                             let started = Instant::now();
-                            why(&store, &why_params, true, true).expect("profile why");
+                            why(&store, &why_params).expect("profile why");
                             why_time += started.elapsed();
                         }
                     }

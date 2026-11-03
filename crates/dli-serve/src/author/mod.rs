@@ -64,26 +64,18 @@ use crate::ops::Op;
 pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
     match request.op {
         Op::AuthorOpen => match parse::<AuthorOpenParams>(request) {
-            Ok(params) => settle(request, tools::open(store, &params, true)),
+            Ok(params) => settle(request, tools::open(store, &params)),
             Err(response) => response,
         },
         Op::AuthorStatus => read(request, store, |store, request| {
             let params: AuthorStatusParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = true;
-            Ok((
-                params.workspace.clone(),
-                tools::status(store, &params, v2, true, true),
-            ))
+            Ok((params.workspace.clone(), tools::status(store, &params)))
         }),
         Op::AuthorDiff => read(request, store, |store, request| {
             let params: AuthorDiffParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = true;
-            Ok((
-                params.workspace.clone(),
-                tools::diff(store, &params, v2, true),
-            ))
+            Ok((params.workspace.clone(), tools::diff(store, &params)))
         }),
         // materialize advances the lorestore ref: a mutation, dispatched
         // through the mutating wrapper so idempotency-key replay works
@@ -91,11 +83,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorMaterialize => mutate(request, store, |store, request| {
             let params: AuthorMaterializeParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = true;
-            Ok((
-                params.workspace.clone(),
-                tools::materialize(store, &params, v2, true),
-            ))
+            Ok((params.workspace.clone(), tools::materialize(store, &params)))
         }),
         Op::AuthorDiscard => mutate(request, store, |store, request| {
             let params: AuthorDiscardParams = parse(request)?;
@@ -103,7 +91,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             let decl = request.params.get("decl").and_then(Value::as_str);
             Ok((
                 params.workspace.clone(),
-                tools::discard(store, &params.workspace, decl, true),
+                tools::discard(store, &params.workspace, decl),
             ))
         }),
         Op::AuthorAddEntity => mutate(request, store, |store, request| {
@@ -282,8 +270,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorQuery => read(request, store, |store, request| {
             let params: AuthorQueryParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = true;
-            Ok((params.workspace.clone(), reads::query(store, &params, v2)))
+            Ok((params.workspace.clone(), reads::query(store, &params)))
         }),
         // The one inertia-aware read (contract 1.9.0, DL-0082): a workspace
         // read like `author.query`, never a mutation — it stages nothing, so
@@ -292,53 +279,41 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorAsOf => read(request, store, |store, request| {
             let params: AuthorAsOfParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = true;
-            Ok((params.workspace.clone(), reads::as_of(store, &params, v2)))
+            Ok((params.workspace.clone(), reads::as_of(store, &params)))
         }),
         Op::AuthorCheck => read(request, store, |store, request| {
             let params: AuthorCheckParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((params.workspace.clone(), reads::check(store, &params, true)))
+            Ok((params.workspace.clone(), reads::check(store, &params)))
         }),
         Op::AuthorWhy => read(request, store, |store, request| {
             let params: AuthorWhyParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                reads::why(store, &params, true, true),
-            ))
+            Ok((params.workspace.clone(), reads::why(store, &params)))
         }),
         Op::AuthorFindings => read(request, store, |store, request| {
             let params: AuthorFindingsParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                reads::findings(store, &params, true),
-            ))
+            Ok((params.workspace.clone(), reads::findings(store, &params)))
         }),
         // No workspace param, so no precheck: a store-level read of the open set.
         Op::AuthorListWorkspaces => read(request, store, |store, request| {
             let _params: AuthorListWorkspacesParams = parse(request)?;
-            Ok((String::new(), Ok(reads::list_workspaces(store, true))))
+            Ok((String::new(), Ok(reads::list_workspaces(store))))
         }),
         // The incremental-canonicalization reads (contract 1.10.0): both answer
         // over the STAGED world and stage nothing, so they route through `read`.
         Op::AuthorPredicates => read(request, store, |store, request| {
             let params: AuthorPredicatesParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = true;
-            Ok((
-                params.workspace.clone(),
-                reads::predicates(store, &params, v2),
-            ))
+            Ok((params.workspace.clone(), reads::predicates(store, &params)))
         }),
         Op::AuthorEntityCandidates => read(request, store, |store, request| {
             let params: AuthorEntityCandidatesParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = true;
             Ok((
                 params.workspace.clone(),
-                reads::entity_candidates(store, &params, v2, true),
+                reads::entity_candidates(store, &params),
             ))
         }),
         // Branch/merge operate on the workspace's durable lorestore (LS-6/WS-3).
@@ -351,18 +326,12 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorBranch => mutate(request, store, |store, request| {
             let params: AuthorBranchParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                tools::branch(store, &params, true),
-            ))
+            Ok((params.workspace.clone(), tools::branch(store, &params)))
         }),
         Op::AuthorMerge => mutate(request, store, |store, request| {
             let params: AuthorMergeParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                tools::merge(store, &params, true, true),
-            ))
+            Ok((params.workspace.clone(), tools::merge(store, &params)))
         }),
         // Every non-`author.*` op is the batch worker's; the frozen seam only
         // ever receives `author.*`, so anything else is an unknown op here.

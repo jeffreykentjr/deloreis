@@ -925,6 +925,28 @@ fn canon_export_is_available_on_contract_two() {
     );
 }
 
+#[cfg(feature = "syntax")]
+#[test]
+fn importing_a_new_decided_marker_names_its_successor() {
+    let (_root, mut sessions, mut store) = empty_corpus_server("decided-marker-import");
+    let response = send(
+        &serde_json::json!({"dli":"2.0.0", "id":"import", "op":"dli.corpus.import", "params":{
+            "document":"storybook", "mode":"append",
+            "dli_documents":[{"id":"extra", "text":"scope storybook\nratify d-1\nperson wren decided d-1\n"}]
+        }}),
+        &mut sessions,
+        &mut store,
+    );
+    assert_eq!(response["error"]["code"], "killed-form", "{response}");
+    assert!(
+        response["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Provisional"),
+        "{response}"
+    );
+}
+
 /// The corpus round-trip is lossless, and that is a stronger claim than
 /// "the objects match": a stored fact records its support as `±<index>` into the
 /// commit's interner, and its standing is read against the commit's decision

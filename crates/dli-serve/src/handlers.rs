@@ -288,13 +288,13 @@ fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, 
             .map_err(eval_fault)?
     };
     let interner = &query_interner;
-    // 0.6.0 replay context: bind the compiled world (facts, derived set,
+    // Replay context binds the compiled world (facts, derived set,
     // interner) together with the EFFECTIVE valuation — the ambient rulings
     // with any fork overlay folded in — and the as-of cut. The digest is
     // domain-prefixed `world:sha256:` — a binding of compiled state, never a
     // loadable store address (audit B6). The wire valuation is the full
     // ruled map, explicit falses included (audit B7).
-    let context = if crate::speaks_v2(&request.dli) {
+    let context = {
         let mut effective = scope.world.model.world.valuation.clone();
         if let Some(overlay) = &opts.fork {
             for (atom, value) in &overlay.0 {
@@ -305,8 +305,6 @@ fn handle_query(request: &Request, sessions: &mut Sessions) -> Result<Response, 
         let digest = temporal_digest
             .unwrap_or_else(|| world_binding_digest(&scope.world, &effective, p.as_of.as_deref()));
         Some((digest, entries))
-    } else {
-        None
     };
     let rows = answer
         .rows
@@ -1235,10 +1233,8 @@ fn diff_conflict(conflict: &dli_eval::fork::Conflict) -> DiffConflict {
     }
 }
 
-/// Map a kernel [`WorldFinding`] onto the wire [`Finding`]. `data` rides
-/// across only on a `≥1.7.0` negotiation (`has_finding_data`, WS-2) — every
-/// earlier wire keeps answering with no `data` key, byte-identical.
-fn world_finding(finding: &WorldFinding, dli: &str) -> Finding {
+/// Map a kernel [`WorldFinding`] onto the wire [`Finding`].
+fn world_finding(finding: &WorldFinding, _dli: &str) -> Finding {
     Finding {
         severity: match finding.severity {
             WorldSeverity::Error => Severity::Error,
@@ -1249,9 +1245,7 @@ fn world_finding(finding: &WorldFinding, dli: &str) -> Finding {
         grade: finding.grade,
         repair: None,
         citations: finding.citations.clone(),
-        data: crate::has_finding_data(dli)
-            .then(|| finding.data.clone())
-            .flatten(),
+        data: finding.data.clone(),
     }
 }
 
@@ -1963,7 +1957,7 @@ fn corpus_commit_fault(error: dli_lorestore::StoreError) -> Fault {
 fn import_dli_documents(
     store: &dli_lorestore::Lorestore,
     documents: &[CorpusDocument],
-    dli: &str,
+    _dli: &str,
 ) -> Result<dli_lorestore::ContentHash, Fault> {
     let mut parsed = Vec::with_capacity(documents.len());
     for entry in documents {
@@ -1974,9 +1968,7 @@ fn import_dli_documents(
                 format!("`{}` does not parse: {}", entry.id, diagnostic.message),
             ));
         }
-        if crate::has_standing_tools(dli)
-            && serde_json::to_value(&ast).is_ok_and(|value| contains_marker(&value, "Decided"))
-        {
+        if serde_json::to_value(&ast).is_ok_and(|value| contains_marker(&value, "Decided")) {
             return Err((
                 ErrorCode::KilledForm,
                 "stored marker `Decided` is retired; use `Provisional`".to_owned(),
