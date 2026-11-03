@@ -100,6 +100,18 @@ Discipline (`decisions.md` DL-0011):
 - **Plain commit messages. No AI `Co-Authored-By` trailers** — hook-enforced via
   `.githooks/`.
 
+### Build artifacts and worktrees
+
+- **Worktrees live at `.claude/worktrees/<name>`** inside the primary checkout
+  (gitignored) — not as `~/dli-*` siblings.
+- **Each worktree builds into its own `target/`.** Never point
+  `CARGO_TARGET_DIR` at a shared or home-level dir (`~/tg-*`); no test needs a
+  short target path. `scripts/greengate.sh` keeps its own cache dir.
+- The workspace profiles keep dev/test debug info to line tables; set
+  `CARGO_PROFILE_DEV_DEBUG=2` for a debugger session.
+- **After merge or abandon:** `cargo clean` in the worktree, then
+  `git worktree remove <path>` and `git worktree prune`.
+
 ## 6. Repositories
 
 A commit touches exactly one repository. Changes to a consuming project belong

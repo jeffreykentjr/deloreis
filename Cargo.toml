@@ -45,6 +45,20 @@ tempfile = "3"
 syn = { version = "2", features = ["full", "visit"] }
 proc-macro2 = "1"
 
+# Line tables only keep backtraces while bounding the disk use of many
+# per-worktree target dirs. For a debugger session: CARGO_PROFILE_DEV_DEBUG=2.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.test]
+debug = "line-tables-only"
+
+[profile.test.package."*"]
+debug = false
+
 [workspace.lints.rust]
 unsafe_code = "forbid"
 missing_debug_implementations = "warn"

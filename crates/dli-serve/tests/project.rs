@@ -703,7 +703,20 @@ fn materializes_missing_storage_suffixes_before_serving() {
 fn rejects_special_filesystem_nodes_inside_machine_storage() {
     use std::os::unix::net::UnixListener;
 
-    let root = temp("project-storage-special-node");
+    // Unix socket paths are capped near 108 bytes, so the socket cannot live
+    // under CARGO_TARGET_TMPDIR: a worktree's target dir is often too deep.
+    // Bind under a short system temp dir instead.
+    let short = Path::new("/tmp");
+    let base = if short.is_dir() {
+        short.to_path_buf()
+    } else {
+        std::env::temp_dir()
+    };
+    let dir = tempfile::Builder::new()
+        .prefix("dli")
+        .tempdir_in(base)
+        .unwrap();
+    let root = dir.path().to_path_buf();
     fs::write(root.join("world.dli"), "scope world\n").unwrap();
     fs::create_dir_all(root.join("evidence")).unwrap();
     let _socket = UnixListener::bind(root.join("evidence/worker.sock")).unwrap();

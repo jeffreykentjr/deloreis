@@ -3,3 +3,4 @@
 *.snap.new
 .poolside/
 .dli-lorestore/
+.claude/worktrees/
