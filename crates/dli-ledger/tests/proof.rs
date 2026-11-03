@@ -8,7 +8,9 @@
 use dli_ast::decl::Decl;
 use dli_core::grade::Grade;
 use dli_ledger::ProofReport;
-use dli_ledger::ledger_check::{Expectation, ProofFinding, ProofVerdict, check_proof};
+use dli_ledger::ledger_check::{
+    Expectation, ProofFinding, ProofVerdict, check_proof, check_proof_with_locations,
+};
 use dli_ledger::practice::{StructuralClass, compile_practices};
 use dli_ledger::premise::SceneProjection;
 use dli_syntax::parse_document;
@@ -707,6 +709,38 @@ proof nonfinal speaker protagonist in lantern-ward {
     let report = check_impl(nonfinal, &SceneProjection::new(), true);
     assert!(has(&report, "proof.invalid-close-layout"));
     assert!(!report.checks);
+}
+
+#[test]
+fn malformed_close_layout_does_not_invent_a_resource_location() {
+    for body in [
+        "  premise p1 debt(1) drawn-against p0\n  close first expect blocked\n  close second expect blocked\n",
+        "  premise p1 debt(1) drawn-against p0\n  close first expect blocked\n  assume p2 later\n",
+    ] {
+        let source =
+            format!("{PRACTICE}\nproof invalid speaker protagonist in lantern-ward {{\n{body}}}\n");
+        let (document, _) = parse_document(&source);
+        let practice = compile_practices(&document)
+            .into_iter()
+            .find(|p| p.name.text == "lantern-ward")
+            .unwrap();
+        let proof = document
+            .decls
+            .iter()
+            .find_map(|decl| match decl {
+                Decl::Proof(proof) => Some(proof),
+                _ => None,
+            })
+            .unwrap();
+        let (report, locations) =
+            check_proof_with_locations(&practice, proof, &SceneProjection::new());
+        let index = report
+            .findings
+            .iter()
+            .position(|finding| matches!(finding, ProofFinding::ResourceViolation { .. }))
+            .expect("unbalanced resource");
+        assert!(locations[index].is_none(), "{locations:?}");
+    }
 }
 
 #[test]

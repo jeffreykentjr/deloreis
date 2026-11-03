@@ -926,6 +926,34 @@ fn resource_violations_name_the_actual_replay_operation() {
 }
 
 #[test]
+fn proof_verdict_uses_the_first_failing_operation() {
+    let dir = tmp("proof-failure-order");
+    let path = dir.join("proof.dli");
+    let original = fs::read_to_string(repo().join("examples/norse/seidr.dli")).unwrap();
+    fs::write(
+        &path,
+        original.replace(
+            "  spend p3\n",
+            "  spend p3\n  premise p4 standing(ghost) cited d-0105\n  spend p3\n",
+        ),
+    )
+    .unwrap();
+    let output = bin()
+        .arg("check-proof")
+        .arg(&path)
+        .arg("--corpus")
+        .arg(repo().join("examples/norse"))
+        .output()
+        .unwrap();
+    let text = stdout(&output);
+    assert!(text.contains("verdict: failed at p4"), "{text}");
+    assert!(
+        text.find("proof.premise-absent") < text.find("proof.resource-violation"),
+        "{text}"
+    );
+}
+
+#[test]
 fn malformed_proof_child_blocks_check_replay_and_formatting() {
     let dir = tmp("proof-malformed-child");
     let proof_path = dir.join("malformed.dli");

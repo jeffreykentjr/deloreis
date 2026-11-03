@@ -581,7 +581,7 @@ pub fn check_proof_with_locations(
     let resource_findings = replay_resources(practice, scene, &deltas, &items);
     let resource_locations: BTreeMap<String, Span> = resource_findings
         .iter()
-        .filter_map(|(_, finding, source_pos)| {
+        .filter_map(|(source_pos, finding)| {
             let ProofFinding::ResourceViolation { resource, .. } = finding else {
                 return None;
             };
@@ -590,11 +590,7 @@ pub fn check_proof_with_locations(
                 .map(|item| (resource.clone(), item.span))
         })
         .collect();
-    findings.extend(
-        resource_findings
-            .into_iter()
-            .map(|(pos, finding, _)| (pos, finding)),
-    );
+    findings.extend(resource_findings);
     findings.sort_by_key(|(pos, _)| *pos);
 
     // The verdict is the earliest structural failure; if none, the close must
@@ -1191,7 +1187,7 @@ fn replay_resources(
     scene: &SceneProjection,
     deltas: &BTreeMap<String, Vec<(String, i64, usize)>>,
     items: &[Item<'_>],
-) -> Vec<(usize, ProofFinding, usize)> {
+) -> Vec<(usize, ProofFinding)> {
     let mut findings = Vec::new();
     for (name, seq) in deltas {
         let Some(decl) = practice.resources.iter().find(|r| &r.name.text == name) else {
@@ -1218,27 +1214,28 @@ fn replay_resources(
             },
         };
         if let Some(v) = violation {
-            let (at_label, at_pos) = seq.get(v.at).map_or_else(
-                || (name.clone(), items.len()),
-                |(label, _, _)| (label.clone(), position_of(items, label)),
-            );
+            let at_label = seq
+                .get(v.at)
+                .map_or_else(|| name.clone(), |(label, _, _)| label.clone());
             let source_pos = if v.code == ResourceViolationCode::NotConserved {
-                items
-                    .iter()
-                    .position(|item| item.keyword == "close")
-                    .unwrap_or(items.len())
+                if items.last().is_some_and(|item| item.keyword == "close")
+                    && items.iter().filter(|item| item.keyword == "close").count() == 1
+                {
+                    items.len() - 1
+                } else {
+                    items.len()
+                }
             } else {
                 seq.get(v.at).map_or(items.len(), |(_, _, pos)| *pos)
             };
             findings.push((
-                at_pos,
+                source_pos,
                 ProofFinding::ResourceViolation {
                     resource: name.clone(),
                     code: v.code,
                     message: v.message,
                     at: at_label,
                 },
-                source_pos,
             ));
         }
     }
@@ -1722,31 +1719,6 @@ fn split_first_word(text: &str) -> (&str, &str) {
 
 fn first_word(text: &str) -> &str {
     text.split_whitespace().next().unwrap_or_default()
-}
-
-/// The index of the reassembled item labeled `label`, so a resource breach binds
-/// to the step where the offending delta was applied.
-fn position_of(items: &[Item<'_>], label: &str) -> usize {
-    items
-        .iter()
-        .position(|it| item_label(it.op) == Some(label))
-        .unwrap_or(items.len())
-}
-
-/// The label a proof operation is keyed by in the ledger run (its premise/step
-/// label). A close and a malformed operation carry no such label.
-fn item_label(op: &ProofOp) -> Option<&str> {
-    match op {
-        ProofOp::Premise(p) => Some(p.label.as_str()),
-        ProofOp::Assume(a) => Some(a.label.as_str()),
-        ProofOp::Step(
-            ProofStep::Instantiate { label, .. }
-            | ProofStep::Chain { label, .. }
-            | ProofStep::Custom { label, .. },
-        ) => Some(label.as_str()),
-        ProofOp::Resource(r) => Some(r.label.as_str()),
-        ProofOp::Close(_) | ProofOp::Malformed(_) => None,
-    }
 }
 
 fn term_int(term: &Term) -> Option<i64> {
