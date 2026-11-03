@@ -2982,8 +2982,7 @@ fn citation_unknown(id: &str, known: &BTreeSet<String>) -> Finding {
 /// Lower a wire [`Provenance`] to an AST [`Annotation`]. `proposed` records an
 /// origin tag; `hypothesis` scopes the claim to a fork-local hyp condition.
 ///
-/// `cited` has two lowerings, selected by the negotiated version
-/// (`records_citations` — [`crate::records_citations`]):
+/// `cited` has two internal lowerings; the served contract records citations:
 ///
 /// - **At ≥ 1.3.0** (the authority scrub, DL-0054/DL-0058) it lowers to a real
 ///   `decided` marker carrying the cited ids. The engine records what the caller

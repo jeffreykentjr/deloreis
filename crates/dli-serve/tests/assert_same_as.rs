@@ -185,7 +185,7 @@ fn the_merge_answers_a_staged_query_under_the_alias() {
             "1.7.0",
             "q",
             Op::AuthorQuery,
-            json!({ "workspace": ws, "goal": "rank(moira, gold)", "layer": "all" }),
+            json!({ "workspace": ws, "goal_atom": {"pred":"rank", "args":[{"Sym":"moira"},{"Sym":"gold"}]}, "layer": "all" }),
         ),
         &mut store,
     );
@@ -496,7 +496,7 @@ fn ledger_pack() -> Pack {
 }
 
 fn ledger_request(id: &str, op: Op, params: Value) -> Request {
-    req("1.7.0", id, op, params)
+    req("2.0.0", id, op, params)
 }
 
 fn ledger_result(response: dli_serve::Response) -> Value {
@@ -606,7 +606,7 @@ fn durable_defeat_of_a_same_as_claim_un_merges_the_wire_query() {
         &ledger_request(
             "q1",
             Op::AuthorQuery,
-            json!({ "workspace": workspace, "goal": "rank(moira, gold)", "layer": "all" }),
+            json!({ "workspace": workspace, "goal_atom": {"pred":"rank", "args":[{"Sym":"moira"},{"Sym":"gold"}]}, "layer": "all" }),
         ),
         &mut store,
     ));
@@ -635,13 +635,13 @@ fn durable_defeat_of_a_same_as_claim_un_merges_the_wire_query() {
 
     // After defeat: the SAME wire query, no recompile of anything by this
     // test — `author.query`'s `staged_world` applies the durable
-    // `Ref.valuation` overlay `author.defeat` just wrote, and the merged
+    // conditional attack `author.defeat` just wrote, and the merged
     // consequence is dead on this very next read.
     let after = ledger_result(dispatch(
         &ledger_request(
             "q2",
             Op::AuthorQuery,
-            json!({ "workspace": workspace, "goal": "rank(moira, gold)", "layer": "all" }),
+            json!({ "workspace": workspace, "goal_atom": {"pred":"rank", "args":[{"Sym":"moira"},{"Sym":"gold"}]}, "layer": "all" }),
         ),
         &mut store,
     ));
@@ -656,7 +656,7 @@ fn durable_defeat_of_a_same_as_claim_un_merges_the_wire_query() {
         &ledger_request(
             "q3",
             Op::AuthorQuery,
-            json!({ "workspace": workspace, "goal": "rank(nara, gold)", "layer": "all" }),
+            json!({ "workspace": workspace, "goal_atom": {"pred":"rank", "args":[{"Sym":"nara"},{"Sym":"gold"}]}, "layer": "all" }),
         ),
         &mut store,
     ));
@@ -666,32 +666,21 @@ fn durable_defeat_of_a_same_as_claim_un_merges_the_wire_query() {
         "nara's own fact never depended on the identity ruling: {surface:?}"
     );
 
-    // And the durable overlay itself: the ref's valuation rules D-3 false —
-    // D-1 is untouched, matching the surface-fact assertion above.
+    // The identity's ruling is defeated by a durable conditional attack;
+    // the unrelated surface fact's ruling is untouched.
     let lorestore =
         dli_lorestore::Lorestore::open(lorestore_path.join("demo")).expect("reopen lorestore");
     let reference = lorestore
         .branch_ref(dli_lorestore::MAIN_REF)
         .expect("read main ref")
         .expect("main ref exists");
-    let interner = lorestore
-        .interner_at(&reference.commit)
-        .expect("read interner");
-    let decision_atom = |name: &str| {
-        dli_core::Atom(
-            u32::try_from(
-                interner
-                    .iter()
-                    .position(|candidate| candidate == name)
-                    .unwrap_or_else(|| panic!("{name} is interned: {interner:?}")),
-            )
-            .expect("interner index fits in an atom"),
-        )
-    };
-    assert_eq!(reference.valuation.get(decision_atom("D-3")), Some(false));
-    assert_ne!(
-        reference.valuation.get(decision_atom("D-1")),
-        Some(false),
-        "D-1 must not be touched by defeating the identity's own citation"
+    let attacks = lorestore
+        .decision_attacks_from(&reference.commit)
+        .expect("read attacks");
+    assert!(
+        attacks
+            .iter()
+            .any(|attack| attack.attacker == "D-2" && attack.target == "D-3")
     );
+    assert!(attacks.iter().all(|attack| attack.target != "D-1"));
 }

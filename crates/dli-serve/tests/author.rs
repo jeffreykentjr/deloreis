@@ -1122,62 +1122,7 @@ fn malformed_params_are_schema_violations() {
 
 // -- R3 verify-attacker hardening --------------------------------------------
 
-/// B1: an agent cannot mint canon authority — `cited` provenance is refused, the
-/// claim stages nothing (never reads certain), and a proposed resubmit enters as
-/// proposed, never `decided`.
-#[test]
-fn cited_provenance_is_refused_and_never_mints_authority() {
-    let mut store = Store::default();
-    let ws = open_scope(&mut store, "storybook");
-    let cited = send(
-        &mut store,
-        &req(
-            "2",
-            Op::AuthorAddEntity,
-            json!({ "workspace": ws, "kind": "person", "id": "villain", "name": "The Usurper",
-                    "provenance": { "kind": "cited", "decisions": ["d-9999"] } }),
-        ),
-    );
-    let refused = result(&cited);
-    let finding = refused["findings"]
-        .as_array()
-        .expect("findings")
-        .iter()
-        .find(|f| f["code"] == json!("provenance.cited-refused"))
-        .expect("a provenance.cited-refused finding");
-    assert_eq!(finding["severity"], json!("error"));
-    assert!(
-        refused["rendered"].as_array().is_some_and(Vec::is_empty),
-        "a refused citation stages nothing"
-    );
-
-    // The forged claim never entered the workspace.
-    let diff = send(
-        &mut store,
-        &req("3", Op::AuthorDiff, json!({ "workspace": ws })),
-    );
-    assert!(
-        result(&diff)["rendered"]
-            .as_array()
-            .is_some_and(Vec::is_empty)
-    );
-
-    // A proposed resubmit is accepted and renders as proposed, never decided.
-    let ok = send(
-        &mut store,
-        &req(
-            "4",
-            Op::AuthorAddEntity,
-            json!({ "workspace": ws, "kind": "person", "id": "villain", "name": "The Usurper",
-                    "provenance": { "kind": "proposed", "origin": "s" } }),
-        ),
-    );
-    let line = result(&ok)["rendered"][0].as_str().unwrap_or_default();
-    assert!(line.contains("proposed") && !line.contains("decided"));
-}
-
-/// B2: bidi and zero-width characters (Cf) are caught like C0 controls — the RLO
-/// override is flagged, escaped in the display, and bars materialize.
+/// Bidi and zero-width characters are caught, escaped, and bar materialization.
 #[test]
 fn bidi_and_zero_width_chars_are_caught_and_escaped() {
     let mut store = Store::default();

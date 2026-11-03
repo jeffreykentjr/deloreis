@@ -150,29 +150,7 @@ fn candidates_exclude_fact_only_symbols_before_applying_the_limit() {
     assert_ne!(names(result), vec!["blue".to_owned()]);
 }
 
-#[test]
-fn contract_1_10_retains_the_released_symbol_result() {
-    let mut store = base(concat!(
-        "scope storybook\n",
-        "ratify D-0001\n",
-        "thing alice-123 \"Alice\"  ratified D-0001\n",
-        "alice-123.color = blue  ratified D-0001\n",
-    ));
-    let ws = open_scope(&mut store, "1.10.0", "storybook");
-    let out = candidates(&mut store, "1.10.0", &ws, "blue", 1);
-    let rows = result(&out)["candidates"].as_array().expect("candidates");
-
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0]["name"], json!("blue"));
-    assert_eq!(rows[0]["distance"], json!(0));
-    assert!(rows[0].get("sort").is_none());
-}
-
-/// The canonical-representative fold: an aliased class collapses to one
-/// candidate, so the surfaced name keys the way `continuity.fd-violation` would
-/// and the `limit` budget is never spent twice on one class. `same-as` merges
-/// `sira` into `nara` (lexicographic-min representative), so only `nara`
-/// surfaces.
+/// An aliased class contributes one canonical candidate and spends the limit once.
 #[test]
 fn an_aliased_class_collapses_to_one_representative() {
     let mut store = base(concat!(

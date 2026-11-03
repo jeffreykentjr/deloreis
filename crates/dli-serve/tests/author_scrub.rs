@@ -1,25 +1,7 @@
-//! The authority scrub (DL-0054, versioned and implemented by DL-0058).
+//! Citation provenance records attribution and verifies decision references.
 //!
-//! DL-0054 ruled that deloreis stops enforcing **who may rule**. Every caller of
-//! this engine is a machine; whether that machine is entitled to cite a ruling
-//! is a question about the consuming application's review pipeline, and the
-//! engine had encoded a guess at the answer as a wire refusal. It records what
-//! the caller states and verifies the one thing it genuinely can — that the
-//! cited decision exists.
-//!
-//! Three properties, and the third is the one that makes the first two safe:
-//!
-//! 1. **At ≥ 1.3.0 a citation is recorded**, not refused: the claim carries a
-//!    `decided` marker and its ids.
-//! 2. **Below 1.3.0 the old refusal is served unchanged**, so every released
-//!    wire is frozen. The `ls8_zero_x_parity` corpus covers `0.x`; this covers
-//!    the `1.0.0`–`1.2.0` band, which that corpus does not reach.
-//! 3. **Referential integrity stays fail-closed.** Recording a citation is not
-//!    the same as believing it. A cited decision the corpus does not declare
-//!    leaves its variable *open*, so the claim it supports can never read
-//!    `certain` — and the finding that says so is error-severity, which bars
-//!    materialize. Without this, the scrub would have turned "the engine
-//!    refuses citations" into "the engine accepts forged ones".
+//! A declared decision can support a certain claim; an unknown citation stays
+//! possible and blocks materialization until it is repaired.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -28,11 +10,6 @@ use serde_json::{Value, json};
 use dli_serve::author::dispatch;
 use dli_serve::author::store::Store;
 use dli_serve::{Op, Request};
-
-/// Every version this build accepts, below the scrub floor.
-const FROZEN: &[&str] = &[
-    "0.5.1", "0.6.0", "0.6.1", "0.6.2", "0.6.3", "0.6.4", "1.0.0", "1.1.0", "1.2.0",
-];
 
 fn req(dli: &str, id: &str, op: Op, params: Value) -> Request {
     Request {
@@ -101,16 +78,16 @@ fn add_entity(store: &mut Store, dli: &str, provenance: &Value) -> Value {
 }
 
 #[test]
-fn at_the_scrub_version_a_citation_is_recorded_as_data() {
-    let (mut store, _ws) = workspace("1.3.0");
+fn a_citation_is_recorded_as_data() {
+    let (mut store, _ws) = workspace("2.0.0");
     let result = add_entity(
         &mut store,
-        "1.3.0",
-        &json!({ "kind": "cited", "decisions": ["d-1"] }),
+        "2.0.0",
+        &json!({ "kind": "cited", "decisions": ["d-1"], "state": "ratified" }),
     );
     assert!(
         !codes(&result).contains(&"provenance.cited-refused".to_owned()),
-        "the refusal is scrubbed at 1.3.0: {result}"
+        "a citation is recorded: {result}"
     );
     // The claim staged: something is in the workspace to review.
     let staged = store
@@ -125,69 +102,12 @@ fn at_the_scrub_version_a_citation_is_recorded_as_data() {
 }
 
 #[test]
-fn below_the_scrub_version_every_accepted_wire_still_refuses_a_citation() {
-    for dli in FROZEN {
-        let (mut store, _ws) = workspace(dli);
-        let result = add_entity(
-            &mut store,
-            dli,
-            &json!({ "kind": "cited", "decisions": ["d-1"] }),
-        );
-        assert!(
-            codes(&result).contains(&"provenance.cited-refused".to_owned()),
-            "{dli} must still refuse a citation: {result}"
-        );
-        assert_eq!(
-            result["rendered"],
-            json!([]),
-            "{dli}: the refusal stages nothing: {result}"
-        );
-        let staged = store
-            .workspaces()
-            .next()
-            .map(|ws| ws.decls.len())
-            .unwrap_or_default();
-        assert_eq!(staged, 0, "{dli}: nothing reached the workspace: {result}");
-    }
-}
-
-/// The finding text is part of the frozen surface, not just its code: a caller
-/// below 1.3.0 reads the message and the repair, and both shipped.
-#[test]
-fn the_frozen_refusal_keeps_its_message_and_repair_verbatim() {
-    let (mut store, _ws) = workspace("1.2.0");
+fn an_unknown_citation_blocks_materialization() {
+    let (mut store, ws) = workspace("2.0.0");
     let result = add_entity(
         &mut store,
-        "1.2.0",
-        &json!({ "kind": "cited", "decisions": ["d-1"] }),
-    );
-    let finding = &result["findings"][0];
-    assert_eq!(finding["code"], "provenance.cited-refused");
-    assert_eq!(finding["severity"], "error");
-    assert_eq!(finding["grade"], "checked");
-    assert_eq!(
-        finding["message"],
-        "Door T authors `proposed` or `hypothesis` only; an agent cannot cite a ruling to mint \
-         canon authority. Citing a decision is a human act in review — resubmit with proposed \
-         provenance."
-    );
-    assert_eq!(
-        finding["repair"],
-        json!({ "kind": "add-provenance", "required": "proposed" })
-    );
-}
-
-/// **The scrub's load-bearing guard.** Recording a citation must not mean
-/// believing it. A forged id draws an error-severity finding, which is what
-/// `author.materialize` refuses on — so a claim resting on an invented ruling
-/// cannot be committed.
-#[test]
-fn a_forged_citation_is_refused_on_every_wire_that_records_citations() {
-    let (mut store, ws) = workspace("1.3.0");
-    let result = add_entity(
-        &mut store,
-        "1.3.0",
-        &json!({ "kind": "cited", "decisions": ["d-9999-forged"] }),
+        "2.0.0",
+        &json!({ "kind": "cited", "decisions": ["d-9999-forged"], "state": "ratified" }),
     );
     let found = result["findings"]
         .as_array()
@@ -209,7 +129,7 @@ fn a_forged_citation_is_refused_on_every_wire_that_records_citations() {
     // And materialize actually refuses, rather than the finding merely existing.
     let blocked = dispatch(
         &req(
-            "1.3.0",
+            "2.0.0",
             "2",
             Op::AuthorMaterialize,
             json!({ "workspace": ws }),
@@ -230,58 +150,6 @@ fn a_forged_citation_is_refused_on_every_wire_that_records_citations() {
             .and_then(Value::as_array)
             .is_some_and(|blocking| blocking.iter().any(|c| c == "citation.unknown-decision")),
         "the blocking code is named in the refusal data: {error:?}"
-    );
-}
-
-/// The gate is the negotiated version, not the newest build: a caller that has
-/// not opted in sees no behavior change at all, which is what "every tagged
-/// prior contract is frozen" means operationally.
-#[test]
-fn the_two_behaviors_differ_only_by_the_negotiated_version() {
-    let forged: Value = json!({ "kind": "cited", "decisions": ["d-9999-forged"] });
-
-    let (mut old, _) = workspace("1.2.0");
-    let old_result = add_entity(&mut old, "1.2.0", &forged);
-
-    let (mut new, _) = workspace("1.3.0");
-    let new_result = add_entity(&mut new, "1.3.0", &forged);
-
-    assert_eq!(
-        codes(&old_result),
-        vec!["provenance.cited-refused".to_owned()],
-        "1.2.0 answers with the refusal alone"
-    );
-    assert!(
-        codes(&new_result).contains(&"citation.unknown-decision".to_owned())
-            && !codes(&new_result).contains(&"provenance.cited-refused".to_owned()),
-        "1.3.0 answers with referential integrity instead: {new_result}"
-    );
-}
-
-/// A `proposed` claim is untouched by the scrub on both sides of the gate. The
-/// change is scoped to `cited`; if it had leaked, this is where it would show.
-#[test]
-fn proposed_provenance_is_identical_across_the_gate() {
-    let proposed: Value = json!({ "kind": "proposed", "origin": "session-scrub" });
-
-    let (mut old, _) = workspace("1.2.0");
-    let old_result = add_entity(&mut old, "1.2.0", &proposed);
-
-    let (mut new, _) = workspace("1.3.0");
-    let new_result = add_entity(&mut new, "1.3.0", &proposed);
-
-    assert_eq!(
-        old_result["rendered"], new_result["rendered"],
-        "a proposed claim renders identically across the gate"
-    );
-    assert_eq!(
-        codes(&old_result),
-        codes(&new_result),
-        "a proposed claim raises the same findings across the gate"
-    );
-    assert_eq!(
-        old_result["workspace_digest"], new_result["workspace_digest"],
-        "a proposed claim reaches the same staged state across the gate"
     );
 }
 
@@ -648,7 +516,7 @@ fn no_free_text_field_of_any_staged_declaration_can_forge_a_line() {
         // The uncorrupted call's rendering: the baseline every injected variant
         // is measured against.
         let clean_lines = {
-            let (mut store, ws) = workspace("1.3.0");
+            let (mut store, ws) = workspace("2.0.0");
             let _ = dispatch(
                 &req(
                     "1.3.0",
@@ -670,7 +538,7 @@ fn no_free_text_field_of_any_staged_declaration_can_forge_a_line() {
         };
         for pointer in string_leaves(template, "") {
             positions += 1;
-            let (mut store, ws) = workspace("1.3.0");
+            let (mut store, ws) = workspace("2.0.0");
             // `add_option`/`add_attest` need their question open first; opening
             // one always succeeds and is not the call under test.
             let _ = dispatch(
