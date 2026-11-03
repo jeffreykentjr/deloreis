@@ -283,18 +283,7 @@ pub(super) fn discard(
 pub(super) fn materialize(
     store: &mut Store,
     params: &AuthorMaterializeParams,
-    v2: bool,
-    records_decisions: bool,
 ) -> Result<Value, ErrorBody> {
-    // The `decision` param (accept the whole committed set under a named,
-    // recorded, defeasible decision) is defined only by contract 1.9.0
-    // (DL-0083); supplying it on an earlier accepted version is a schema
-    // violation, floor-gated the same way `state`/`branch` params are.
-    if params.decision.is_some() && !records_decisions {
-        return Err(schema_error(
-            "field `decision` is defined only by contract 1.9.0 decision-stamped materialize",
-        ));
-    }
     // Without a lorestore the rendering IS the materialization (demo/test
     // contexts): version-independent legacy shape.
     if store.workspace_lorestore(&params.workspace).is_none() {
@@ -369,9 +358,8 @@ pub(super) fn materialize(
         )
     };
 
-    // JSON-first (0.6.0): the rendered lines are the opt-in, the fact objects
-    // the default. A 0.5.1 request always renders.
-    let rendered = if v2 && !params.rendered {
+    // Rendered lines are opt-in; fact objects are the default.
+    let rendered = if !params.rendered {
         Vec::new()
     } else {
         render_scoped(&base_name, &staged_decls)
@@ -409,8 +397,8 @@ pub(super) fn materialize(
             findings: Vec::new(),
             rendered,
             workspace_digest: ws_digest,
-            root_hash: if v2 { pinned } else { None },
-            facts: v2.then(Vec::new),
+            root_hash: pinned,
+            facts: Some(Vec::new()),
         }));
     }
 
@@ -517,8 +505,7 @@ pub(super) fn materialize(
     // re-emits its `ratify` as a synthesized prelude beside any carried one) and
     // ensure the commit interner carries its atom, so a committed fact that
     // cites it reads certain by the ordinary algebra. The fact objects are then
-    // re-stamped `Ratified` under it below. `records_decisions` is guaranteed
-    // true here — a pre-1.9.0 `decision` was refused at the top.
+    // re-stamped `Ratified` under it below.
     let mut merged_interner = dli_core::Interner::from_names(target_names.clone());
     for name in &ws_interner {
         merged_interner.intern(name);
@@ -710,7 +697,7 @@ pub(super) fn materialize(
     // stamping above), so reading them after the ref moved would create an
     // avoidable error window in which the durable commit succeeded but the
     // prepared in-memory base was not installed.
-    let facts = if v2 {
+    let facts = {
         let ls = store
             .workspace_lorestore(&params.workspace)
             .expect("checked above");
@@ -731,8 +718,6 @@ pub(super) fn materialize(
             list.push(serde_json::to_value(&fo).unwrap_or(Value::Null));
         }
         Some(list)
-    } else {
-        None
     };
     let materialized_keys: BTreeSet<String> = store
         .get(&params.workspace)
@@ -794,7 +779,7 @@ pub(super) fn materialize(
         findings: Vec::new(),
         rendered,
         workspace_digest,
-        root_hash: v2.then(|| commit_hash.to_string()),
+        root_hash: Some(commit_hash.to_string()),
         facts,
     }))
 }

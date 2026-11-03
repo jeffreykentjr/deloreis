@@ -83,11 +83,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorMaterialize => mutate(request, store, |store, request| {
             let params: AuthorMaterializeParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = true;
-            Ok((
-                params.workspace.clone(),
-                tools::materialize(store, &params, v2, true),
-            ))
+            Ok((params.workspace.clone(), tools::materialize(store, &params)))
         }),
         Op::AuthorDiscard => mutate(request, store, |store, request| {
             let params: AuthorDiscardParams = parse(request)?;
