@@ -95,8 +95,6 @@ pub enum ErrorCode {
     ProjectRequired,
     /// Committed evidence failed its digest, canonicalization, or lineage checks.
     EvidenceCorrupt,
-    /// A referenced durable simulation job does not exist.
-    UnknownJob,
     /// A point-in-time query needs chronology that is not yet resolved.
     TemporalIndeterminate,
     /// An unexpected internal error.
@@ -106,7 +104,7 @@ pub enum ErrorCode {
 impl ErrorCode {
     /// Every error code, in declaration order. The single source of truth for
     /// the closed code set (consumers derive their lists from this).
-    pub const ALL: [ErrorCode; 17] = [
+    pub const ALL: [ErrorCode; 16] = [
         ErrorCode::BadFrame,
         ErrorCode::UnknownOp,
         ErrorCode::SchemaViolation,
@@ -121,7 +119,6 @@ impl ErrorCode {
         ErrorCode::Conflict,
         ErrorCode::ProjectRequired,
         ErrorCode::EvidenceCorrupt,
-        ErrorCode::UnknownJob,
         ErrorCode::TemporalIndeterminate,
         ErrorCode::Internal,
     ];
@@ -144,7 +141,6 @@ impl ErrorCode {
             ErrorCode::Conflict => "conflict",
             ErrorCode::ProjectRequired => "project-required",
             ErrorCode::EvidenceCorrupt => "evidence-corrupt",
-            ErrorCode::UnknownJob => "unknown-job",
             ErrorCode::TemporalIndeterminate => "temporal-indeterminate",
             ErrorCode::Internal => "internal",
         }
