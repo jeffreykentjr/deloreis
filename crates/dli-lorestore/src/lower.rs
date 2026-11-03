@@ -1274,6 +1274,7 @@ fn missing_ratify_decls(
 ///
 /// The `pack_name` seeds the proposal-bundle variable naming — it must match
 /// the original pack's scope header.
+#[allow(clippy::too_many_lines)]
 pub fn reconstruct_pack(
     fact_objects: &[FactObject],
     interner: &Interner,
