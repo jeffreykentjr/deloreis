@@ -239,6 +239,9 @@ pub enum LoadFinding {
         name: String,
         /// The packs that each declared it.
         packs: Vec<String>,
+        /// A declaration in one of the colliding packs, when available.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        span: Option<Span>,
     },
     /// The rule set has no valid stratification: a negative-dependency (or
     /// aggregation) cycle. Surfaced from the `dli_eval::stratify` seam (spec 08
@@ -288,7 +291,8 @@ impl LoadFinding {
             | Self::DuplicateDeclaration { span, .. }
             | Self::InertDeclaration { span, .. }
             | Self::PredicateIdentityArityMismatch { span, .. } => Some(*span),
-            Self::CrossPackCollision { .. } | Self::Unstratifiable { .. } => None,
+            Self::CrossPackCollision { span, .. } => *span,
+            Self::Unstratifiable { .. } => None,
         };
         span.filter(|span| span.end > span.start)
     }
@@ -360,7 +364,9 @@ impl LoadFinding {
             } => {
                 format!("'{name}' is declared twice as a {kind} in pack '{pack}'")
             }
-            Self::CrossPackCollision { kind, name, packs } => {
+            Self::CrossPackCollision {
+                kind, name, packs, ..
+            } => {
                 format!(
                     "the {kind} '{name}' is declared in more than one pack ({})",
                     packs.join(", ")

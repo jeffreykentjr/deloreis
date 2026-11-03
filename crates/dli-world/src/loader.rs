@@ -199,6 +199,14 @@ impl IncrementalLoad {
                             span,
                         });
                     }
+                    if span.end > span.start {
+                        self.ctx
+                            .cross_spans
+                            .entry((kind.to_owned(), name.clone()))
+                            .or_default()
+                            .entry(pack.clone())
+                            .or_insert(span);
+                    }
                     self.ctx
                         .cross
                         .entry((kind.to_owned(), name))
@@ -265,6 +273,8 @@ struct LoadCtx {
     declared: BTreeSet<(String, String, String)>,
     /// `(kind, name)` to the packs that declared it — for collision detection.
     cross: BTreeMap<(String, String), BTreeSet<String>>,
+    /// Source locations of declarations contributing to each collision.
+    cross_spans: BTreeMap<(String, String), BTreeMap<String, Span>>,
     /// Typed era/event declarations, including every member of an era-order
     /// chain. Kept separate from observed symbols because temporal clauses are
     /// closed, typed references while ordinary facts may name abstract subjects.
@@ -1277,6 +1287,10 @@ impl LoadCtx {
                     kind: kind.clone(),
                     name: name.clone(),
                     packs: packs.iter().cloned().collect(),
+                    span: self
+                        .cross_spans
+                        .get(&(kind.clone(), name.clone()))
+                        .and_then(|spans| packs.iter().find_map(|pack| spans.get(pack).copied())),
                 });
             }
         }
