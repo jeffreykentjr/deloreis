@@ -25,6 +25,5 @@ Every non-success return carries exactly one `code` from this closed set, and ea
 | `conflict` | `refused` | an `idempotency_key` reused with a different payload (distinct from stale-fence) |
 | `project-required` | `refused` | a durable evidence operation called without a caller project |
 | `evidence-corrupt` | `internal` | committed evidence failed canonicalization, digest, or lineage verification |
-| `unknown-job` | `schema` | a durable simulation job id that does not exist |
 | `temporal-indeterminate` | `refused` | the requested temporal projection needs unresolved ordering |
 | `internal` | `internal` | a server defect |

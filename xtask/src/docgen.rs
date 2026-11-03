@@ -227,11 +227,6 @@ const ERROR_ROWS: &[(ErrorCode, &str, &str)] = &[
         "committed evidence failed canonicalization, digest, or lineage verification",
     ),
     (
-        ErrorCode::UnknownJob,
-        "schema",
-        "a durable simulation job id that does not exist",
-    ),
-    (
         ErrorCode::TemporalIndeterminate,
         "refused",
         "the requested temporal projection needs unresolved ordering",

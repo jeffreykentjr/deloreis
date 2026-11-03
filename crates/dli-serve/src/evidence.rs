@@ -24,9 +24,6 @@ const BATCH_VERSION: u32 = 1;
 /// A durable-evidence read or write failed.
 #[derive(Debug, Error)]
 pub enum EvidenceError {
-    /// A referenced durable record does not exist in this project.
-    #[error("evidence record does not exist: {0}")]
-    NotFound(String),
     /// Storage I/O failed.
     #[error("evidence storage failed at {path}: {source}")]
     Io {

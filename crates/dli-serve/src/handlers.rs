@@ -1623,7 +1623,6 @@ fn require_project(sessions: &Sessions) -> Result<std::sync::Arc<crate::project:
 
 fn evidence_fault(error: &EvidenceError) -> Fault {
     let code = match error {
-        EvidenceError::NotFound(_) => ErrorCode::UnknownJob,
         EvidenceError::Conflict(_) => ErrorCode::Conflict,
         EvidenceError::Corrupt(_) => ErrorCode::EvidenceCorrupt,
         EvidenceError::Invalid(_) => ErrorCode::SchemaViolation,
