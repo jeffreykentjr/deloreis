@@ -225,12 +225,8 @@ pub enum Op {
 impl Op {
     /// Every operation, in wire order.
     ///
-    /// **Append only.** The capability list is this array filtered by the
-    /// negotiated version's gates, so its order *is* the advertised order:
-    /// inserting an op mid-array would reshuffle every older version's
-    /// capability list and move released handshake bytes (audit C4). New ops go
-    /// on the end, where the version filter can remove them without disturbing
-    /// what came before.
+    /// This array is also the advertised capability order; append new
+    /// operations so existing clients see a stable list.
     pub const ALL: [Op; 63] = [
         Op::Version,
         Op::Check,
@@ -296,148 +292,6 @@ impl Op {
         Op::AuthorAssertPredicateSameAs,
         Op::AuthorRecordDecisions,
     ];
-
-    /// Whether this op was introduced in contract `1.3.0` (the DM-4 expert
-    /// authoring surface: wave 1 plus tier 2). Advertised only from `1.3.0` up,
-    /// so a `1.2.0`-or-earlier negotiation's capability list — and the golden
-    /// fixture recording it — stays byte-identical and needs no re-pin
-    /// (audit C4).
-    #[must_use]
-    pub const fn added_in_1_3_0(self) -> bool {
-        matches!(
-            self,
-            Op::AuthorAddDialect
-                | Op::AuthorAddNamePart
-                | Op::AuthorAddName
-                | Op::AuthorAddTerm
-                | Op::AuthorAddBanned
-                | Op::AuthorAddState
-                | Op::AuthorAddAttest
-        )
-    }
-
-    /// Whether this op was introduced in contract `1.5.0`.
-    #[must_use]
-    pub const fn added_in_1_5_0(self) -> bool {
-        matches!(self, Op::AuthorSetStanding | Op::AuthorDefeat)
-    }
-
-    /// Whether this op was introduced in contract `1.6.0` (the `functional`
-    /// single-valuedness declaration). Advertised only from `1.6.0` up, so a
-    /// `1.5.0`-or-earlier negotiation's capability list — and the golden fixture
-    /// recording it — stays byte-identical and needs no re-pin (audit C4).
-    #[must_use]
-    pub const fn added_in_1_6_0(self) -> bool {
-        matches!(self, Op::AuthorDeclareFunctional)
-    }
-
-    /// Whether this op was introduced in contract `1.7.0` (the
-    /// wire-surface-completion campaign). Advertised only from `1.7.0` up, so
-    /// a `1.6.0`-or-earlier negotiation's capability list — and the golden
-    /// fixture recording it — stays byte-identical and needs no re-pin
-    /// (audit C4). `author.assert_same_as` (WS-1, the identity-closure
-    /// kernel's wire surface) is the first op the campaign appends;
-    /// `author.add_rule` (WS-2, rule authoring) is the second and last.
-    #[must_use]
-    pub const fn added_in_1_7_0(self) -> bool {
-        matches!(self, Op::AuthorAssertSameAs | Op::AuthorAddRule)
-    }
-
-    /// Whether this op was introduced in contract `1.8.0` (the inertia
-    /// declaration, `author.declare_inertial`). Advertised only from `1.8.0`
-    /// up, so a `1.7.0`-or-earlier negotiation's capability list — and the
-    /// golden fixture recording it — stays byte-identical and needs no
-    /// re-pin (audit C4).
-    #[must_use]
-    pub const fn added_in_1_8_0(self) -> bool {
-        matches!(self, Op::AuthorDeclareInertial)
-    }
-
-    /// Whether this op was introduced in contract `1.9.0` (the inertia-aware
-    /// point read, `author.as_of`). Advertised only from `1.9.0` up, so a
-    /// `1.8.0`-or-earlier negotiation's capability list — and the golden
-    /// fixture recording it — stays byte-identical and needs no re-pin
-    /// (audit C4).
-    #[must_use]
-    pub const fn added_in_1_9_0(self) -> bool {
-        matches!(self, Op::AuthorAsOf | Op::AuthorRecordDecision)
-    }
-
-    /// Whether this op was introduced in contract `1.10.0` (the
-    /// incremental-canonicalization reads: `author.predicates` and
-    /// `author.entity_candidates`). Advertised only from `1.10.0` up, so a
-    /// `1.9.0`-or-earlier negotiation's capability list — and the golden
-    /// fixture recording it — stays byte-identical and needs no re-pin
-    /// (audit C4).
-    #[must_use]
-    pub const fn added_in_1_10_0(self) -> bool {
-        matches!(self, Op::AuthorPredicates | Op::AuthorEntityCandidates)
-    }
-
-    /// Whether this op was introduced in contract 1.12.0 (predicate identity).
-    /// It is appended at the end so every earlier capability list stays
-    /// byte-identical.
-    #[must_use]
-    pub const fn added_in_1_12_0(self) -> bool {
-        matches!(self, Op::AuthorAssertPredicateSameAs)
-    }
-
-    /// Whether this op was introduced in contract 1.13.0.
-    #[must_use]
-    pub const fn added_in_1_13_0(self) -> bool {
-        matches!(self, Op::AuthorRecordDecisions)
-    }
-
-    /// Whether this op was introduced in contract `1.2.0` (the DM-3 corpus
-    /// exchange). Advertised only from `1.2.0` up, so a `1.1.0`-or-earlier
-    /// negotiation's capability list — and the golden fixture recording it —
-    /// stays byte-identical and needs no re-pin (audit C4).
-    #[must_use]
-    pub const fn added_in_1_2_0(self) -> bool {
-        matches!(self, Op::CorpusImport | Op::CorpusExport)
-    }
-
-    /// Whether this op was introduced in contract `0.6.1` (the LS-6 branch/merge
-    /// surface). Such ops are omitted from an older negotiation's capability list,
-    /// keeping prior-version handshakes byte-identical.
-    #[must_use]
-    pub const fn added_in_0_6_1(self) -> bool {
-        matches!(self, Op::AuthorBranch | Op::AuthorMerge)
-    }
-
-    /// The earliest accepted contract version this op is advertised at — the
-    /// compat baseline `0.5.1` for everything present since the beginning, or
-    /// the version named by whichever `added_in_*` gate above matches. Kept
-    /// immediately next to those gates so a new gate and this match cannot drift
-    /// apart; the unit test below asserts the agreement for every op.
-    #[must_use]
-    pub const fn introduced_in(self) -> &'static str {
-        if self.added_in_1_13_0() {
-            "1.13.0"
-        } else if self.added_in_1_12_0() {
-            "1.12.0"
-        } else if self.added_in_1_10_0() {
-            "1.10.0"
-        } else if self.added_in_1_9_0() {
-            "1.9.0"
-        } else if self.added_in_1_8_0() {
-            "1.8.0"
-        } else if self.added_in_1_7_0() {
-            "1.7.0"
-        } else if self.added_in_1_6_0() {
-            "1.6.0"
-        } else if self.added_in_1_5_0() {
-            "1.5.0"
-        } else if self.added_in_1_3_0() {
-            "1.3.0"
-        } else if self.added_in_1_2_0() {
-            "1.2.0"
-        } else if self.added_in_0_6_1() {
-            "0.6.1"
-        } else {
-            "0.5.1"
-        }
-    }
 
     /// Whether this operation mutates an already-open authoring workspace.
     /// This inventory mirrors the `author::dispatch` arms routed through
@@ -648,45 +502,6 @@ impl Op {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// `introduced_in` must agree with every `added_in_*` gate: whenever a gate
-    /// says an op was added in version X, `introduced_in` must say X too. This
-    /// is the drift guard the doc comment promises.
-    #[test]
-    fn introduced_in_agrees_with_every_added_in_gate() {
-        for op in Op::ALL {
-            if op.added_in_1_10_0() {
-                assert_eq!(op.introduced_in(), "1.10.0", "{op:?}");
-            }
-            if op.added_in_1_12_0() {
-                assert_eq!(op.introduced_in(), "1.12.0", "{op:?}");
-            }
-            if op.added_in_1_13_0() {
-                assert_eq!(op.introduced_in(), "1.13.0", "{op:?}");
-            }
-            if op.added_in_1_9_0() {
-                assert_eq!(op.introduced_in(), "1.9.0", "{op:?}");
-            }
-            if op.added_in_1_8_0() {
-                assert_eq!(op.introduced_in(), "1.8.0", "{op:?}");
-            }
-            if op.added_in_1_6_0() {
-                assert_eq!(op.introduced_in(), "1.6.0", "{op:?}");
-            }
-            if op.added_in_1_5_0() {
-                assert_eq!(op.introduced_in(), "1.5.0", "{op:?}");
-            }
-            if op.added_in_1_3_0() {
-                assert_eq!(op.introduced_in(), "1.3.0", "{op:?}");
-            }
-            if op.added_in_1_2_0() {
-                assert_eq!(op.introduced_in(), "1.2.0", "{op:?}");
-            }
-            if op.added_in_0_6_1() {
-                assert_eq!(op.introduced_in(), "0.6.1", "{op:?}");
-            }
-        }
-    }
 
     #[test]
     fn every_current_post_open_mutation_accepts_the_shared_fences() {
