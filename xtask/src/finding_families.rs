@@ -873,8 +873,7 @@ pub fn render() -> String {
          *errors are lore*). Clients and repair tools match on the code, which is stable \
          across message wording. This page \
          catalogues every code the system emits: its family (the check or tool that raises \
-         it), its severity, the machine-repair kind it carries (authoring-seam findings \
-         only), and what it means.\n\n",
+         it), its severity, any structured repair it carries, and what it means.\n\n",
     );
     out.push_str(
         "These finding codes are **disjoint** from the wire error-code registry (the \
@@ -894,10 +893,9 @@ pub fn render() -> String {
          seam's `name.unvetted` (an authoring warn) are different findings from different surfaces.\n",
     );
     out.push_str(
-        "\n> Note: severity is a property of the emitting site. Kernel check findings \
-         (`load`, `continuity`, `proof`, `practice`, `attest`, `name`, `citation`) carry no \
-         machine repair — read the message. Only the authoring seam's `author.*` findings carry \
-         structured repairs, which is what makes `author.materialize` gateable.\n\n",
+        "\n> Severity belongs to the emitting check. Some findings include structured \
+         repair data; others explain the next step in their message. Error-severity \
+         findings block `author.materialize`, while warnings do not.\n\n",
     );
 
     for family in FAMILIES {
