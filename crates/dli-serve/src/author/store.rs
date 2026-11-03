@@ -396,9 +396,36 @@ impl Store {
             .ok_or_else(|| OpenError::UnknownDoc(base_name.clone()))?;
 
         let explicit_branch = branch.is_some();
+        // Another process can advance the same store without setting this
+        // server's dirty flag. Compare the complete ref, including valuation,
+        // with the snapshot loaded at startup before opening a new workspace.
+        let externally_changed = if branch.is_none()
+            && !self.is_pinned(&base_key)
+            && !self.dirty_bases.contains(&base_key)
+        {
+            match (
+                self.lorestores.get(&base_key),
+                self.snapshots.get(&base_key),
+            ) {
+                (Some(ls), Some(snapshot)) => {
+                    let current = ls
+                        .branch_ref(dli_lorestore::MAIN_REF)
+                        .map_err(|error| OpenError::BranchCompile(error.to_string()))?
+                        .ok_or_else(|| {
+                            OpenError::UnknownBranch(dli_lorestore::MAIN_REF.to_owned())
+                        })?;
+                    let digest = current
+                        .digest()
+                        .map_err(|error| OpenError::BranchCompile(error.to_string()))?;
+                    snapshot.ref_digest.as_deref() != Some(digest.0.as_str())
+                }
+                _ => false,
+            }
+        } else {
+            false
+        };
         let selected_branch = branch.or_else(|| {
-            self.dirty_bases
-                .contains(&base_key)
+            (self.dirty_bases.contains(&base_key) || externally_changed)
                 .then(|| dli_lorestore::MAIN_REF.to_owned())
         });
         if let Some(branch_name) = selected_branch {

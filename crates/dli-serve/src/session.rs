@@ -46,11 +46,22 @@ pub struct Scope {
 pub struct Sessions {
     source: CorpusSource,
     scopes: BTreeMap<String, Scope>,
+    live_scopes: BTreeMap<String, Arc<LiveSnapshot>>,
     /// Wire fork handle → the scope and fork it names.
     fork_handles: BTreeMap<String, (String, ForkId)>,
     /// Monotonic handle counter, so handles (`fork-1`, `fork-2`, …) are stable
     /// and never reused within a process.
     next_handle: u64,
+}
+
+/// A coherent live ref and its reconstructed world, kept apart from the
+/// session's fork snapshots.
+#[derive(Debug)]
+pub(crate) struct LiveSnapshot {
+    pub(crate) world: CompiledWorld,
+    pub(crate) pack: Pack,
+    pub(crate) commit: String,
+    ref_digest: String,
 }
 
 #[derive(Debug)]
@@ -75,6 +86,7 @@ impl Sessions {
         Self {
             source: CorpusSource::Demo,
             scopes: BTreeMap::new(),
+            live_scopes: BTreeMap::new(),
             fork_handles: BTreeMap::new(),
             next_handle: 0,
         }
@@ -86,9 +98,86 @@ impl Sessions {
         Self {
             source: CorpusSource::Project(project),
             scopes: BTreeMap::new(),
+            live_scopes: BTreeMap::new(),
             fork_handles: BTreeMap::new(),
             next_handle: 0,
         }
+    }
+
+    /// Read an unpinned store's complete current ref once, and reuse the
+    /// compiled result until its commit or valuation changes. Fork scopes and
+    /// manifest-pinned documents remain snapshots.
+    pub(crate) fn live_snapshot(
+        &mut self,
+        document: &str,
+    ) -> Result<Option<Arc<LiveSnapshot>>, String> {
+        let CorpusSource::Project(project) = &self.source else {
+            return Ok(None);
+        };
+        let Some(loaded) = project.document(document) else {
+            return Ok(None);
+        };
+        let Some(origin) = &loaded.store_origin else {
+            return Ok(None);
+        };
+        if loaded.store_pinned {
+            return Ok(None);
+        }
+        // A read must never initialize a missing store or sweep its files.
+        let store = dli_lorestore::Lorestore::from_storage(Box::new(
+            dli_lorestore::FilesystemStorage::new(origin.clone()),
+        ));
+        let branch = store
+            .branch_ref(dli_lorestore::MAIN_REF)
+            .map_err(|error| error.to_string())?
+            .ok_or_else(|| format!("document `{document}` has no main ref"))?;
+        let digest = branch
+            .digest()
+            .map_err(|error| error.to_string())?
+            .to_string();
+        if let Some(cached) = self.live_scopes.get(document)
+            && cached.ref_digest == digest
+        {
+            return Ok(Some(Arc::clone(cached)));
+        }
+        let names = store
+            .interner_at(&branch.commit)
+            .map_err(|error| error.to_string())?;
+        let effective = store
+            .effective_valuation_at(&branch.commit, &branch.valuation)
+            .map_err(|error| error.to_string())?;
+        let valuation =
+            dli_core::valuation::NamedValuation::from_indexed(&effective.valuation, &names)
+                .map_err(|error| error.to_string())?;
+        let unassigned =
+            dli_core::valuation::NamedAtomSet::from_indexed(&effective.unassigned, &names)
+                .map_err(|error| error.to_string())?;
+        let mut world = store
+            .compile_at(&branch.commit)
+            .map_err(|error| error.to_string())?;
+        world.killed = loaded.killed.clone();
+        for name in valuation.0.keys().chain(unassigned.0.iter()) {
+            world.model.world.interner.intern(name);
+        }
+        let interner = world.model.interner().clone();
+        valuation
+            .apply_to(&interner, &mut world.model.world.valuation)
+            .map_err(|error| error.to_string())?;
+        unassigned
+            .remove_from(&interner, &mut world.model.world.valuation)
+            .map_err(|error| error.to_string())?;
+        let pack = store
+            .reconstruct_at(&branch.commit)
+            .map_err(|error| error.to_string())?;
+        let snapshot = Arc::new(LiveSnapshot {
+            world,
+            pack,
+            commit: branch.commit.to_string(),
+            ref_digest: digest,
+        });
+        self.live_scopes
+            .insert(document.to_owned(), Arc::clone(&snapshot));
+        Ok(Some(snapshot))
     }
 
     /// Resolve a document id to its compiled scope, compiling and caching on first

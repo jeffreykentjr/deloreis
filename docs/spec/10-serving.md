@@ -22,8 +22,10 @@ successor named. The generated schemas and replay fixtures in
 
 A project manifest names logical documents. Each document uses either one or
 more `.dli` source files on a syntax-enabled build, or a lorestore directory.
-A store-backed document may pin a commit with `head`; without it the document
-follows the main branch. This example names a store-backed document:
+A store-backed document may pin a commit with `head`; without it document reads
+follow the current main ref, including commits made by another server. Forks in
+one session share the snapshot taken when its first fork opens. Start a new
+session to fork from a later commit. This example names a store-backed document:
 
 ```toml
 version = 1

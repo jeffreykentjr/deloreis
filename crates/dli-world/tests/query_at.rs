@@ -296,6 +296,47 @@ fn cyclic_chronology_is_refused_even_without_unordered_anchors() {
 }
 
 #[test]
+fn unrelated_uncertainty_does_not_block_a_projected_fluent_or_its_rules() {
+    let source = "scope storybook\nratify d-0001\nevent first ratified d-0001\nevent cutoff ratified d-0001\nevent other proposed\nbefore first -> cutoff ratified d-0001\nbefore other -> cutoff proposed\nstate wren.home = burrow since first ratified d-0001\nstate fox.hat = blue since other proposed\nrule copy-home ratified d-0001\n  resides($who, $where) :- home($who, $where)\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics.iter().all(|d| !d.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let compiled = dli_world::compile(&Pack {
+        name: "storybook".into(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let at = TimePoint(compiled.model.world.time_points.lookup("cutoff").unwrap().0);
+    assert!(dli_world::check::continuity::query_world_at(&compiled, at).is_err());
+    for pred in ["home", "resides"] {
+        let world =
+            dli_world::check::continuity::query_world_at_for_goal(&compiled, at, pred).unwrap();
+        let query = Query {
+            goal: AtomExpr {
+                pred: Ident::synthetic(pred),
+                args: vec![
+                    Term::Sym(Ident::synthetic("wren")),
+                    Term::Sym(Ident::synthetic("burrow")),
+                ],
+            },
+        };
+        let answer = world
+            .query_with(
+                &query,
+                &QueryOpts {
+                    layer: Layer::Certain,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(answer.rows.len(), 1, "{pred}: {answer:?}");
+    }
+    assert!(dli_world::check::continuity::query_world_at_for_goal(&compiled, at, "hat").is_err());
+}
+
+#[test]
 fn unrelated_fluents_do_not_block_queries_but_rule_dependencies_do() {
     let source = "scope storybook\nratify d-0001\nevent first ratified d-0001\nevent second ratified d-0001\nevent cutoff ratified d-0001\nbefore first -> second ratified d-0001\nbefore first -> cutoff ratified d-0001\ninertial home ratified d-0001\nstate wren.home = old since first ratified d-0001\nstate wren.home = new since second ratified d-0001\nfact wren friend fox ratified d-0001\nrule derived ratified d-0001\n  resides($who, $where) :- home($who, $where)\n";
     let (document, diagnostics) = dli_syntax::parse_document(source);

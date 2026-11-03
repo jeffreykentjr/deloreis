@@ -209,6 +209,44 @@ fn a_pinned_head_serves_that_commit_and_does_not_follow_the_branch() {
     );
 }
 
+#[test]
+fn live_reads_follow_external_commits_but_pinned_reads_do_not() {
+    use std::sync::Arc;
+    let root = temp("live-and-pinned-document-reads");
+    let dir = seed_store(&root, "storybook", "bedivere");
+    let pinned = head_of(&dir);
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let live_project = Arc::new(Project::load(&root).expect("live project loads"));
+    write_manifest(
+        &root,
+        &format!("[documents.storybook]\nstore = \"store\"\nhead = \"{pinned}\"\n"),
+    );
+    let fixed_project = Arc::new(Project::load(&root).expect("pinned project loads"));
+    let mut live_sessions = dli_serve::session::Sessions::from_project(live_project);
+    let mut fixed_sessions = dli_serve::session::Sessions::from_project(fixed_project);
+    let mut author = dli_serve::author::store::Store::default();
+    let query = |document: &str| serde_json::json!({"dli":"2.0.0","id":"query","op":"dli.query","params":{"document":document,"goal_atom":{"pred":"sworn","args":[{"Var":"who"}]}}});
+    let before = send(&query("storybook"), &mut live_sessions, &mut author);
+    assert!(
+        before["result"]["rows"].to_string().contains("bedivere"),
+        "{before}"
+    );
+    let store = Lorestore::open(dir).unwrap();
+    store
+        .import_pack(&pack_with("storybook", &["bedivere", "perin"]))
+        .unwrap();
+    let live = send(&query("storybook"), &mut live_sessions, &mut author);
+    let fixed = send(&query("storybook"), &mut fixed_sessions, &mut author);
+    assert!(
+        live["result"]["rows"].to_string().contains("perin"),
+        "{live}"
+    );
+    assert!(
+        !fixed["result"]["rows"].to_string().contains("perin"),
+        "{fixed}"
+    );
+}
+
 /// A pin fixes the served replay, not the origin branch an author explicitly
 /// writes to. Its workspace therefore needs the live branch interner when the
 /// branch advanced beyond the pinned commit.
@@ -1627,30 +1665,14 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
         "authority ruling commits"
     );
 
-    // A new worker loads the ref once. Advance the live branch afterwards to
-    // prove opening a workspace cannot splice that later head into the snapshot.
+    // A workspace opened before the branch advances keeps its selected base.
+    // A workspace opened afterwards must see the new head, even in this server.
     let reloaded = Project::load(&root).expect("reloaded project loads");
     let selected_commit = reloaded
         .document("storybook")
         .unwrap()
         .source_digest
         .clone();
-    lorestore
-        .commit(
-            commit.interner.clone(),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-            commit.decisions.clone(),
-            commit.pack_name.clone(),
-        )
-        .expect("later external write advances the live branch");
-    assert_ne!(
-        head_of(&dir),
-        selected_commit,
-        "the live ref has moved after load"
-    );
-
     let project = Arc::new(reloaded);
     let mut sessions = dli_serve::session::Sessions::from_project(Arc::clone(&project));
     let mut author = author_store_for(&project);
@@ -1664,6 +1686,21 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
         .as_str()
         .expect("restarted workspace id")
         .to_owned();
+    lorestore
+        .commit(
+            commit.interner.clone(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            commit.decisions.clone(),
+            commit.pack_name.clone(),
+        )
+        .expect("later external write advances the live branch");
+    let later_commit = head_of(&dir);
+    assert_ne!(
+        later_commit, selected_commit,
+        "the live ref has moved after open"
+    );
     let status = send(
         &serde_json::json!({"dli":"2.0.0","id":"status","op":"author.status",
                             "params":{"workspace":workspace}}),
@@ -1672,7 +1709,23 @@ fn reloaded_store_backed_queries_apply_the_selected_ref_valuation() {
     );
     assert_eq!(
         status["result"]["root_hash"], selected_commit,
-        "the workspace pin is the project-selected commit, not the later head: {status}"
+        "the existing workspace stays on its original base: {status}"
+    );
+    let fresh = send(
+        &serde_json::json!({"dli":"2.0.0","id":"fresh-open","op":"author.open",
+                            "params":{"scope":"storybook"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let fresh_status = send(
+        &serde_json::json!({"dli":"2.0.0","id":"fresh-status","op":"author.status",
+                            "params":{"workspace":fresh["result"]["workspace"]}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(
+        fresh_status["result"]["root_hash"], later_commit,
+        "a new workspace follows the live ref: {fresh_status}"
     );
 
     let goal = serde_json::json!({"pred":"color","args":[{"Sym":"bedivere"},{"Sym":"red"}]});
