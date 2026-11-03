@@ -3353,3 +3353,50 @@ fn accepting_a_decision_keeps_fork_options_conditional() {
     assert_eq!(stored_support, replayed);
     assert!(replayed.contains("witness-one"), "{replayed}");
 }
+
+#[test]
+fn a_named_bundle_like_origin_survives_decision_acceptance_and_restart() {
+    let root = temp("decision-named-origin");
+    seed_store(&root, "storybook", "bedivere");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let project = Project::load(&root).unwrap();
+    let mut author = author_store_for(&project);
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+    let opened = send(
+        &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open","params":{"scope":"storybook"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let ws = opened["result"]["workspace"].as_str().unwrap().to_owned();
+    let added = send(
+        &serde_json::json!({"dli":"2.0.0","id":"add","op":"author.add_fact","params":{"workspace":ws,"entity":"bedivere","key":"home","value":"castle","provenance":{"kind":"proposed","origin":"group#42"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(added["ok"], true, "{added}");
+    let committed = send(
+        &serde_json::json!({"dli":"2.0.0","id":"commit","op":"author.materialize","params":{"workspace":ws,"decision":"d-1"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(committed["ok"], true, "{committed}");
+    let reopened = Project::load(&root).expect("the accepted claim reopens");
+    let pack = &reopened
+        .documents()
+        .find(|(id, _)| *id == "storybook")
+        .unwrap()
+        .1
+        .pack;
+    let annotation = pack
+        .documents
+        .iter()
+        .flat_map(|doc| &doc.decls)
+        .find_map(|decl| match decl {
+            Decl::Attr(attr) if attr.attr.text == "home" => attr.provenance.as_ref(),
+            _ => None,
+        })
+        .expect("the attributed claim survives");
+    assert_eq!(annotation.tags, ["group#42"]);
+    assert_eq!(annotation.bundle, None);
+    assert_eq!(annotation.citations[0].id.text, "d-1");
+}

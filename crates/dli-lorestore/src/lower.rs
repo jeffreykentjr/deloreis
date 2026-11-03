@@ -141,30 +141,37 @@ pub fn expected_claim_id(object: &FactObject) -> ClaimId {
 /// everything not fully captured by its extensional ground atoms. Returns the
 /// carriage kind and display name, or `None` for a gentle declaration whose
 /// atom objects alone reconstruct it faithfully (`Attr`, `Fact`, and a bare
-/// `Entity` with no label, time clause, or slots).
+/// `Entity` with no label, time clause, slots, or provenance that needs carriage).
 fn carriage_kind(decl: &Decl) -> Option<(ExpertDeclKind, String)> {
     use ExpertDeclKind as K;
-    let proposed_citations = |annotation: Option<&Annotation>| {
+    let needs_provenance_carriage = |annotation: Option<&Annotation>| {
         annotation.is_some_and(|annotation| {
-            annotation.marker == ProvenanceMarker::Proposed && !annotation.citations.is_empty()
+            let proposed = annotation.marker == ProvenanceMarker::Proposed;
+            let ambiguous_tags = !annotation.tags.is_empty()
+                && (!proposed
+                    || annotation.condition.is_some()
+                    || annotation.tags.len() != 1
+                    || annotation.tags[0].contains('+')
+                    || positional_bundle_name(&format!("h.{}", annotation.tags[0])).is_some());
+            (proposed && !annotation.citations.is_empty()) || ambiguous_tags
         })
     };
     match decl {
-        Decl::Attr(a) if proposed_citations(a.provenance.as_ref()) => Some((
+        Decl::Attr(a) if needs_provenance_carriage(a.provenance.as_ref()) => Some((
             K::Attr,
             decl_to_atom(decl)
                 .0
                 .map(|atom| atom_expr_to_ground(&atom).render())
                 .unwrap_or_default(),
         )),
-        Decl::Fact(f) if proposed_citations(f.provenance.as_ref()) => {
+        Decl::Fact(f) if needs_provenance_carriage(f.provenance.as_ref()) => {
             Some((K::Fact, atom_expr_to_ground(&f.atom).render()))
         }
         Decl::Attr(_) | Decl::Fact(_) => None,
         Decl::Entity(e) => (e.label.is_some()
             || e.time.is_some()
             || !e.slots.is_empty()
-            || proposed_citations(e.provenance.as_ref()))
+            || needs_provenance_carriage(e.provenance.as_ref()))
         .then(|| (K::Entity, e.name.text.clone())),
         Decl::Before(b) => Some((K::Before, format!("{}->{}", b.earlier.text, b.later.text))),
         Decl::SameAs(s) => Some((K::SameAs, format!("{}={}", s.left.text, s.right.text))),
