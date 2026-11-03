@@ -367,27 +367,7 @@ fn materialize_decision_never_stamps_a_declaration_carriage() {
     );
 }
 
-#[test]
-fn materialize_decision_is_refused_before_1_9_0() {
-    let (_root, mut store) = store_with_nara();
-    let ws = open(&mut store);
-    // The `decision` param is defined only by contract 1.9.0: a 1.8.0 caller
-    // supplying it meets a schema violation, not a silent accept.
-    let mut request = req(
-        "mat",
-        Op::AuthorMaterialize,
-        json!({ "workspace": ws, "decision": "d-1" }),
-    );
-    request.dli = "1.8.0".to_owned();
-    let response = dispatch(&request, &mut store);
-    assert!(
-        !response.ok,
-        "a pre-1.9.0 decision-stamp is refused: {response:?}"
-    );
-}
-
-// -- guard census: record_decision is the first op to stage a `ratify` -------
-
+// Guard census for decision recording.
 #[test]
 fn a_control_character_in_the_decision_id_refuses_the_record() {
     let (_root, mut store) = store_with_nara();

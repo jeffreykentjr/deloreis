@@ -55,64 +55,6 @@ use crate::contract::{
 use crate::envelope::{ErrorBody, ErrorCode, Request, Response};
 use crate::ops::Op;
 
-/// Whether the request negotiated the JSON-first (0.6.0+) wire shape. A `0.5.1`
-/// request receives byte-identical 0.5.1-shaped responses (dual-mode, DL-0045
-/// ruling 4); `0.6.0` and `0.6.1` share the JSON-first shape.
-fn wire_v2(request: &Request) -> bool {
-    crate::speaks_v2(&request.dli)
-}
-
-/// Whether this request's negotiated version records caller-supplied citations
-/// as data rather than refusing them (the authority scrub, DL-0054/DL-0058).
-/// Read once per call at the seam and passed down, so every claim-bearing tool
-/// answers to the same version rather than each consulting the wire itself.
-fn records_citations(request: &Request) -> bool {
-    crate::records_citations(&request.dli)
-}
-
-/// Whether this request's negotiated version names a staged declaration by its
-/// structural key (≥ 1.3.0, DL-0058) rather than by its rendered `.dli` line.
-fn structural_keys(request: &Request) -> bool {
-    crate::has_expert_authoring(&request.dli)
-}
-
-/// Whether this request's negotiated version carries the campaign's
-/// branch-scoped write surface (WS-3, ≥ 1.7.0): `author.open`'s `branch`
-/// param, the `branch` field on its result and on `author.list_workspaces`
-/// rows, `author.branch`'s `heads`/`delete`/`expected_ref`, and
-/// `author.merge`'s `dry_run`/`expected_ref`.
-fn branch_writes(request: &Request) -> bool {
-    crate::has_branch_writes(&request.dli)
-}
-
-/// Whether a raised finding's structured payload rides across as
-/// `Finding.data` on this request's negotiated version (≥ 1.7.0, WS-2).
-fn carries_finding_data(request: &Request) -> bool {
-    crate::has_finding_data(&request.dli)
-}
-
-/// Whether this request's negotiated version carries the baseline-decision
-/// recorder and its friends (`author.record_decision`, the optional `decision`
-/// on `author.materialize`, and `author.why`'s `supporting_decisions`; ≥ 1.9.0,
-/// DL-0083). Read once at the seam and passed down, so materialize and why
-/// answer to the same version rather than each re-consulting the wire.
-fn records_decisions(request: &Request) -> bool {
-    crate::has_decisions(&request.dli)
-}
-
-/// Whether `author.why` carries valuation-aware active and defeated support
-/// paths (contract 1.13+, GH #104/#105).
-fn explains_active_support(request: &Request) -> bool {
-    crate::has_conditional_defeat(&request.dli)
-}
-
-/// Whether `author.entity_candidates` uses the corrected declared-entity
-/// universe introduced by contract 1.11.0 (GH #88). The 1.10.0 path remains
-/// available for replay compatibility.
-fn declared_entity_candidates(request: &Request) -> bool {
-    crate::has_declared_entity_candidates(&request.dli)
-}
-
 /// The authoring seam's dispatch (frozen verbatim in the wave-3 sockets): route an
 /// `author.*` request against the workspace store and answer with graded
 /// findings, rendered lines, and the new workspace digest.
@@ -122,31 +64,25 @@ fn declared_entity_candidates(request: &Request) -> bool {
 pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
     match request.op {
         Op::AuthorOpen => match parse::<AuthorOpenParams>(request) {
-            Ok(params) => settle(request, tools::open(store, &params, branch_writes(request))),
+            Ok(params) => settle(request, tools::open(store, &params, true)),
             Err(response) => response,
         },
         Op::AuthorStatus => read(request, store, |store, request| {
             let params: AuthorStatusParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = wire_v2(request);
+            let v2 = true;
             Ok((
                 params.workspace.clone(),
-                tools::status(
-                    store,
-                    &params,
-                    v2,
-                    structural_keys(request),
-                    carries_finding_data(request),
-                ),
+                tools::status(store, &params, v2, true, true),
             ))
         }),
         Op::AuthorDiff => read(request, store, |store, request| {
             let params: AuthorDiffParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = wire_v2(request);
+            let v2 = true;
             Ok((
                 params.workspace.clone(),
-                tools::diff(store, &params, v2, carries_finding_data(request)),
+                tools::diff(store, &params, v2, true),
             ))
         }),
         // materialize advances the lorestore ref: a mutation, dispatched
@@ -155,10 +91,10 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorMaterialize => mutate(request, store, |store, request| {
             let params: AuthorMaterializeParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = wire_v2(request);
+            let v2 = true;
             Ok((
                 params.workspace.clone(),
-                tools::materialize(store, &params, v2, records_decisions(request)),
+                tools::materialize(store, &params, v2, true),
             ))
         }),
         Op::AuthorDiscard => mutate(request, store, |store, request| {
@@ -167,7 +103,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             let decl = request.params.get("decl").and_then(Value::as_str);
             Ok((
                 params.workspace.clone(),
-                tools::discard(store, &params.workspace, decl, structural_keys(request)),
+                tools::discard(store, &params.workspace, decl, true),
             ))
         }),
         Op::AuthorAddEntity => mutate(request, store, |store, request| {
@@ -175,7 +111,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::add_entity(store, &params, records_citations(request)),
+                tools::add_entity(store, &params, true),
             ))
         }),
         Op::AuthorAddFact => mutate(request, store, |store, request| {
@@ -183,7 +119,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::add_fact(store, &params, records_citations(request)),
+                tools::add_fact(store, &params, true),
             ))
         }),
         Op::AuthorAddRelation => mutate(request, store, |store, request| {
@@ -191,7 +127,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::add_relation(store, &params, records_citations(request)),
+                tools::add_relation(store, &params, true),
             ))
         }),
         Op::AuthorAddEvent => mutate(request, store, |store, request| {
@@ -199,7 +135,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::add_event(store, &params, records_citations(request)),
+                tools::add_event(store, &params, true),
             ))
         }),
         Op::AuthorAddBefore => mutate(request, store, |store, request| {
@@ -207,7 +143,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::add_before(store, &params, records_citations(request)),
+                tools::add_before(store, &params, true),
             ))
         }),
         Op::AuthorOpenQuestion => mutate(request, store, |store, request| {
@@ -244,7 +180,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::add_dialect(store, &params, records_citations(request)),
+                tools::add_dialect(store, &params, true),
             ))
         }),
         Op::AuthorAddNamePart => mutate(request, store, |store, request| {
@@ -252,7 +188,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::add_name_part(store, &params, records_citations(request)),
+                tools::add_name_part(store, &params, true),
             ))
         }),
         Op::AuthorAddName => mutate(request, store, |store, request| {
@@ -260,7 +196,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::add_name(store, &params, records_citations(request)),
+                tools::add_name(store, &params, true),
             ))
         }),
         Op::AuthorAddTerm => mutate(request, store, |store, request| {
@@ -268,7 +204,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::add_term(store, &params, records_citations(request)),
+                tools::add_term(store, &params, true),
             ))
         }),
         Op::AuthorAddBanned => mutate(request, store, |store, request| {
@@ -276,7 +212,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::add_banned(store, &params, records_citations(request)),
+                tools::add_banned(store, &params, true),
             ))
         }),
         Op::AuthorAddState => mutate(request, store, |store, request| {
@@ -284,7 +220,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::add_state(store, &params, records_citations(request)),
+                tools::add_state(store, &params, true),
             ))
         }),
         Op::AuthorAddAttest => mutate(request, store, |store, request| {
@@ -292,7 +228,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::add_attest(store, &params, records_citations(request)),
+                tools::add_attest(store, &params, true),
             ))
         }),
         Op::AuthorSetStanding => mutate(request, store, |store, request| {
@@ -308,7 +244,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::defeat(store, &params, crate::has_conditional_defeat(&request.dli)),
+                tools::defeat(store, &params, true),
             ))
         }),
         Op::AuthorDeclareFunctional => mutate(request, store, |store, request| {
@@ -316,7 +252,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::declare_functional(store, &params, records_citations(request)),
+                tools::declare_functional(store, &params, true),
             ))
         }),
         Op::AuthorAssertSameAs => mutate(request, store, |store, request| {
@@ -324,7 +260,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::assert_same_as(store, &params, records_citations(request)),
+                tools::assert_same_as(store, &params, true),
             ))
         }),
         Op::AuthorAssertPredicateSameAs => mutate(request, store, |store, request| {
@@ -332,7 +268,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::assert_predicate_same_as(store, &params, records_citations(request)),
+                tools::assert_predicate_same_as(store, &params, true),
             ))
         }),
         Op::AuthorAddRule => mutate(request, store, |store, request| {
@@ -340,7 +276,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::add_rule(store, &params, records_citations(request)),
+                tools::add_rule(store, &params, true),
             ))
         }),
         Op::AuthorDeclareInertial => mutate(request, store, |store, request| {
@@ -348,7 +284,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::declare_inertial(store, &params, records_citations(request)),
+                tools::declare_inertial(store, &params, true),
             ))
         }),
         // The baseline-decision recorder (contract 1.9.0, DL-0083): writes a
@@ -361,7 +297,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::record_decision(store, &params, records_citations(request)),
+                tools::record_decision(store, &params, true),
             ))
         }),
         Op::AuthorRecordDecisions => mutate(request, store, |store, request| {
@@ -370,7 +306,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck_record_decisions(request, &params)?;
             Ok((
                 params.workspace.clone(),
-                tools::record_decisions(store, &params, records_citations(request)),
+                tools::record_decisions(store, &params, true),
             ))
         }),
         // The read/self-check tools (AUTH-2): each answers over the STAGED world
@@ -379,7 +315,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorQuery => read(request, store, |store, request| {
             let params: AuthorQueryParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = wire_v2(request);
+            let v2 = true;
             Ok((params.workspace.clone(), reads::query(store, &params, v2)))
         }),
         // The one inertia-aware read (contract 1.9.0, DL-0082): a workspace
@@ -389,28 +325,20 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorAsOf => read(request, store, |store, request| {
             let params: AuthorAsOfParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = wire_v2(request);
+            let v2 = true;
             Ok((params.workspace.clone(), reads::as_of(store, &params, v2)))
         }),
         Op::AuthorCheck => read(request, store, |store, request| {
             let params: AuthorCheckParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            Ok((
-                params.workspace.clone(),
-                reads::check(store, &params, carries_finding_data(request)),
-            ))
+            Ok((params.workspace.clone(), reads::check(store, &params, true)))
         }),
         Op::AuthorWhy => read(request, store, |store, request| {
             let params: AuthorWhyParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                reads::why(
-                    store,
-                    &params,
-                    records_decisions(request),
-                    explains_active_support(request),
-                ),
+                reads::why(store, &params, true, true),
             ))
         }),
         Op::AuthorFindings => read(request, store, |store, request| {
@@ -418,23 +346,20 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                reads::findings(store, &params, carries_finding_data(request)),
+                reads::findings(store, &params, true),
             ))
         }),
         // No workspace param, so no precheck: a store-level read of the open set.
         Op::AuthorListWorkspaces => read(request, store, |store, request| {
             let _params: AuthorListWorkspacesParams = parse(request)?;
-            Ok((
-                String::new(),
-                Ok(reads::list_workspaces(store, branch_writes(request))),
-            ))
+            Ok((String::new(), Ok(reads::list_workspaces(store, true))))
         }),
         // The incremental-canonicalization reads (contract 1.10.0): both answer
         // over the STAGED world and stage nothing, so they route through `read`.
         Op::AuthorPredicates => read(request, store, |store, request| {
             let params: AuthorPredicatesParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = wire_v2(request);
+            let v2 = true;
             Ok((
                 params.workspace.clone(),
                 reads::predicates(store, &params, v2),
@@ -443,10 +368,10 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
         Op::AuthorEntityCandidates => read(request, store, |store, request| {
             let params: AuthorEntityCandidatesParams = parse(request)?;
             precheck(store, request, &params.workspace)?;
-            let v2 = wire_v2(request);
+            let v2 = true;
             Ok((
                 params.workspace.clone(),
-                reads::entity_candidates(store, &params, v2, declared_entity_candidates(request)),
+                reads::entity_candidates(store, &params, v2, true),
             ))
         }),
         // Branch/merge operate on the workspace's durable lorestore (LS-6/WS-3).
@@ -461,7 +386,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::branch(store, &params, branch_writes(request)),
+                tools::branch(store, &params, true),
             ))
         }),
         Op::AuthorMerge => mutate(request, store, |store, request| {
@@ -469,12 +394,7 @@ pub fn dispatch(request: &Request, store: &mut store::Store) -> Response {
             precheck(store, request, &params.workspace)?;
             Ok((
                 params.workspace.clone(),
-                tools::merge(
-                    store,
-                    &params,
-                    branch_writes(request),
-                    carries_finding_data(request),
-                ),
+                tools::merge(store, &params, true, true),
             ))
         }),
         // Every non-`author.*` op is the batch worker's; the frozen seam only
@@ -642,17 +562,10 @@ fn precheck_record_decisions(
     Ok(())
 }
 
-/// The versioned cited-provenance wire rule shared by top-level author calls
-/// and nested bulk-decision records. Messages are the released single-op bytes.
-fn provenance_contract_error(dli: &str, provenance: &serde_json::Value) -> Option<&'static str> {
-    if !crate::has_standing_tools(dli) && provenance.get("state").is_some() {
-        return Some("field `state` is defined only by contract 1.5 cited provenance");
-    }
-    if crate::has_standing_tools(dli)
-        && provenance["kind"] == serde_json::json!("cited")
-        && provenance.get("state").is_none()
-    {
-        return Some("contract 1.5 cited provenance requires state `provisional` or `ratified`");
+/// The cited-provenance rule shared by single and bulk authoring calls.
+fn provenance_contract_error(_dli: &str, provenance: &serde_json::Value) -> Option<&'static str> {
+    if provenance["kind"] == serde_json::json!("cited") && provenance.get("state").is_none() {
+        return Some("cited provenance requires state `provisional` or `ratified`");
     }
     None
 }
