@@ -196,7 +196,7 @@ fn old_era_chain_keeps_independent_same_member_support() {
     let restored = dli_lorestore::lower::reconstruct_pack(
         &objects,
         &dli_core::Interner::from_names(names),
-        &Default::default(),
+        &std::collections::BTreeSet::new(),
         "story",
     )
     .unwrap();

@@ -27,7 +27,9 @@ Every **atom** — an entity's existence, a relation, a fact — and every **rul
 carries an annotation. An entity declaration also supplies a unary sort fact:
 for example, a declared person `wren` can be queried as `person(wren)`. An
 era-order declaration supplies an `era` fact for each member of its chain. Each
-such fact has the declaration's support and derived standing.
+such fact has the declaration's support and derived standing. A chain carries
+one source annotation, so an individual standing promotion that cannot be
+replayed from that declaration is refused before the store advances.
 
 ```text
 ann(a) = (P⁺, P⁻)
