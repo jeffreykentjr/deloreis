@@ -359,10 +359,10 @@ pub(super) fn materialize(
     };
 
     // Rendered lines are opt-in; fact objects are the default.
-    let rendered = if !params.rendered {
-        Vec::new()
-    } else {
+    let rendered = if params.rendered {
         render_scoped(&base_name, &staged_decls)
+    } else {
+        Vec::new()
     };
 
     // Idempotent empty delta: nothing staged since the last commit.
