@@ -28,6 +28,35 @@ fn ident(text: &str) -> Ident {
 }
 
 #[test]
+fn chronology_cycle_points_to_a_certain_edge_source() {
+    let source = "scope storybook\nratify d-1\nera first < second proposed\nera first < second ratified d-1\nera second < first ratified d-1\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics.iter().all(|d| !d.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let world = dli_world::compile(&Pack {
+        name: "storybook".to_owned(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let finding = dli_world::check::run(&world)
+        .into_iter()
+        .find(|finding| finding.code == "continuity.chronology-cycle")
+        .unwrap();
+    let span = finding.span.unwrap();
+    let line = source[..span.start as usize]
+        .bytes()
+        .filter(|&b| b == b'\n')
+        .count()
+        + 1;
+    assert!(
+        line == 4 || line == 5,
+        "must identify a certain edge, got line {line}"
+    );
+}
+
+#[test]
 fn functional_violation_uses_a_real_source_for_equivalent_values() {
     let source = "scope storybook\nratify d-0001\nfunctional home ratified d-0001\nfact wren home Shore ratified d-0001\nfact wren home shore ratified d-0001\nfact wren home Hill ratified d-0001\n";
     let (document, diagnostics) = dli_syntax::parse_document(source);

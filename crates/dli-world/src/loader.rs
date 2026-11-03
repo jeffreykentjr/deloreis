@@ -307,6 +307,7 @@ impl LoadCtx {
             let later = self.time_point(&pair[1].text);
             self.wm.world.chronology.edges.push((earlier, later));
             self.wm.chronology_anns.push(ann.clone());
+            self.wm.chronology_spans.push(pair[0].span);
         }
     }
 
@@ -814,6 +815,7 @@ impl LoadCtx {
         let later = self.time_point(&before.later.text);
         self.wm.world.chronology.edges.push((earlier, later));
         self.wm.chronology_anns.push(compiled.ann.clone());
+        self.wm.chronology_spans.push(before.earlier.span);
         self.push_atom(atom, compiled, pack, before.earlier.span);
     }
 
