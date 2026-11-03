@@ -10,8 +10,8 @@
 //!
 //! Modeled on two house patterns: `retired_vocabulary.rs`'s scan-teaching-
 //! surfaces-and-report shape, and `finding_families.rs`'s discipline of
-//! checking authored text against a live source of truth (`Op::ALL`, `Op::
-//! summary()`, `Op::introduced_in()`) rather than a second hand-maintained
+//! checking authored text against a live source of truth (`Op::ALL` and
+//! `Op::summary()`) rather than a second hand-maintained
 //! table. Four checks, all against the same source of truth:
 //!
 //! (a) every `author.*` op's wire name is named in at least one author-facing
