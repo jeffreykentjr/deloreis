@@ -69,6 +69,72 @@ pub fn format_document(document: &Document) -> String {
     out
 }
 
+/// Render a document only when its provenance can be parsed back unchanged.
+///
+/// Structured callers can supply origin tags that the current text grammar
+/// cannot represent as a single token (for example, a tag containing `#`).
+/// This check prevents a successful export from silently changing that origin.
+pub fn format_document_checked(document: &Document) -> Result<String, String> {
+    let text = format_document(document);
+    let (parsed, findings) = crate::parser::parse_document(&text);
+    if findings.iter().any(|finding| finding.class.is_error()) {
+        return Err("the rendered text does not parse cleanly".to_owned());
+    }
+    let original = annotation_signatures(document)?;
+    let replayed = annotation_signatures(&parsed)?;
+    if original != replayed {
+        return Err("the rendered text would change provenance".to_owned());
+    }
+    Ok(text)
+}
+
+fn annotation_signatures(document: &Document) -> Result<Vec<serde_json::Value>, String> {
+    fn without_spans(value: &mut serde_json::Value) {
+        match value {
+            serde_json::Value::Object(map) => {
+                map.remove("span");
+                for child in map.values_mut() {
+                    without_spans(child);
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for child in items {
+                    without_spans(child);
+                }
+            }
+            _ => {}
+        }
+    }
+    fn visit(value: &serde_json::Value, signatures: &mut Vec<serde_json::Value>) {
+        match value {
+            serde_json::Value::Object(map) => {
+                if ["marker", "citations", "condition", "tags", "span"]
+                    .iter()
+                    .all(|key| map.contains_key(*key))
+                {
+                    let mut annotation = value.clone();
+                    without_spans(&mut annotation);
+                    signatures.push(annotation);
+                } else {
+                    for child in map.values() {
+                        visit(child, signatures);
+                    }
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for child in items {
+                    visit(child, signatures);
+                }
+            }
+            _ => {}
+        }
+    }
+    let value = serde_json::to_value(document).map_err(|error| error.to_string())?;
+    let mut signatures = Vec::new();
+    visit(&value, &mut signatures);
+    Ok(signatures)
+}
+
 /// Parse `source` and render its canonical form, refusing if the parse produced
 /// any error-severity diagnostic.
 ///

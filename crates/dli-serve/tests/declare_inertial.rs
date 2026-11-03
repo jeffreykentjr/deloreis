@@ -234,9 +234,8 @@ fn a_cited_unknown_decision_raises_a_finding() {
 
 /// `sanitize_decl`: even though the control character above is caught as an
 /// error-severity finding, the mutation still stages the declaration (the
-/// ordinary stage-then-block-materialize shape) and its rendered surface
-/// must be scrubbed — one line out, no raw newline able to forge a second
-/// line in the review diff (`author.diff`, the supervision surface).
+/// ordinary stage-then-block-materialize shape) but omits its unsafe rendered
+/// line, so no newline can forge a second line in the review diff.
 #[test]
 fn a_tainted_decl_is_scrubbed_on_render() {
     let mut store = joren_base();
@@ -244,11 +243,7 @@ fn a_tainted_decl_is_scrubbed_on_render() {
     let added = declare_inertial(&mut store, "1.8.0", &ws, "water\nstatus");
     let added = result(&added);
     let rendered = added["rendered"].as_array().expect("rendered");
-    assert_eq!(rendered.len(), 1, "one rendered line: {rendered:?}");
-    assert!(
-        !rendered[0].as_str().unwrap_or_default().contains('\n'),
-        "the control character must not survive into the rendered line: {rendered:?}"
-    );
+    assert!(rendered.is_empty(), "unsafe line omitted: {rendered:?}");
 
     // The supervision surface (author.diff) is scrubbed the same way.
     let diff = dispatch(
@@ -256,10 +251,9 @@ fn a_tainted_decl_is_scrubbed_on_render() {
         &mut store,
     );
     let diff_rendered = result(&diff)["rendered"].as_array().expect("rendered");
-    assert_eq!(diff_rendered.len(), 1, "one diff line: {diff_rendered:?}");
     assert!(
-        !diff_rendered[0].as_str().unwrap_or_default().contains('\n'),
-        "the diff surface is scrubbed too: {diff_rendered:?}"
+        diff_rendered.is_empty(),
+        "unsafe diff line omitted: {diff_rendered:?}"
     );
 }
 

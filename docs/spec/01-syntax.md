@@ -53,6 +53,11 @@ elsewhere in this suite:
 - **Origins remain origins.** When an origin token resembles a positional
   bundle or cannot be recovered from a support expression, its declaration is
   stored alongside the fact so replay retains the caller's origin (DL-0115).
+- **Rendered provenance is checked.** If the text grammar cannot reproduce a
+  typed origin, a rendered corpus export or requested rendered materialization
+  refuses. A staging call can still store the declaration, with a warning and
+  no lossy rendered line. Status and diff omit the same line while retaining
+  its structural key. Fact-object output remains available (DL-0116).
 - **Agent tools lower to fact objects.** A client may request rendering, but
   structured diff rows and fact objects are the review and storage surface.
 - **The reference card and the schema are the same object at two altitudes.**

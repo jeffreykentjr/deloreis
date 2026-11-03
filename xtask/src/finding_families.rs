@@ -663,6 +663,12 @@ const FAMILIES: &[Family] = &[
         scrape: Scrape::CodeFieldsExcept(&["factcheck."]),
         codes: &[
             Code {
+                code: "render.provenance-unrepresentable",
+                severity: "warn",
+                repair: "—",
+                meaning: "the staged declaration has provenance the text renderer cannot preserve; its rendered line is omitted.",
+            },
+            Code {
                 code: "name.unvetted",
                 severity: "warn",
                 repair: "run-check",

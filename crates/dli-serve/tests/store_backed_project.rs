@@ -3400,3 +3400,57 @@ fn a_named_bundle_like_origin_survives_decision_acceptance_and_restart() {
     assert_eq!(annotation.bundle, None);
     assert_eq!(annotation.citations[0].id.text, "d-1");
 }
+
+#[cfg(feature = "syntax")]
+#[test]
+fn corpus_export_refuses_to_change_a_typed_origin() {
+    let root = temp("render-origin-guard");
+    seed_store(&root, "storybook", "existing");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let project = Project::load(&root).expect("project loads");
+    let mut author = author_store_for(&project);
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+    let opened = send(
+        &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open","params":{"scope":"storybook"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let workspace = opened["result"]["workspace"]
+        .as_str()
+        .expect("workspace")
+        .to_owned();
+    let added = send(
+        &serde_json::json!({"dli":"2.0.0","id":"add","op":"author.add_entity","params":{"workspace":workspace,"kind":"person","id":"wren","name":"Wren","provenance":{"kind":"proposed","origin":"group#draft"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(added["ok"], true, "{added}");
+    let commit = send(
+        &serde_json::json!({"dli":"2.0.0","id":"commit","op":"author.materialize","params":{"workspace":workspace}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(commit["ok"], true, "{commit}");
+    let project = Project::load(&root).expect("reopen project");
+    let mut author = author_store_for(&project);
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+    let rendered = send(
+        &serde_json::json!({"dli":"2.0.0","id":"text","op":"dli.corpus.export","params":{"document":"storybook","format":"rendered"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(rendered["ok"], false, "{rendered}");
+    assert!(
+        rendered["error"]["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("provenance"),
+        "{rendered}"
+    );
+    let objects = send(
+        &serde_json::json!({"dli":"2.0.0","id":"objects","op":"dli.corpus.export","params":{"document":"storybook","format":"objects"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(objects["ok"], true, "{objects}");
+}

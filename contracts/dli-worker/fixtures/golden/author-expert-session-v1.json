@@ -224,10 +224,16 @@
         "id": "5",
         "ok": true,
         "result": {
-          "findings": [],
-          "rendered": [
-            "banned sword \"no bladed weapons in this setting\""
+          "findings": [
+            {
+              "citations": [],
+              "code": "render.provenance-unrepresentable",
+              "grade": "checked",
+              "message": "The declaration is staged, but its text was omitted: the rendered text would change provenance. Use fact objects, or revise the declaration if text is required.",
+              "severity": "warn"
+            }
           ],
+          "rendered": [],
           "workspace_digest": "jcs:sha256:06abdb6211eca9273c7d3544a732247f3c0f69cd9b1d76a3c2fee093cee30cc9"
         }
       },
