@@ -3034,3 +3034,322 @@ fn corpus_append_refuses_unreplayable_chain_standing_before_ref_moves() {
     drop(project);
     Project::load(&root).expect("the original project must reopen");
 }
+
+#[test]
+fn materialize_with_decision_accepts_an_authored_entity() {
+    let root = temp("materialize-decision-entity");
+    seed_store(&root, "storybook", "existing");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let project = Project::load(&root).expect("project loads");
+    let mut author = author_store_for(&project);
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+    let opened = send(
+        &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open","params":{"scope":"storybook"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let workspace = opened["result"]["workspace"]
+        .as_str()
+        .expect("workspace")
+        .to_owned();
+    let added = send(
+        &serde_json::json!({"dli":"2.0.0","id":"add","op":"author.add_entity","params":{"workspace":workspace,"kind":"person","id":"wren","name":"Wren","provenance":{"kind":"proposed","origin":"session"}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(added["ok"], true, "{added}");
+    let commit = send(
+        &serde_json::json!({"dli":"2.0.0","id":"commit","op":"author.materialize","params":{"workspace":workspace,"decision":"d-1"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(commit["ok"], true, "{commit}");
+    let reopened = Project::load(&root).expect("committed project reopens");
+    let pack = &reopened
+        .documents()
+        .find(|(id, _)| *id == "storybook")
+        .unwrap()
+        .1
+        .pack;
+    let world = dli_world::compile(pack).unwrap();
+    let wren = world
+        .model
+        .atoms()
+        .iter()
+        .find(|atom| {
+            atom.atom.pred.text == "person"
+                && matches!(&atom.atom.args[0], dli_ast::term::Term::Sym(id) if id.text == "wren")
+        })
+        .expect("the authored entity survives");
+    assert_eq!(
+        wren.ann
+            .status(&world.model.world.valuation, &world.model.world.theory),
+        dli_core::ann::Status::Certain
+    );
+    assert_eq!(
+        dli_lorestore::lower::render_polynomial(&wren.ann.support, world.model.interner()),
+        "{+d-1}"
+    );
+}
+
+#[test]
+fn materialize_with_decision_preserves_independently_cited_entity_slots() {
+    let root = temp("materialize-decision-mixed-slots");
+    let lore = Lorestore::open(root.join("store")).unwrap();
+    let (base, findings) = dli_syntax::parse_document("scope storybook\nratify d-1\n");
+    assert!(findings.is_empty(), "{findings:?}");
+    lore.import_pack(&dli_world::pack::Pack {
+        name: "storybook".into(),
+        documents: vec![base],
+    })
+    .unwrap();
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let project = Project::load(&root).unwrap();
+    let mut author = author_store_for(&project);
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+    let opened = send(
+        &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open","params":{"scope":"storybook"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let workspace = opened["result"]["workspace"].as_str().unwrap().to_owned();
+    let (staged, findings) = dli_syntax::parse_document(
+        "scope storybook\nperson wren \"Wren\" proposed session\n  wren.home = nest proposed session\n  wren.rank = keeper ratified d-1\n",
+    );
+    assert!(findings.is_empty(), "{findings:?}");
+    let decl = author
+        .stage_lorestore(&workspace, &staged.decls[0])
+        .unwrap();
+    author.parts_mut(&workspace).unwrap().1.push_decl(decl);
+    let committed = send(
+        &serde_json::json!({"dli":"2.0.0","id":"commit","op":"author.materialize","params":{"workspace":workspace,"decision":"d-2"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(committed["ok"], true, "{committed}");
+    let reopened = Project::load(&root).unwrap();
+    let pack = &reopened
+        .documents()
+        .find(|(id, _)| *id == "storybook")
+        .unwrap()
+        .1
+        .pack;
+    let world = dli_world::compile(pack).unwrap();
+    for (predicate, expected) in [("person", "{+d-2}"), ("home", "{+d-2}"), ("rank", "{+d-1}")] {
+        let atom = world
+            .model
+            .atoms()
+            .iter()
+            .find(|atom| atom.atom.pred.text == predicate)
+            .unwrap();
+        assert_eq!(
+            dli_lorestore::lower::render_polynomial(&atom.ann.support, world.model.interner()),
+            expected,
+            "{predicate}"
+        );
+    }
+}
+
+#[test]
+fn materialize_with_decision_keeps_an_era_chain_replayable() {
+    let root = temp("materialize-decision-era-chain");
+    seed_store(&root, "storybook", "existing");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let project = Project::load(&root).unwrap();
+    let mut author = author_store_for(&project);
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+    let opened = send(
+        &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open","params":{"scope":"storybook"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let workspace = opened["result"]["workspace"].as_str().unwrap().to_owned();
+    let (document, findings) =
+        dli_syntax::parse_document("scope storybook\nera dawn < day < dusk proposed session\n");
+    assert!(findings.is_empty(), "{findings:?}");
+    let decl = author
+        .stage_lorestore(&workspace, &document.decls[0])
+        .unwrap();
+    author.parts_mut(&workspace).unwrap().1.push_decl(decl);
+    let committed = send(
+        &serde_json::json!({"dli":"2.0.0","id":"commit","op":"author.materialize","params":{"workspace":workspace,"decision":"d-1"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(committed["ok"], true, "{committed}");
+    let project = Project::load(&root).expect("the committed chain reopens");
+    let pack = &project
+        .documents()
+        .find(|(id, _)| *id == "storybook")
+        .unwrap()
+        .1
+        .pack;
+    let world = dli_world::compile(pack).unwrap();
+    let era_count = world
+        .model
+        .atoms()
+        .iter()
+        .filter(|atom| {
+            atom.atom.pred.text == "era"
+                && dli_lorestore::lower::render_polynomial(
+                    &atom.ann.support,
+                    world.model.interner(),
+                ) == "{+d-1}"
+        })
+        .count();
+    assert_eq!(era_count, 3);
+}
+
+#[test]
+fn decision_acceptance_refuses_a_proposed_carriage_with_existing_citations_without_moving_the_ref()
+{
+    let root = temp("materialize-decision-proposed-citation");
+    let lore = Lorestore::open(root.join("store")).unwrap();
+    let (base, _) = dli_syntax::parse_document("scope storybook\nratify d-1\n");
+    lore.import_pack(&dli_world::pack::Pack {
+        name: "storybook".into(),
+        documents: vec![base],
+    })
+    .unwrap();
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let project = Project::load(&root).unwrap();
+    let mut author = author_store_for(&project);
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+    let opened = send(
+        &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open","params":{"scope":"storybook"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let workspace = opened["result"]["workspace"].as_str().unwrap().to_owned();
+    let (document, findings) =
+        dli_syntax::parse_document("scope storybook\nperson wren \"Wren\" proposed d-1\n");
+    assert!(findings.is_empty(), "{findings:?}");
+    let decl = author
+        .stage_lorestore(&workspace, &document.decls[0])
+        .unwrap();
+    author.parts_mut(&workspace).unwrap().1.push_decl(decl);
+    let before = lore.root_hash().unwrap();
+    let result = send(
+        &serde_json::json!({"dli":"2.0.0","id":"commit","op":"author.materialize","params":{"workspace":workspace,"decision":"d-2"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(result["ok"], false, "{result}");
+    assert!(
+        result["error"]["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("citations"),
+        "{result}"
+    );
+    assert_eq!(lore.root_hash().unwrap(), before);
+}
+
+#[test]
+fn accepting_a_decision_keeps_question_options_conditional_and_replayable() {
+    use serde_json::json;
+    let root = temp("decision-question-options");
+    seed_store(&root, "storybook", "bedivere");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let project = Project::load(&root).unwrap();
+    let mut author = author_store_for(&project);
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+    let opened = send(
+        &json!({"dli":"2.0.0","id":"open","op":"author.open","params":{"scope":"storybook"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let ws = opened["result"]["workspace"].as_str().unwrap().to_owned();
+    let question = send(
+        &json!({"dli":"2.0.0","id":"q","op":"author.open_question","params":{"workspace":ws,"id":"mystery","prompt":"What happened?"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(question["ok"], true, "{question}");
+    let option = send(
+        &json!({"dli":"2.0.0","id":"option","op":"author.add_option","params":{"workspace":ws,"question":"mystery","id":"witness-one","label":"One","implies":{"pred":"death","args":[{"Sym":"bedivere"},{"Sym":"drowned"}]}}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(option["ok"], true, "{option}");
+    let committed = send(
+        &json!({"dli":"2.0.0","id":"commit","op":"author.materialize","params":{"workspace":ws,"decision":"d-1"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(committed["ok"], true, "{committed}");
+    let lore = Lorestore::open(root.join("store")).unwrap();
+    let head = lore.root_hash().unwrap().unwrap();
+    let names = dli_core::Interner::from_names(lore.interner_at(&head).unwrap());
+    let stored = lore
+        .fact_hashes_from(&head)
+        .unwrap()
+        .iter()
+        .filter_map(|hash| lore.read_object::<dli_lorestore::FactObject>(hash).unwrap())
+        .find(|object| object.atom.pred == "death")
+        .unwrap();
+    let stored_support = dli_lorestore::lower::render_polynomial(&stored.support, &names);
+    let pack = lore.reconstruct_at_uncached(&head).unwrap();
+    let world = dli_world::compile(&pack).unwrap();
+    let atom = world
+        .model
+        .atoms()
+        .iter()
+        .find(|atom| atom.atom.pred.text == "death")
+        .unwrap();
+    let replayed =
+        dli_lorestore::lower::render_polynomial(&atom.ann.support, world.model.interner());
+    assert_eq!(stored_support, replayed);
+    assert!(replayed.contains("witness-one"), "{replayed}");
+}
+
+#[test]
+fn accepting_a_decision_keeps_fork_options_conditional() {
+    let root = temp("decision-fork-options");
+    seed_store(&root, "storybook", "bedivere");
+    write_manifest(&root, "[documents.storybook]\nstore = \"store\"\n");
+    let project = Project::load(&root).unwrap();
+    let mut author = author_store_for(&project);
+    let mut sessions = dli_serve::session::Sessions::from_project(std::sync::Arc::new(project));
+    let opened = send(
+        &serde_json::json!({"dli":"2.0.0","id":"open","op":"author.open","params":{"scope":"storybook"}}),
+        &mut sessions,
+        &mut author,
+    );
+    let ws = opened["result"]["workspace"].as_str().unwrap().to_owned();
+    let (document, findings) = dli_syntax::parse_document(
+        "scope storybook\nfork mystery\n  option witness-one implies death(bedivere, drowned)\n",
+    );
+    assert!(findings.is_empty(), "{findings:?}");
+    let decl = author.stage_lorestore(&ws, &document.decls[0]).unwrap();
+    author.parts_mut(&ws).unwrap().1.push_decl(decl);
+    let committed = send(
+        &serde_json::json!({"dli":"2.0.0","id":"commit","op":"author.materialize","params":{"workspace":ws,"decision":"d-1"}}),
+        &mut sessions,
+        &mut author,
+    );
+    assert_eq!(committed["ok"], true, "{committed}");
+    let lore = Lorestore::open(root.join("store")).unwrap();
+    let head = lore.root_hash().unwrap().unwrap();
+    let names = dli_core::Interner::from_names(lore.interner_at(&head).unwrap());
+    let stored = lore
+        .fact_hashes_from(&head)
+        .unwrap()
+        .iter()
+        .filter_map(|hash| lore.read_object::<dli_lorestore::FactObject>(hash).unwrap())
+        .find(|object| object.atom.pred == "death")
+        .unwrap();
+    let stored_support = dli_lorestore::lower::render_polynomial(&stored.support, &names);
+    let pack = lore.reconstruct_at_uncached(&head).unwrap();
+    let world = dli_world::compile(&pack).unwrap();
+    let atom = world
+        .model
+        .atoms()
+        .iter()
+        .find(|atom| atom.atom.pred.text == "death")
+        .unwrap();
+    let replayed =
+        dli_lorestore::lower::render_polynomial(&atom.ann.support, world.model.interner());
+    assert_eq!(stored_support, replayed);
+    assert!(replayed.contains("witness-one"), "{replayed}");
+}

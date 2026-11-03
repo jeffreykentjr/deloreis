@@ -525,9 +525,8 @@ pub(super) fn materialize(
     // valuation ignores (`derive_annotation` reads certainty from `support`, not
     // from the marker, so a marker with a proposal-gated support round-trips back
     // to `Proposed` and never reads certain). Three rules:
-    //   * A declaration/carriage object (functional, inertial, ratify, `__decl`)
-    //     is machinery, not a claim — it does not rest on a standing decision, so
-    //     it is committed byte-identical, never stamped.
+    //   * A declaration/carriage object is not itself stamped. If it regenerates
+    //     a stamped fact, revise the declaration so replay produces that fact.
     //   * A fact that already cites a decision keeps its own deliberate citation
     //     and standing — the accept never clobbers a chosen provenance.
     //   * A proposed/uncited fact becomes `cited d ratified`: its support is
@@ -561,16 +560,73 @@ pub(super) fn materialize(
                 })
             })
         };
+        // Option implications are conditional on their option, not claims a
+        // batch decision can make unconditional. Preserve their fact objects
+        // exactly as the carried question or fork will regenerate them.
+        let mut option_facts = BTreeSet::new();
+        if params.decision.is_some() {
+            for hash in &staged_fact_hashes {
+                let object: dli_lorestore::FactObject = ls
+                    .read_object(hash)
+                    .map_err(|error| store_fault(&error))?
+                    .ok_or_else(|| schema_error(format!("staged object {hash} is missing")))?;
+                let Some(body) = &object.expert_body else {
+                    continue;
+                };
+                if !matches!(
+                    body.kind,
+                    dli_lorestore::ExpertDeclKind::Question | dli_lorestore::ExpertDeclKind::Fork
+                ) {
+                    continue;
+                }
+                let json = object
+                    .carriage_json()
+                    .ok_or_else(|| schema_error("staged question has no carriage body"))?;
+                let decl: Decl = serde_json::from_str(json).map_err(|error| {
+                    schema_error(format!("staged question is invalid: {error}"))
+                })?;
+                let mut source_interner = dli_core::Interner::from_names(ws_interner.clone());
+                for generated in dli_lorestore::lower::lower_decl(
+                    &decl,
+                    &base_name,
+                    &mut source_interner,
+                    &mut 0,
+                ) {
+                    if generated.expert_body.is_none() {
+                        option_facts.insert(
+                            generated
+                                .content_hash()
+                                .map_err(|error| schema_error(error.to_string()))?,
+                        );
+                    }
+                }
+            }
+        }
         let mut rewritten = Vec::with_capacity(staged_fact_hashes.len());
         for hash in &staged_fact_hashes {
             let mut object: dli_lorestore::FactObject = ls
                 .read_object(hash)
                 .map_err(|error| store_fault(&error))?
                 .ok_or_else(|| schema_error(format!("staged object {hash} is missing")))?;
+            let source_identity = object
+                .content_hash()
+                .map_err(|error| schema_error(error.to_string()))?;
             remap_fact_object(&mut object, &ws_interner, &target_interner)?;
-            // A carriage/declaration does not rest on a standing decision — commit
-            // it unchanged, never stamped (its `standing_decision` stays absent).
+            if let Some(decision) = params.decision.as_deref()
+                && object.expert_body.is_some()
+                && let Some(revised) = stamp_carried_facts(
+                    &object,
+                    &pack_name,
+                    &target_interner,
+                    decision,
+                    &cites_a_decision,
+                )?
+            {
+                object = revised;
+            }
+            // Only facts carry standing decisions; carriage was revised above.
             if object.expert_body.is_none()
+                && !option_facts.contains(&source_identity)
                 && !cites_a_decision(&object.support)
                 && let (Some(decision), Some(support)) =
                     (params.decision.as_deref(), decision_support.as_ref())
@@ -782,6 +838,110 @@ pub(super) fn materialize(
         root_hash: Some(commit_hash.to_string()),
         facts,
     }))
+}
+
+fn stamp_annotation_for_decision(
+    annotation: &mut Option<Annotation>,
+    decision: &str,
+) -> Result<bool, ErrorBody> {
+    let Some(annotation) = annotation else {
+        return Ok(false);
+    };
+    if !annotation.citations.is_empty() {
+        return Err(schema_error(
+            "cannot preserve existing citations while accepting this proposed declaration; materialize it first",
+        ));
+    }
+    annotation.marker = ProvenanceMarker::Ratified;
+    annotation.citations = vec![CitationRef {
+        id: ident(decision),
+    }];
+    annotation.bundle = None;
+    annotation.condition = None;
+    Ok(true)
+}
+
+/// When a decision replaces a staged fact's support, update any carried
+/// declaration that regenerates that fact. Other carried declarations remain
+/// unchanged, and independently cited facts retain their own support.
+fn stamp_carried_facts(
+    object: &dli_lorestore::FactObject,
+    pack_name: &str,
+    interner: &dli_core::Interner,
+    decision: &str,
+    cites_decision: &dyn Fn(&dli_core::PosBool) -> bool,
+) -> Result<Option<dli_lorestore::FactObject>, ErrorBody> {
+    let Some(body) = &object.expert_body else {
+        return Ok(None);
+    };
+    let Some(json) = object.carriage_json() else {
+        return Err(schema_error("staged declaration has no carriage body"));
+    };
+    let mut decl: Decl = serde_json::from_str(json)
+        .map_err(|error| schema_error(format!("staged declaration is invalid: {error}")))?;
+    if !matches!(
+        decl,
+        Decl::Entity(_)
+            | Decl::Attr(_)
+            | Decl::Fact(_)
+            | Decl::Before(_)
+            | Decl::SameAs(_)
+            | Decl::State(_)
+    ) {
+        return Ok(None);
+    }
+    let mut replay = interner.clone();
+    let generated = dli_lorestore::lower::lower_decl(&decl, pack_name, &mut replay, &mut 0);
+    if replay.len() != interner.len() {
+        return Err(schema_error(
+            "staged declaration references an unrecorded provenance",
+        ));
+    }
+    let facts: Vec<_> = generated
+        .iter()
+        .filter(|fact| fact.expert_body.is_none())
+        .collect();
+    let should_stamp = |index: usize| {
+        facts
+            .get(index)
+            .is_some_and(|fact| !cites_decision(&fact.support))
+    };
+    if matches!(decl, Decl::SameAs(_)) && should_stamp(0) {
+        return Err(schema_error(
+            "an identity link cannot be accepted by fact stamping; materialize it without `decision` first",
+        ));
+    }
+    let mut changed = false;
+    match &mut decl {
+        Decl::Entity(entity) => {
+            let chain_len = match &entity.time {
+                Some(TimeClause::Order(chain)) => chain.len(),
+                _ => 0,
+            };
+            if should_stamp(0) {
+                changed |= stamp_annotation_for_decision(&mut entity.provenance, decision)?;
+            }
+            for (index, slot) in entity.slots.iter_mut().enumerate() {
+                if slot.provenance.is_some() && should_stamp(1 + chain_len + index) {
+                    changed |= stamp_annotation_for_decision(&mut slot.provenance, decision)?;
+                }
+            }
+        }
+        Decl::Attr(attr) if should_stamp(0) => {
+            changed |= stamp_annotation_for_decision(&mut attr.provenance, decision)?;
+        }
+        Decl::Fact(fact) if should_stamp(0) => {
+            changed |= stamp_annotation_for_decision(&mut fact.provenance, decision)?;
+        }
+        Decl::Before(before) if should_stamp(0) => {
+            changed |= stamp_annotation_for_decision(&mut before.provenance, decision)?;
+        }
+        Decl::State(state) if should_stamp(0) => {
+            changed |= stamp_annotation_for_decision(&mut state.provenance, decision)?;
+        }
+        _ => {}
+    }
+    Ok(changed.then(|| dli_lorestore::lower::revised_carriage(&decl, body.kind, &body.name)))
 }
 
 // -- the claim-bearing mutations ---------------------------------------------

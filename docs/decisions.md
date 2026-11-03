@@ -265,3 +265,26 @@ exception for era-chain tail members remains in force.
 a fictional claim to the wrong support, and dropping a `#` in rendered text can
 silently lose that support. An explicit, parseable identity makes replay and text
 round-tripping preserve the original hypotheses.
+
+## DL-0114 — Keep carried declarations aligned during decision acceptance
+
+*Date: 2026-11-03*
+
+**Attribution:** machine.
+
+**Ruling.** When materialization accepts staged facts under a decision, any
+carried declaration that regenerates a stamped fact is revised to produce that
+same support. Independently cited facts retain their own support. The revised
+candidate is reconstructed and checked before the ref advances. If a proposed
+carried annotation has citations that cannot be retained without changing the
+support, the decision-stamped operation refuses; the caller may materialize it
+without stamping first. A proposed `same-as` declaration is likewise
+materialized separately because stamping its fact would also change the
+standing of the identity link. Facts implied by a question or fork option keep
+their option support; accepting the surrounding batch does not choose an option.
+On replay those option facts are matched by their stored fact identity, so an
+independent support for the same atom is not consumed and a missing option
+fact cannot be recreated from the declaration alone.
+
+**Rationale.** A decision must not make a valid authored entity uncommittable or
+leave a carried declaration describing different evidence from its fact.
