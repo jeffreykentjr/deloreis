@@ -1958,7 +1958,7 @@ fn a_rule_with_an_absent_negative_premise_can_be_a_witness() {
 }
 
 #[test]
-fn a_possible_negative_premise_is_not_guessed_as_absent() {
+fn a_possible_negative_premise_uses_the_evaluated_defeater() {
     let dir = tmp("possible-negative-rule-witness");
     let corpus = dir.join("world.dli");
     fs::write(&corpus, "scope storybook\nratify d-1\nfunctional home ratified d-1\npresent(wren) ratified d-1\nflooded(wren) proposed report\nrule shore ratified d-1\n  home($who, shore) :- present($who), not flooded($who)\nrule marsh ratified d-1\n  home($who, marsh) :- present($who), not flooded($who)\n").unwrap();
@@ -1968,7 +1968,11 @@ fn a_possible_negative_premise_is_not_guessed_as_absent() {
         .lines()
         .find(|line| line.contains("continuity.derived-fd-violation"))
         .expect(&text);
-    assert!(!line.contains(&corpus.display().to_string()), "{text}");
+    assert!(
+        line.contains(&format!("{}:7:", corpus.display()))
+            || line.contains(&format!("{}:9:", corpus.display())),
+        "{text}"
+    );
 }
 
 #[test]

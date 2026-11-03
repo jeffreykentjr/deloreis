@@ -2114,8 +2114,8 @@ fn derived_fd_violations(
 }
 
 /// Find a direct, certain rule application that produces a conflicting row
-/// from certain input facts. A negative premise is accepted only if the
-/// saturated relation has no matching row at all. Other cases stay unlocated.
+/// from certain input facts, applying the evaluator's negative-premise poison
+/// to each candidate path. Unproven cases remain unlocated.
 fn direct_rule_witness(
     world: &CompiledWorld,
     canon: &BTreeMap<String, String>,
@@ -2188,21 +2188,22 @@ fn direct_rule_witness(
                 if support.status(valuation, theory) != Status::Certain {
                     continue;
                 }
-                let mut absent = true;
+                let mut poison = dli_core::posbool::PosBool::FALSE;
                 for literal in rule.body.iter().filter(|literal| literal.negated) {
                     for candidate in &model.world.derived {
                         budget = budget.checked_sub(1)?;
                         let mut candidate_bindings = bindings.clone();
                         if unify_witness(&literal.atom, &candidate.atom, &mut candidate_bindings) {
-                            absent = false;
-                            break;
+                            poison = poison
+                                .or_(&dli_eval::world::negative_row_poison(candidate, theory));
                         }
                     }
-                    if !absent {
-                        break;
-                    }
                 }
-                if absent {
+                let negative = Ann::new(dli_core::posbool::PosBool::truth(), poison);
+                if dli_eval::world::conjoin_annotations(&support, &negative)
+                    .status(valuation, theory)
+                    == Status::Certain
+                {
                     return Some(span);
                 }
             }
