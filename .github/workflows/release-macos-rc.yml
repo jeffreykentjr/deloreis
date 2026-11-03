@@ -21,6 +21,7 @@ concurrency:
 
 jobs:
   verify:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -32,14 +33,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.sha }}
+          path: control
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
           ref: ${{ inputs.commit }}
+          path: source
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Verify the draft is a matching release candidate
-        run: python3 scripts/release-control.py
+        working-directory: source
+        run: |
+          test -f scripts/build-release-archive.sh
+          python3 ../control/scripts/release-control.py
 
   build:
     needs: verify

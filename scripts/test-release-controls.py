@@ -50,6 +50,9 @@ class ReleaseControls(unittest.TestCase):
         self.assertIn("workflow_dispatch:", workflow)
         self.assertIn("environment: macos-rc", workflow)
         self.assertIn("RELEASE_TARGET: aarch64-apple-darwin", workflow)
+        self.assertIn("if: github.ref == 'refs/heads/main'", workflow)
+        self.assertIn("path: control", workflow)
+        self.assertIn("python3 ../control/scripts/release-control.py", workflow)
         self.assertNotIn("schedule:", workflow)
         self.assertNotIn("push:", workflow)
         self.assertNotIn("pull_request:", workflow)
@@ -67,6 +70,10 @@ class ReleaseControls(unittest.TestCase):
             dict(protected, protection_rules=[]),
             dict(protected, name="other"),
             dict(protected, can_admins_bypass=None),
+            dict(protected, protection_rules=[{"type": "required_reviewers", "reviewers": [
+                {"type": "User", "reviewer": {"id": 2244907}},
+                {"type": "User", "reviewer": {"id": 123}},
+            ]}]),
         ]:
             with self.assertRaises(ValueError):
                 control.validate_macos_environment(broken, 2244907)

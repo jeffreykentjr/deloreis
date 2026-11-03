@@ -46,13 +46,12 @@ def validate_macos_environment(environment, owner_id):
         raise ValueError("macos-rc must prevent administrator bypass")
     for rule in environment.get("protection_rules", []):
         if rule.get("type") == "required_reviewers":
-            if any(
-                reviewer.get("type") == "User"
-                and reviewer.get("reviewer", {}).get("id") == owner_id
-                for reviewer in rule.get("reviewers", [])
-            ):
+            reviewers = rule.get("reviewers", [])
+            if (len(reviewers) == 1
+                and reviewers[0].get("type") == "User"
+                and reviewers[0].get("reviewer", {}).get("id") == owner_id):
                 return
-    raise ValueError("macos-rc must require the owner's review")
+    raise ValueError("macos-rc must require only the owner's review")
 
 
 def main():
