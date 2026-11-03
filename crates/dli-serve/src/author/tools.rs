@@ -2870,25 +2870,18 @@ pub(super) fn set_standing(
         &params.claim_id,
         &params.decision,
         None,
-        false,
     )
 }
 
-/// Record a defeating decision and rule the claim's existing supporting
-/// decision false on the current main ref. The defeated object remains
-/// reachable in the append-only store.
-pub(super) fn defeat(
-    store: &mut Store,
-    params: &AuthorDefeatParams,
-    conditional: bool,
-) -> Result<Value, ErrorBody> {
+/// Record a conditional attack against a supporting decision. The defeated
+/// object remains reachable in the append-only store.
+pub(super) fn defeat(store: &mut Store, params: &AuthorDefeatParams) -> Result<Value, ErrorBody> {
     durable_standing_change(
         store,
         &params.workspace,
         &params.claim_id,
         &params.decision,
         Some(&params.defeated_decision),
-        conditional,
     )
 }
 
@@ -3412,7 +3405,6 @@ fn durable_standing_change(
     claim_id: &str,
     decision: &str,
     defeated_decision: Option<&str>,
-    conditional: bool,
 ) -> Result<Value, ErrorBody> {
     let defeating = defeated_decision.is_some();
     let ws0 = store.get(workspace).ok_or_else(gone)?;
@@ -3472,11 +3464,9 @@ fn durable_standing_change(
             // object can mistake an earlier proposal for the later ruling.
             let matches = match defeated_decision {
                 Some(defeated) => {
-                    let ratify_carrier = conditional
-                        && object.expert_body.as_ref().is_some_and(|body| {
-                            body.kind == dli_lorestore::ExpertDeclKind::Ratify
-                                && body.name == defeated
-                        });
+                    let ratify_carrier = object.expert_body.as_ref().is_some_and(|body| {
+                        body.kind == dli_lorestore::ExpertDeclKind::Ratify && body.name == defeated
+                    });
                     ratify_carrier || support_cites_decision(&object, &interner, defeated)
                 }
                 None => {
@@ -3523,11 +3513,6 @@ fn durable_standing_change(
 
     if defeating {
         let defeated_decision = defeated_decision.expect("defeat carries a supporting decision");
-        if defeated_decision == decision && !conditional {
-            return Err(schema_error(
-                "author.defeat requires distinct defeating and defeated decisions",
-            ));
-        }
         if !decisions.iter().any(|known| known == defeated_decision) {
             let known = decisions.iter().cloned().collect::<BTreeSet<_>>();
             return Ok(value(&AuthorMutationResult {
@@ -3538,20 +3523,13 @@ fn durable_standing_change(
                 facts: None,
             }));
         }
-        let ratify_carrier = conditional
-            && object.expert_body.as_ref().is_some_and(|body| {
-                body.kind == dli_lorestore::ExpertDeclKind::Ratify && body.name == defeated_decision
-            });
+        let ratify_carrier = object.expert_body.as_ref().is_some_and(|body| {
+            body.kind == dli_lorestore::ExpertDeclKind::Ratify && body.name == defeated_decision
+        });
         if !ratify_carrier && !support_cites_decision(&object, &interner, defeated_decision) {
             return Err(schema_error(format!(
                 "claim `{claim_id}` does not rest on decision `{defeated_decision}` in every support path"
             )));
-        }
-        if !conditional {
-            object
-                .provenance
-                .get_or_insert_with(Default::default)
-                .defeated_by = Some(decision.to_owned());
         }
     } else {
         let marker = object
@@ -3580,23 +3558,7 @@ fn durable_standing_change(
     if defeating && !interner.iter().any(|name| name == decision) {
         interner.push(decision.to_owned());
     }
-    let defeat_atom = match (defeated_decision, conditional) {
-        (Some(defeated_decision), false) => Some(
-            interner
-                .iter()
-                .position(|name| name == defeated_decision)
-                .and_then(|index| u32::try_from(index).ok())
-                .map(dli_core::Atom)
-                .ok_or_else(|| {
-                    schema_error(format!(
-                        "defeated decision `{defeated_decision}` has no interner atom"
-                    ))
-                })?,
-        ),
-        _ => None,
-    };
-
-    let (commit, ref_digest) = {
+    let commit = {
         let ls = store
             .workspace_lorestore(workspace)
             .expect("lorestore presence checked above");
@@ -3619,13 +3581,13 @@ fn durable_standing_change(
         } else {
             Vec::new()
         };
-        if !conditional {
+        if !defeating {
             fact_hashes.push(
                 ls.write_object(&object)
                     .map_err(|error| store_fault(&error))?,
             );
         }
-        let attack_hashes = if conditional {
+        let attack_hashes = if defeating {
             let attack = dli_lorestore::DecisionAttack::new(
                 object.claim_id.clone(),
                 subject_fact_hash,
@@ -3657,43 +3619,11 @@ fn durable_standing_change(
                 pack_name,
             )
             .map_err(|error| store_fault(&error))?;
-        (receipt.commit, receipt.ref_digest)
+        receipt.commit
     };
 
-    // The first CAS has already advanced the ref, even if a legacy valuation
-    // CAS or later workspace refresh fails.
+    // The commit has advanced the ref even if the workspace refresh fails.
     store.mark_main_base_dirty(workspace);
-
-    if defeating && !conditional {
-        let ls = store
-            .workspace_lorestore(workspace)
-            .expect("lorestore presence checked above");
-        let current = ls
-            .branch_ref(&target_branch)
-            .map_err(|error| store_fault(&error))?
-            .ok_or_else(|| {
-                schema_error("the lorestore ref for this workspace's target branch disappeared")
-            })?;
-        let mut valuation = current.valuation;
-        valuation.set(defeat_atom.expect("defeat carries an atom"), false);
-        let updated = dli_lorestore::Ref::with_valuation(
-            dli_lorestore::branch_ref_name(&target_branch),
-            commit.clone(),
-            valuation,
-        );
-        if !ls
-            .cas_branch_ref(&target_branch, Some(ref_digest.as_str()), &updated)
-            .map_err(|error| store_fault(&error))?
-        {
-            return Err(ErrorBody {
-                code: ErrorCode::StaleFence,
-                message:
-                    "the lorestore changed while applying the defeat; retry from author.status"
-                        .to_owned(),
-                data: None,
-            });
-        }
-    }
 
     let current_ref = store
         .workspace_lorestore(workspace)
@@ -3708,18 +3638,11 @@ fn durable_standing_change(
     // A standing promotion can follow a conditional defeat. Recompute the
     // attack overlay for promotions too, or the open workspace would briefly
     // resurrect a defeated decision until it is reopened.
-    let effective_valuation = if conditional || !defeating {
-        store
-            .workspace_lorestore(workspace)
-            .expect("lorestore presence checked above")
-            .effective_valuation_at(&commit, &current_ref.valuation)
-            .map_err(|error| store_fault(&error))?
-    } else {
-        dli_lorestore::EffectiveValuation {
-            valuation: current_ref.valuation.clone(),
-            unassigned: BTreeSet::new(),
-        }
-    };
+    let effective_valuation = store
+        .workspace_lorestore(workspace)
+        .expect("lorestore presence checked above")
+        .effective_valuation_at(&commit, &current_ref.valuation)
+        .map_err(|error| store_fault(&error))?;
     let source_names = store
         .workspace_lorestore(workspace)
         .expect("lorestore presence checked above")
