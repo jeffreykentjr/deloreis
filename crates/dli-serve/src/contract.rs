@@ -375,21 +375,10 @@ pub enum AttestationAnswer {
 pub struct QueryParams {
     /// The document id to query.
     pub document: String,
-    /// The goal atom, rendered. The 0.6.3 typed successor is [`Self::goal_atom`];
-    /// this string form is a registered field-level killed form, refused from
-    /// contract 1.0 and still accepted — and still **required** — before it.
-    ///
-    /// `default` is what lets a 1.0 caller send [`Self::goal_atom`] alone: a
-    /// retired field cannot also be a mandatory one. The pre-1.0 requirement is
-    /// not dropped, only moved — `serve::required_retired_field` restores it
-    /// verbatim on every `0.x` wire.
+    /// Retired text form; use [`Self::goal_atom`].
     #[serde(default)]
     pub goal: String,
-    /// The goal as a typed atom — the 0.6.3 typed successor to [`Self::goal`],
-    /// carried structurally instead of re-parsed from text. When present it is
-    /// used and `goal` is ignored; when absent `goal` is parsed exactly as
-    /// before. A `Term::Var` argument is a query variable (the string form's
-    /// `?who`).
+    /// The structured goal atom; a `Term::Var` argument is a query variable.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub goal_atom: Option<AtomExpr>,
     /// The standing floor for the returned rows (`certain` | `possible` | `all`).
@@ -559,25 +548,10 @@ pub struct ForkSupposeParams {
 pub struct ForkAddParams {
     /// The fork handle.
     pub fork: String,
-    /// The rendered proposed declarations to add. The 0.6.3 typed successor is
-    /// [`Self::additions`]; this string form is a registered field-level killed
-    /// form, refused from contract 1.0 and still accepted — and still
-    /// **required** — before it.
-    ///
-    /// `default` is what lets a 1.0 caller send [`Self::additions`] alone; the
-    /// pre-1.0 requirement is restored verbatim by
-    /// `serve::required_retired_field`.
+    /// Retired text form; use [`Self::additions`].
     #[serde(default)]
     pub declarations: Vec<String>,
-    /// The proposed facts as typed ground atoms — the 0.6.3 typed successor to
-    /// [`Self::declarations`]. When present it is used and `declarations` is
-    /// ignored; when absent the declaration lines are parsed and lowered
-    /// exactly as before.
-    ///
-    /// A ground atom is the whole of what the string path can express: both a
-    /// fact line and a slot line lower to a ground fact, and every lowered
-    /// addition is asserted by fiat with an unconditional annotation, so the
-    /// typed form reaches exactly the same additions the text form did.
+    /// Proposed facts as typed ground atoms, asserted in the fork.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub additions: Option<Vec<GroundAtom>>,
 }
@@ -1851,23 +1825,10 @@ pub struct AuthorDefeatParams {
 pub struct AuthorQueryParams {
     /// The workspace id.
     pub workspace: String,
-    /// The goal atom, rendered `pred(a, b)`. An argument written `?` or `?name`
-    /// is a query variable that enumerates matches (`serves(nara, ?who)`); a bare
-    /// symbol is a ground constant. The 0.6.3 typed successor is
-    /// [`Self::goal_atom`]; this string form is a registered field-level killed
-    /// form, refused from contract 1.0 and still accepted — and still
-    /// **required** — before it.
-    ///
-    /// `default` is what lets a 1.0 caller send [`Self::goal_atom`] alone; the
-    /// pre-1.0 requirement is restored verbatim by
-    /// `serve::required_retired_field`.
+    /// Retired text form; use [`Self::goal_atom`].
     #[serde(default)]
     pub goal: String,
-    /// The goal as a typed atom — the 0.6.3 typed successor to [`Self::goal`],
-    /// carried structurally instead of re-parsed from text. When present it is
-    /// used and `goal` is ignored; when absent `goal` is parsed exactly as
-    /// before. A `Term::Var` argument is a query variable (the string form's
-    /// `?who`).
+    /// The structured goal atom; a `Term::Var` argument is a query variable.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub goal_atom: Option<AtomExpr>,
     /// The standing floor for the returned rows (`certain` | `possible` | `all`).

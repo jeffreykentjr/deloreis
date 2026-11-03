@@ -23,12 +23,12 @@
       ]
     },
     "goal": {
-      "description": "The goal atom, rendered. The 0.6.3 typed successor is [`Self::goal_atom`];\nthis string form is a registered field-level killed form, refused from\ncontract 1.0 and still accepted — and still **required** — before it.\n\n`default` is what lets a 1.0 caller send [`Self::goal_atom`] alone: a\nretired field cannot also be a mandatory one. The pre-1.0 requirement is\nnot dropped, only moved — `serve::required_retired_field` restores it\nverbatim on every `0.x` wire.",
+      "description": "Retired text form; use [`Self::goal_atom`].",
       "type": "string",
       "default": ""
     },
     "goal_atom": {
-      "description": "The goal as a typed atom — the 0.6.3 typed successor to [`Self::goal`],\ncarried structurally instead of re-parsed from text. When present it is\nused and `goal` is ignored; when absent `goal` is parsed exactly as\nbefore. A `Term::Var` argument is a query variable (the string form's\n`?who`).",
+      "description": "The structured goal atom; a `Term::Var` argument is a query variable.",
       "anyOf": [
         {
           "$ref": "#/$defs/AtomExpr"
