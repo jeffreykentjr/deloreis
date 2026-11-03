@@ -1715,6 +1715,29 @@ fn malformed_nested_naming_provenance_is_not_silent() {
 }
 
 #[test]
+fn unknown_citation_names_its_source_and_repair() {
+    let dir = tmp("unknown-citation-location");
+    fs::write(dir.join("a.dli"), "scope storybook\n").unwrap();
+    let second = dir.join("b.dli");
+    fs::write(
+        &second,
+        "scope storybook\nfact wren home shore ratified d-9999\n",
+    )
+    .unwrap();
+    let output = bin().arg("check").arg(&dir).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("citation.unknown-decision"))
+        .unwrap();
+    assert!(line.contains(&format!("{}:2:", second.display())), "{text}");
+    assert!(
+        text.contains("help: declare the cited decision with ratify or correct the citation"),
+        "{text}"
+    );
+}
+
+#[test]
 fn conflicting_canon_names_a_source_and_a_repair() {
     let dir = tmp("continuity-source-location");
     let first = dir.join("a.dli");

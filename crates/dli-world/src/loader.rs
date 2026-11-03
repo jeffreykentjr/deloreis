@@ -238,6 +238,7 @@ struct Compiled {
     ann: Ann,
     kind: Provenance,
     citations: Vec<String>,
+    provenance_span: Option<Span>,
 }
 
 impl Compiled {
@@ -247,6 +248,7 @@ impl Compiled {
             ann: Ann::supported(PosBool::FALSE),
             kind: Provenance::Unprovenanced,
             citations: Vec::new(),
+            provenance_span: None,
         }
     }
 }
@@ -407,6 +409,7 @@ impl LoadCtx {
                     ann,
                     kind: Provenance::Proposed,
                     citations: Vec::new(),
+                    provenance_span: None,
                 };
                 self.push_atom(implied.clone(), compiled, pack, implied.pred.span);
             }
@@ -870,6 +873,7 @@ impl LoadCtx {
             kind: compiled.kind,
             citations: compiled.citations,
             pack: pack.to_owned(),
+            span: compiled.provenance_span,
         });
     }
 
@@ -1016,6 +1020,7 @@ impl LoadCtx {
             ann: compiled.ann,
             kind: compiled.kind,
             citations: compiled.citations,
+            provenance_span: compiled.provenance_span,
             pack: pack.to_owned(),
             span,
         });
@@ -1133,6 +1138,7 @@ impl LoadCtx {
             ann: Ann::supported(support),
             kind: Provenance::from_marker(annotation.marker),
             citations,
+            provenance_span: Some(annotation.span).filter(|span| span.end > span.start),
         }
     }
 

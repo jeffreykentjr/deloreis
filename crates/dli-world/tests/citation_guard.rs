@@ -28,6 +28,116 @@ fn unknown_decision_findings(world: &CompiledWorld) -> Vec<String> {
         .collect()
 }
 
+#[test]
+fn unknown_proof_and_ratify_citations_keep_their_source_lines() {
+    let source = "scope demo\nproof oath speaker p in practice {\n  premise p1 holds(p) cited d-9999\n  close holds(p) expect holds\n}\nhypothesis h-x\nratify d-1 { h-x := true decided d-9998 }\n";
+    let world = world_of(source);
+    let findings = check::run(&world);
+    for (decision, expected_line) in [("d-9999", 3), ("d-9998", 7)] {
+        let finding = findings
+            .iter()
+            .find(|f| f.code == "citation.unknown-decision" && f.message.contains(decision))
+            .expect("the test fixture must provide this value");
+        let span = finding
+            .span
+            .expect("the test fixture must provide this value");
+        let line = source[..span.start as usize]
+            .bytes()
+            .filter(|&b| b == b'\n')
+            .count()
+            + 1;
+        assert_eq!(line, expected_line, "{finding:?}");
+    }
+}
+
+#[test]
+fn inherited_unknown_citations_point_to_the_enclosing_provenance() {
+    let source =
+        "scope demo\nperson wren ratified d-9999 {\n  wren.home = shore\n  wren.role = guide\n}\n";
+    let world = world_of(source);
+    let findings: Vec<_> = check::run(&world)
+        .into_iter()
+        .filter(|f| f.code == "citation.unknown-decision")
+        .collect();
+    assert!(!findings.is_empty());
+    for finding in findings {
+        let span = finding
+            .span
+            .expect("the test fixture must provide this value");
+        let line = source[..span.start as usize]
+            .bytes()
+            .filter(|&b| b == b'\n')
+            .count()
+            + 1;
+        assert_eq!(line, 2, "{finding:?}");
+    }
+}
+
+#[test]
+fn unknown_kind_citation_points_to_its_provenance() {
+    let source = "scope demo\nkind spirit ratified d-9999\n";
+    let world = world_of(source);
+    let finding = check::run(&world)
+        .into_iter()
+        .find(|f| f.code == "citation.unknown-decision")
+        .expect("the test fixture must provide this value");
+    let span = finding
+        .span
+        .expect("the test fixture must provide this value");
+    assert_eq!(
+        source[..span.start as usize]
+            .bytes()
+            .filter(|&b| b == b'\n')
+            .count()
+            + 1,
+        2
+    );
+}
+
+#[test]
+fn repeated_ratify_citations_point_to_each_body_line() {
+    let source = "scope demo\nhypothesis h-x\nhypothesis h-y\nratify d-1 {\n  h-x := true decided d-9999\n  h-y := true decided d-9999\n}\n";
+    let world = world_of(source);
+    let lines: Vec<_> = check::run(&world)
+        .into_iter()
+        .filter(|f| f.code == "citation.unknown-decision")
+        .map(|f| {
+            let span = f.span.expect("the test fixture must provide this value");
+            source[..span.start as usize]
+                .bytes()
+                .filter(|&b| b == b'\n')
+                .count()
+                + 1
+        })
+        .collect();
+    assert_eq!(lines, vec![5, 6]);
+}
+
+#[test]
+fn a_synthetic_citation_does_not_claim_a_source_location() {
+    let (mut doc, diagnostics) =
+        parse_document("scope demo\nfact wren home shore ratified d-9999\n");
+    assert!(diagnostics.is_empty());
+    for decl in &mut doc.decls {
+        if let dli_ast::decl::Decl::Fact(fact) = decl {
+            fact.provenance
+                .as_mut()
+                .expect("the test fixture must provide this value")
+                .span = dli_ast::span::Span::synthetic();
+        }
+    }
+    let world = compile(&Pack {
+        name: "guard".to_owned(),
+        documents: vec![doc],
+    })
+    .expect("the test fixture must provide this value");
+    let finding = check::run(&world)
+        .into_iter()
+        .find(|f| f.code == "citation.unknown-decision")
+        .expect("the test fixture must provide this value");
+    assert!(finding.span.is_none());
+}
+
 // --- term ------------------------------------------------------------------
 
 #[test]

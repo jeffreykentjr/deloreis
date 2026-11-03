@@ -256,6 +256,9 @@ pub struct LowerFinding {
     pub code: String,
     /// A human-readable message in the world's terms.
     pub message: String,
+    /// The source location, when the original declaration is available.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub span: Option<dli_ast::span::Span>,
 }
 
 /// A lowered, evaluable program together with its symbolic saturation.
@@ -609,6 +612,7 @@ impl World {
                     "state '{}' names nothing evaluable, so it lowers to no fact",
                     state.name.text
                 ),
+                span: Some(state.name.span).filter(|span| span.end > span.start),
             });
             return Ok(());
         };
@@ -861,6 +865,7 @@ impl World {
                                     "cited decision '{}' is not a declared decision",
                                     citation.id.text
                                 ),
+                                span: Some(citation.id.span).filter(|span| span.end > span.start),
                             });
                         }
                         support = support.and_(&PosBool::pos(var));
