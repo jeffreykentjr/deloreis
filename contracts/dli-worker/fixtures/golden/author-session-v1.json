@@ -28,9 +28,9 @@
         "result": {
           "findings": [],
           "rendered": [
-            "person nara \"Nara\" proposed session-fx01"
+            "person lyra \"Lyra\" proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:b391e61af6139ddc62d711a97264e3ca0e8e80c14bd26803f0836c7064b636d6"
+          "workspace_digest": "jcs:sha256:c57318a64b9b54c3be06566a8a414a617daf25c72a2c91eb856eceab253a268e"
         }
       },
       "send": {
@@ -38,9 +38,9 @@
         "id": "2",
         "op": "author.add_entity",
         "params": {
-          "id": "nara",
+          "id": "lyra",
           "kind": "person",
-          "name": "Nara",
+          "name": "Lyra",
           "provenance": {
             "kind": "proposed",
             "origin": "session-fx01"
@@ -59,7 +59,7 @@
           "rendered": [
             "place riverside \"Riverside\" proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:f1e4aa5f6923b552947b571931f58b588e6d963917d36d6aa9e831475a76c4ce"
+          "workspace_digest": "jcs:sha256:2e64cb4b6112a7a131ef022dfaa232250c519d622d24690845b432dd5f608ad5"
         }
       },
       "send": {
@@ -86,9 +86,9 @@
         "result": {
           "findings": [],
           "rendered": [
-            "nara.home = riverside proposed session-fx01"
+            "lyra.home = riverside proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:079a3fd44033333a65ab7c74dbb2a7fa9876beba38f005efa41d10a6887bdec5"
+          "workspace_digest": "jcs:sha256:1d1273bfce11b1bf4c1b2846f5ee9621371663996b388bd3f37c7d7e5f03924e"
         }
       },
       "send": {
@@ -96,7 +96,7 @@
         "id": "4",
         "op": "author.add_fact",
         "params": {
-          "entity": "nara",
+          "entity": "lyra",
           "key": "home",
           "provenance": {
             "kind": "proposed",
@@ -126,7 +126,7 @@
                 },
                 "atom": {
                   "args": [
-                    "nara",
+                    "lyra",
                     "riverside"
                   ],
                   "pred": "home"
@@ -135,7 +135,7 @@
                   "grade": "asserted",
                   "status": "dead"
                 },
-                "rendered": "home(nara, riverside): dead (asserted) -> possible (asserted)"
+                "rendered": "home(lyra, riverside): dead (asserted) -> possible (asserted)"
               },
               {
                 "after": {
@@ -144,7 +144,7 @@
                 },
                 "atom": {
                   "args": [
-                    "nara"
+                    "lyra"
                   ],
                   "pred": "person"
                 },
@@ -152,7 +152,7 @@
                   "grade": "asserted",
                   "status": "dead"
                 },
-                "rendered": "person(nara): dead (asserted) -> possible (asserted)"
+                "rendered": "person(lyra): dead (asserted) -> possible (asserted)"
               },
               {
                 "after": {
@@ -175,9 +175,9 @@
           },
           "findings": [],
           "rendered": [
-            "person nara \"Nara\" proposed session-fx01",
+            "person lyra \"Lyra\" proposed session-fx01",
             "place riverside \"Riverside\" proposed session-fx01",
-            "nara.home = riverside proposed session-fx01"
+            "lyra.home = riverside proposed session-fx01"
           ],
           "rows": [
             {
@@ -190,9 +190,9 @@
                   ]
                 ]
               },
-              "atom": "home(nara, riverside)",
+              "atom": "home(lyra, riverside)",
               "introduced": true,
-              "rendered": "home(nara, riverside): dead (asserted) -> possible (asserted)",
+              "rendered": "home(lyra, riverside): dead (asserted) -> possible (asserted)",
               "retracted": false
             },
             {
@@ -205,9 +205,9 @@
                   ]
                 ]
               },
-              "atom": "person(nara)",
+              "atom": "person(lyra)",
               "introduced": true,
-              "rendered": "person(nara): dead (asserted) -> possible (asserted)",
+              "rendered": "person(lyra): dead (asserted) -> possible (asserted)",
               "retracted": false
             },
             {
@@ -226,7 +226,7 @@
               "retracted": false
             }
           ],
-          "workspace_digest": "jcs:sha256:079a3fd44033333a65ab7c74dbb2a7fa9876beba38f005efa41d10a6887bdec5"
+          "workspace_digest": "jcs:sha256:1d1273bfce11b1bf4c1b2846f5ee9621371663996b388bd3f37c7d7e5f03924e"
         }
       },
       "send": {
@@ -248,11 +248,11 @@
           "rendered": [
             "scope storybook",
             "",
-            "person nara \"Nara\" proposed session-fx01",
+            "person lyra \"Lyra\" proposed session-fx01",
             "place riverside \"Riverside\" proposed session-fx01",
-            "nara.home = riverside proposed session-fx01"
+            "lyra.home = riverside proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:079a3fd44033333a65ab7c74dbb2a7fa9876beba38f005efa41d10a6887bdec5"
+          "workspace_digest": "jcs:sha256:1d1273bfce11b1bf4c1b2846f5ee9621371663996b388bd3f37c7d7e5f03924e"
         }
       },
       "send": {

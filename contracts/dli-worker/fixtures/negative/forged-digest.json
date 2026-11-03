@@ -19,8 +19,8 @@
     "params": {
       "workspace": "ws-1",
       "kind": "person",
-      "id": "nara",
-      "name": "Nara",
+      "id": "lyra",
+      "name": "Lyra",
       "provenance": {
         "kind": "proposed",
         "origin": "forged-fence-probe"

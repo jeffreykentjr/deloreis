@@ -9,7 +9,7 @@
     "params": {
       "workspace": "ws-1",
       "pred": "status",
-      "subject": "nara"
+      "subject": "lyra"
     }
   },
   "expect_error": {

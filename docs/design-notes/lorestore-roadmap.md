@@ -506,7 +506,7 @@ This section records the academic grounding so future arguments start from
 the literature, not from scratch.
 
 **Provenance semirings.** The `(P⁺, P⁻)` pair is a dual **PosBool[X]**
-provenance annotation in the sense of Green, Karvounarakis & Tannen
+provenance annotation in the sense of Green, Karvoulyrakis & Tannen
 ("Provenance Semirings", PODS 2007). PosBool[X] — positive Boolean
 expressions over a variable set, quotiented by absorption — is the classic
 why-provenance semiring: `⊕` is alternative derivation, `⊗` is joint

@@ -120,22 +120,22 @@ fn end_to_end_self_check_session() {
 
     // 1. Author the artifact: a person, her tongue, and two relations — one to a
     //    known base entity (saltmere), one to an entity not yet introduced.
-    add_entity(&mut store, &ws, "nara");
+    add_entity(&mut store, &ws, "lyra");
     send(
         &mut store,
         "add-fact",
         Op::AuthorAddFact,
-        json!({ "workspace": ws, "entity": "nara", "key": "tongue", "value": "low-saltish", "provenance": proposed() }),
+        json!({ "workspace": ws, "entity": "lyra", "key": "tongue", "value": "low-saltish", "provenance": proposed() }),
     );
     // A relation to the ratified base place resolves — proof the staged world
     // sees the base's entities.
-    let dwells = add_relation(&mut store, &ws, "dwells", "nara", "saltmere");
+    let dwells = add_relation(&mut store, &ws, "dwells", "lyra", "saltmere");
     assert!(
         !finding_codes(result(&dwells)).contains(&"entity.unknown".to_owned()),
         "a relation to a known base entity raises no unknown-entity finding"
     );
     // A relation to an entity the agent has not introduced stages, but flags.
-    let serves = add_relation(&mut store, &ws, "serves", "nara", "the-warden");
+    let serves = add_relation(&mut store, &ws, "serves", "lyra", "the-warden");
     assert!(
         finding_codes(result(&serves)).contains(&"entity.unknown".to_owned()),
         "a relation to an unintroduced entity flags entity.unknown"
@@ -181,11 +181,11 @@ fn end_to_end_self_check_session() {
         &mut store,
         "query",
         Op::AuthorQuery,
-        json!({ "workspace": ws, "goal": "serves(nara, ?who)", "why": true }),
+        json!({ "workspace": ws, "goal": "serves(lyra, ?who)", "why": true }),
     );
     let rows = result(&query)["rows"].as_array().unwrap().clone();
     assert_eq!(rows.len(), 1, "one staged serves-row over the staged world");
-    assert_eq!(rows[0]["atom"], "serves(nara, the-warden)");
+    assert_eq!(rows[0]["atom"], "serves(lyra, the-warden)");
     assert_eq!(
         rows[0]["status"], "possible",
         "a proposed claim is possible, never certain"
@@ -207,7 +207,7 @@ fn end_to_end_self_check_session() {
             .is_some_and(|changes| {
                 changes.iter().any(|change| {
                     change["atom"]["pred"] == "serves"
-                        && change["atom"]["args"] == json!(["nara", "the-warden"])
+                        && change["atom"]["args"] == json!(["lyra", "the-warden"])
                         && change["before"]["status"] == "dead"
                         && change["after"]["status"] == "possible"
                 })
@@ -225,7 +225,7 @@ fn end_to_end_self_check_session() {
         &mut store,
         "why",
         Op::AuthorWhy,
-        json!({ "workspace": ws, "atom": "serves(nara, the-warden)" }),
+        json!({ "workspace": ws, "atom": "serves(lyra, the-warden)" }),
     );
     let why_not = &result(&why)["why_not"];
     assert_eq!(
@@ -297,9 +297,9 @@ fn end_to_end_self_check_session() {
 fn query_enumerates_over_the_staged_world() {
     let mut store = base_store();
     let ws = open_scope(&mut store, "storybook");
-    add_entity(&mut store, &ws, "nara");
+    add_entity(&mut store, &ws, "lyra");
     add_entity(&mut store, &ws, "fen");
-    add_relation(&mut store, &ws, "serves", "nara", "saltmere");
+    add_relation(&mut store, &ws, "serves", "lyra", "saltmere");
     add_relation(&mut store, &ws, "serves", "fen", "saltmere");
 
     // A variable in the second slot enumerates; a variable in the first slot
@@ -318,15 +318,15 @@ fn query_enumerates_over_the_staged_world() {
 fn query_certain_layer_hides_proposed_rows() {
     let mut store = base_store();
     let ws = open_scope(&mut store, "storybook");
-    add_entity(&mut store, &ws, "nara");
-    add_relation(&mut store, &ws, "serves", "nara", "saltmere");
+    add_entity(&mut store, &ws, "lyra");
+    add_relation(&mut store, &ws, "serves", "lyra", "saltmere");
 
     // The proposed claim is possible, never certain: the certain floor drops it.
     let certain = send(
         &mut store,
         "q-cert",
         Op::AuthorQuery,
-        json!({ "workspace": ws, "goal": "serves(nara, saltmere)", "layer": "certain" }),
+        json!({ "workspace": ws, "goal": "serves(lyra, saltmere)", "layer": "certain" }),
     );
     assert!(
         result(&certain)["rows"].as_array().unwrap().is_empty(),
@@ -336,7 +336,7 @@ fn query_certain_layer_hides_proposed_rows() {
         &mut store,
         "q-all",
         Op::AuthorQuery,
-        json!({ "workspace": ws, "goal": "serves(nara, saltmere)" }),
+        json!({ "workspace": ws, "goal": "serves(lyra, saltmere)" }),
     );
     assert_eq!(result(&all)["rows"].as_array().unwrap().len(), 1);
 }
@@ -372,7 +372,7 @@ fn query_unknown_predicate_is_empty_not_error() {
         &mut store,
         "q-unknown",
         Op::AuthorQuery,
-        json!({ "workspace": ws, "goal": "flies(nara)" }),
+        json!({ "workspace": ws, "goal": "flies(lyra)" }),
     );
     // Asked and answered, nothing matched — a diagnosed absence, not a fault.
     assert!(response.ok);
@@ -383,8 +383,8 @@ fn query_unknown_predicate_is_empty_not_error() {
 fn findings_partitions_by_severity_with_repairs() {
     let mut store = base_store();
     let ws = open_scope(&mut store, "storybook");
-    add_entity(&mut store, &ws, "nara");
-    add_relation(&mut store, &ws, "serves", "nara", "the-warden");
+    add_entity(&mut store, &ws, "lyra");
+    add_relation(&mut store, &ws, "serves", "lyra", "the-warden");
 
     let findings = send(
         &mut store,
@@ -479,7 +479,7 @@ fn list_workspaces_recovers_open_context() {
         .as_str()
         .unwrap()
         .to_owned();
-    add_entity(&mut store, &scope_ws, "nara");
+    add_entity(&mut store, &scope_ws, "lyra");
 
     let list = send(&mut store, "list", Op::AuthorListWorkspaces, json!({}));
     let workspaces = result(&list)["workspaces"].as_array().unwrap();

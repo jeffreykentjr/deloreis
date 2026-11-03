@@ -2,10 +2,10 @@
 source: crates/dli-syntax/tests/ladder.rs
 expression: out
 ---
-error[dli::syntax::malformed]: `nara is a fisher` is not a slot fact — write `subject.slot = value`.
+error[dli::syntax::malformed]: `lyra is a fisher` is not a slot fact — write `subject.slot = value`.
   --> line 2:3
   |
-2 |   nara is a fisher
+2 |   lyra is a fisher
   |   ^^^^^^^^^^^^^^^^ cannot read this
   |
   = what: this record opens like a declaration but does not match the shape its keyword takes

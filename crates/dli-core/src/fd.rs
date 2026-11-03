@@ -1,7 +1,7 @@
 //! The functional-dependency primitive shared by every certain-layer FD check.
 //!
 //! A functional dependency is the rule "for this predicate, each subject carries
-//! at most one value" — `rank(nara)` is one rank, not several. Three checks in
+//! at most one value" — `rank(lyra)` is one rank, not several. Three checks in
 //! the workspace ask the same question of a certain layer and must answer it the
 //! same way, or an author is told a slot is fine on one surface and broken on
 //! another:
@@ -227,21 +227,21 @@ mod tests {
     #[test]
     fn violations_fire_only_on_functional_predicates() {
         let certain = vec![
-            slot("rank", "nara", "gold"),
-            slot("rank", "nara", "silver"),
+            slot("rank", "lyra", "gold"),
+            slot("rank", "lyra", "silver"),
             slot("adjacent", "camelot", "north"),
             slot("adjacent", "camelot", "south"),
         ];
         let out = fd_violations(certain, &set(&["rank"]));
         assert_eq!(out.len(), 1, "only the declared-functional slot: {out:?}");
         assert_eq!(out[0].pred, "rank");
-        assert_eq!(out[0].subject, "nara");
+        assert_eq!(out[0].subject, "lyra");
         assert_eq!(out[0].values, vec!["gold".to_owned(), "silver".to_owned()]);
     }
 
     #[test]
     fn cosmetic_drift_is_one_value_not_a_violation() {
-        let certain = vec![slot("rank", "nara", "gold"), slot("rank", "nara", "Gold")];
+        let certain = vec![slot("rank", "lyra", "gold"), slot("rank", "lyra", "Gold")];
         assert!(
             fd_violations(certain, &set(&["rank"])).is_empty(),
             "gold and Gold are one value"
@@ -259,7 +259,7 @@ mod tests {
     #[test]
     fn inference_excludes_multivalued_and_keys_on_value() {
         let certain = vec![
-            slot("rank", "nara", "gold"),
+            slot("rank", "lyra", "gold"),
             slot("rank", "fen", "silver"),
             slot("rank", "gwen", "Gold"), // cosmetic dup of a value, still ≤1 per subject
             slot("adjacent", "camelot", "north"),
@@ -279,7 +279,7 @@ mod tests {
     #[test]
     fn inference_folds_cosmetic_drift_within_a_subject() {
         // One subject with `gold` and `Gold` is still single-valued once keyed.
-        let certain = vec![slot("rank", "nara", "gold"), slot("rank", "nara", "Gold")];
+        let certain = vec![slot("rank", "lyra", "gold"), slot("rank", "lyra", "Gold")];
         assert!(
             inferred_functional(certain).contains("rank"),
             "cosmetic drift does not make a subject multi-valued"

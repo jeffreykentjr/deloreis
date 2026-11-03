@@ -391,8 +391,8 @@ impl ForkStore {
     /// // Two exclusive options; each holds only when its own variable is ruled.
     /// let mut world = World::new();
     /// let fen = world.interner.intern("old-fen");
-    /// let nara = world.interner.intern("nara");
-    /// world.theory.add_exclusive([fen, nara]);
+    /// let lyra = world.interner.intern("lyra");
+    /// world.theory.add_exclusive([fen, lyra]);
     /// world.assert_fact(
     ///     GroundAtom { pred: "keeps".to_owned(), args: vec!["old-fen".to_owned()] },
     ///     Ann::supported(PosBool::pos(fen)),
@@ -403,11 +403,11 @@ impl ForkStore {
     /// let fork = store.fork();
     /// store.suppose(fork, "old-fen", true).expect("known variable");
     ///
-    /// // Supposing `old-fen` true rules the sibling `nara` false in the handed-out
+    /// // Supposing `old-fen` true rules the sibling `lyra` false in the handed-out
     /// // valuation — the theory pass is already baked in.
     /// let nu = store.valuation(fork).expect("known fork");
     /// assert_eq!(nu.get(fen), Some(true));
-    /// assert_eq!(nu.get(nara), Some(false));
+    /// assert_eq!(nu.get(lyra), Some(false));
     /// ```
     pub fn valuation(&self, id: ForkId) -> Result<Valuation, ForkError> {
         Ok(self.effective_valuation(self.get(id)?))
@@ -497,21 +497,21 @@ impl ForkStore {
     /// use dli_eval::fork::ForkStore;
     /// use dli_eval::world::{GroundAtom, World};
     ///
-    /// // The ledger has already ruled `nara` out: a certain fact closed the
+    /// // The ledger has already ruled `lyra` out: a certain fact closed the
     /// // option (its variable is fixed false in the base ν).
     /// let mut world = World::new();
-    /// let nara = world.interner.intern("nara");
+    /// let lyra = world.interner.intern("lyra");
     /// world.assert_fact(
-    ///     GroundAtom { pred: "keeps".to_owned(), args: vec!["nara".to_owned()] },
-    ///     Ann::supported(PosBool::pos(nara)),
+    ///     GroundAtom { pred: "keeps".to_owned(), args: vec!["lyra".to_owned()] },
+    ///     Ann::supported(PosBool::pos(lyra)),
     /// );
-    /// world.valuation.set(nara, false);
+    /// world.valuation.set(lyra, false);
     /// let world = world.fixpoint().expect("stratifiable");
     ///
     /// let mut store = ForkStore::new(world);
     /// let fork = store.fork();
     /// // Supposing the ruled-out option true contradicts the certain fact.
-    /// store.suppose(fork, "nara", true).expect("known variable");
+    /// store.suppose(fork, "lyra", true).expect("known variable");
     /// let pre = store.preflight(fork).expect("evaluable");
     /// assert!(!pre.conflicts.is_empty());
     /// ```

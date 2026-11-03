@@ -144,7 +144,7 @@ fn skewed_canon_store() -> tempfile::TempDir {
             decision: id("D-control"),
             body: RatifyBody::default(),
         }),
-        entity("nara", "D-dead"),
+        entity("lyra", "D-dead"),
         entity("moira", "D-control"),
     ];
     let mut interner = dli_core::Interner::from_names(vec![
@@ -196,7 +196,7 @@ fn canon_exports_arbitrary_predicates_without_private_interpretation() {
     .expect("write manifest");
     let mut world = pack();
     for (pred, subject, value) in [
-        ("tends_garden", "nara", "orchard"),
+        ("tends_garden", "lyra", "orchard"),
         ("killed-token-registry", "ordinary", "value"),
     ] {
         world.documents[0].decls.push(Decl::Fact(FactDecl {
@@ -215,7 +215,7 @@ fn canon_exports_arbitrary_predicates_without_private_interpretation() {
     let first = canon(root.path());
     assert_eq!(first, canon(root.path()), "canon replay is deterministic");
     for (pred, subject, value) in [
-        ("tends_garden", "nara", "orchard"),
+        ("tends_garden", "lyra", "orchard"),
         ("killed-token-registry", "ordinary", "value"),
     ] {
         let rows = first["by_pred"][pred].as_array().expect("predicate bucket");
@@ -247,8 +247,8 @@ fn contract_1_5_promotes_and_defeats_without_deleting_the_object() {
             json!({
                 "workspace": workspace,
                 "kind": "person",
-                "id": "nara",
-                "name": "Nara",
+                "id": "lyra",
+                "name": "Lyra",
                 "provenance": {
                     "kind": "cited",
                     "decisions": ["D-1"],
@@ -308,7 +308,7 @@ fn contract_1_5_promotes_and_defeats_without_deleting_the_object() {
             .as_array()
             .expect("person rows")
             .iter()
-            .any(|row| row["atom"]["args"][0] == "nara"
+            .any(|row| row["atom"]["args"][0] == "lyra"
                 && row["provenance"]["marker"] == "Provisional"),
         "1.5 cited provisional authoring must reach canon: {provisional_canon}"
     );
@@ -406,7 +406,7 @@ fn contract_1_5_promotes_and_defeats_without_deleting_the_object() {
             Op::AuthorQuery,
             json!({
                 "workspace": workspace,
-                "goal": "person(nara)",
+                "goal": "person(lyra)",
                 "layer": "all"
             }),
         ),
@@ -473,7 +473,7 @@ fn contract_1_5_promotes_and_defeats_without_deleting_the_object() {
     assert!(
         defeated_canon["by_pred"]["person"]
             .as_array()
-            .is_none_or(|rows| rows.iter().all(|row| row["atom"]["args"][0] != "nara")),
+            .is_none_or(|rows| rows.iter().all(|row| row["atom"]["args"][0] != "lyra")),
         "canon excludes the dead claim while the object remains stored: {defeated_canon}"
     );
 }
@@ -506,7 +506,7 @@ fn canon_applies_a_post_compile_durable_overlay_by_exact_name() {
         .as_array()
         .expect("canon person rows");
     assert!(
-        people.iter().all(|row| row["atom"]["args"][0] != "nara"),
+        people.iter().all(|row| row["atom"]["args"][0] != "lyra"),
         "the exact-name false ruling removes only its supported claim: {exported}"
     );
     assert!(

@@ -220,7 +220,7 @@ fn check_origins(decls: &[Decl], diags: &mut Vec<Diagnostic>) {
 /// assert_eq!(atom.args.len(), 2);
 ///
 /// // A slot fact maps to `slot(subject, value)`.
-/// let slot = parse_clause_atom(&clause("nara.trade = eel-fisher")).unwrap();
+/// let slot = parse_clause_atom(&clause("lyra.trade = eel-fisher")).unwrap();
 /// assert_eq!(slot.pred.text, "trade");
 ///
 /// // A rule body is not a single atom.

@@ -43,10 +43,10 @@ fn codes(result: &Value) -> Vec<String> {
         .collect()
 }
 
-/// A store over `demo` whose base declares only the person `nara` — and, crucially,
+/// A store over `demo` whose base declares only the person `lyra` — and, crucially,
 /// **no** `ratify`. Certainty must be reached over the wire, or not at all. A
 /// lorestore is attached so the durable `record_decision` write has a branch.
-fn store_with_nara() -> (tempfile::TempDir, Store) {
+fn store_with_lyra() -> (tempfile::TempDir, Store) {
     let root = tempfile::tempdir().expect("temporary store root");
     let path = root.path().join("lorestore");
     std::fs::write(
@@ -55,7 +55,7 @@ fn store_with_nara() -> (tempfile::TempDir, Store) {
     )
     .expect("write project manifest");
     let (document, diagnostics) =
-        dli_syntax::parse_document("scope demo\nperson nara \"Nara\" proposed seed\n");
+        dli_syntax::parse_document("scope demo\nperson lyra \"Lyra\" proposed seed\n");
     assert!(
         diagnostics
             .iter()
@@ -116,14 +116,14 @@ fn add_fact_cited(
         &req(
             "add",
             Op::AuthorAddFact,
-            json!({ "workspace": ws, "entity": "nara", "key": key, "value": value,
+            json!({ "workspace": ws, "entity": "lyra", "key": key, "value": value,
                     "provenance": { "kind": "cited", "decisions": [decision], "state": "ratified" } }),
         ),
         store,
     )))
 }
 
-/// Stage a PROPOSED (uncited) attribute fact on `nara` — the shape
+/// Stage a PROPOSED (uncited) attribute fact on `lyra` — the shape
 /// `materialize {decision}` must lift to certain-under-`d`, and the shape that
 /// stays `possible` while merely staged.
 fn add_fact_proposed(store: &mut Store, ws: &str, key: &str, value: &str) -> Vec<String> {
@@ -131,7 +131,7 @@ fn add_fact_proposed(store: &mut Store, ws: &str, key: &str, value: &str) -> Vec
         &req(
             "add",
             Op::AuthorAddFact,
-            json!({ "workspace": ws, "entity": "nara", "key": key, "value": value,
+            json!({ "workspace": ws, "entity": "lyra", "key": key, "value": value,
                     "provenance": { "kind": "proposed", "origin": "session-rd" } }),
         ),
         store,
@@ -149,7 +149,7 @@ fn check_codes(store: &mut Store, ws: &str) -> Vec<String> {
 
 #[test]
 fn recorded_decision_makes_two_cited_facts_a_functional_violation() {
-    let (_root, mut store) = store_with_nara();
+    let (_root, mut store) = store_with_lyra();
     let ws = open(&mut store);
 
     // The wire way in: record the baseline decision. No `.dli ratify`, no
@@ -187,7 +187,7 @@ fn recorded_decision_makes_two_cited_facts_a_functional_violation() {
 
 #[test]
 fn citing_an_unrecorded_decision_still_raises_citation_unknown() {
-    let (_root, mut store) = store_with_nara();
+    let (_root, mut store) = store_with_lyra();
     let ws = open(&mut store);
     record_decision(&mut store, &ws, "d-1");
 
@@ -204,7 +204,7 @@ fn citing_an_unrecorded_decision_still_raises_citation_unknown() {
 
 #[test]
 fn materialize_stamps_and_why_names_the_supporting_decision() {
-    let (_root, mut store) = store_with_nara();
+    let (_root, mut store) = store_with_lyra();
     let ws = open(&mut store);
     record_decision(&mut store, &ws, "d-1");
 
@@ -220,7 +220,7 @@ fn materialize_stamps_and_why_names_the_supporting_decision() {
         &req(
             "why",
             Op::AuthorWhy,
-            json!({ "workspace": ws, "goal_atom": {"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "captain"}]} }),
+            json!({ "workspace": ws, "goal_atom": {"pred": "rank", "args": [{"Sym": "lyra"}, {"Sym": "captain"}]} }),
         ),
         &mut store,
     ));
@@ -263,7 +263,7 @@ fn materialize_stamps_and_why_names_the_supporting_decision() {
 /// The exact post-stamp candidate must therefore be checked before the CAS.
 #[test]
 fn materialize_decision_refuses_the_certain_fd_violation_before_cas() {
-    let (_root, mut store) = store_with_nara();
+    let (_root, mut store) = store_with_lyra();
     let ws = open(&mut store);
     declare_functional(&mut store, &ws, "rank");
 
@@ -313,7 +313,7 @@ fn materialize_decision_refuses_the_certain_fd_violation_before_cas() {
 /// alongside it is the positive control: it DID get accepted under d-1.
 #[test]
 fn materialize_decision_never_stamps_a_declaration_carriage() {
-    let (_root, mut store) = store_with_nara();
+    let (_root, mut store) = store_with_lyra();
     let ws = open(&mut store);
     declare_functional(&mut store, &ws, "rank");
     assert!(
@@ -370,7 +370,7 @@ fn materialize_decision_never_stamps_a_declaration_carriage() {
 // Guard census for decision recording.
 #[test]
 fn a_control_character_in_the_decision_id_refuses_the_record() {
-    let (_root, mut store) = store_with_nara();
+    let (_root, mut store) = store_with_lyra();
     let ws = open(&mut store);
     // A newline smuggled into the id would forge a second line in the review
     // diff; the free-text census (grown a `Ratify` arm for this op) refuses it.
@@ -391,7 +391,7 @@ fn a_control_character_in_the_decision_id_refuses_the_record() {
 
 #[test]
 fn a_provenance_citation_of_an_unknown_decision_refuses_the_record() {
-    let (_root, mut store) = store_with_nara();
+    let (_root, mut store) = store_with_lyra();
     let ws = open(&mut store);
     // A recorded decision may rest on prior decisions (its provenance); a
     // dangling one runs the `citation.unknown-decision` integrity the
@@ -432,7 +432,7 @@ fn materialize_rank_and_control(store: &mut Store, ws: &str) -> String {
         .expect("committed facts")
         .iter()
         .find(|fact| {
-            fact["atom"]["pred"] == "rank" && fact["atom"]["args"] == json!(["nara", "captain"])
+            fact["atom"]["pred"] == "rank" && fact["atom"]["args"] == json!(["lyra", "captain"])
         })
         .and_then(|fact| fact["claim_id"].as_str())
         .expect("a committed claim id")
@@ -508,7 +508,7 @@ fn assert_live_defeat_and_control(store: &mut Store, ws: &str) {
         &req(
             "why",
             Op::AuthorWhy,
-            json!({ "workspace": ws, "goal_atom": {"pred": "rank", "args": [{"Sym": "nara"}, {"Sym": "captain"}]} }),
+            json!({ "workspace": ws, "goal_atom": {"pred": "rank", "args": [{"Sym": "lyra"}, {"Sym": "captain"}]} }),
         ),
         store,
     ));
@@ -530,7 +530,7 @@ fn assert_live_defeat_and_control(store: &mut Store, ws: &str) {
         &req(
             "why-independent",
             Op::AuthorWhy,
-            json!({ "workspace": ws, "goal_atom": {"pred": "title", "args": [{"Sym": "nara"}, {"Sym": "commander"}]} }),
+            json!({ "workspace": ws, "goal_atom": {"pred": "title", "args": [{"Sym": "lyra"}, {"Sym": "commander"}]} }),
         ),
         store,
     ));
@@ -551,7 +551,7 @@ fn session_query(
         "dli": "2.0.0", "id": id, "op": "dli.query",
         "params": {
             "document": "demo",
-            "goal_atom": {"pred": pred, "args": [{"Sym": "nara"}, {"Sym": value}]},
+            "goal_atom": {"pred": pred, "args": [{"Sym": "lyra"}, {"Sym": value}]},
             "layer": "all"
         }
     });
@@ -596,7 +596,7 @@ fn assert_reopened_defeat_and_control(root: &std::path::Path) {
 
 #[test]
 fn defeating_the_recorded_decision_leaves_reconciled_facts_dead() {
-    let (root, mut store) = store_with_nara();
+    let (root, mut store) = store_with_lyra();
     let ws = open(&mut store);
     let claim_id = materialize_rank_and_control(&mut store, &ws);
     assert_persisted_compile_skew(root.path());
@@ -607,7 +607,7 @@ fn defeating_the_recorded_decision_leaves_reconciled_facts_dead() {
 
 #[test]
 fn project_load_refuses_an_out_of_range_persisted_valuation_atom() {
-    let (root, _store) = store_with_nara();
+    let (root, _store) = store_with_lyra();
     let durable = dli_lorestore::Lorestore::open(root.path().join("lorestore/demo"))
         .expect("open durable store");
     let current = durable
@@ -669,7 +669,7 @@ fn file_count(path: &std::path::Path) -> usize {
 
 #[test]
 fn corrupt_ref_preflight_blocks_record_decision_before_any_write() {
-    let (root, mut store) = store_with_nara();
+    let (root, mut store) = store_with_lyra();
     let ws = open(&mut store);
     let durable = dli_lorestore::Lorestore::open(root.path().join("lorestore/demo"))
         .expect("open durable store");
@@ -722,7 +722,7 @@ fn corrupt_ref_preflight_blocks_record_decision_before_any_write() {
 
 #[test]
 fn corrupt_ref_preflight_blocks_defeat_before_any_write() {
-    let (root, mut store) = store_with_nara();
+    let (root, mut store) = store_with_lyra();
     let ws = open(&mut store);
     assert!(add_fact_proposed(&mut store, &ws, "rank", "captain").is_empty());
     let materialized = result(dispatch(
@@ -800,7 +800,7 @@ fn corrupt_ref_preflight_blocks_defeat_before_any_write() {
 
 #[test]
 fn new_workspace_observes_a_recorded_decision_without_restart() {
-    let (_root, mut store) = store_with_nara();
+    let (_root, mut store) = store_with_lyra();
     let writer = open(&mut store);
     let old = open(&mut store);
     let recorded = record_decision(&mut store, &writer, "d-new");

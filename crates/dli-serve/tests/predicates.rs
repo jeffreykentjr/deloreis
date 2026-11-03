@@ -55,10 +55,10 @@ fn two_predicate_base() -> Store {
     base(concat!(
         "scope storybook\n",
         "ratify D-0001\n",
-        "place nara \"Nara\"  ratified D-0001\n",
+        "place lyra \"Lyra\"  ratified D-0001\n",
         "place keeper \"Keeper\"  ratified D-0001\n",
-        "current-role(nara, keeper) decided D-0001\n",
-        "hair-color(nara, keeper) decided D-0001\n",
+        "current-role(lyra, keeper) decided D-0001\n",
+        "hair-color(lyra, keeper) decided D-0001\n",
     ))
 }
 

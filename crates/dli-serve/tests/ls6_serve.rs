@@ -62,7 +62,7 @@ fn copy_tree(source: &Path, destination: &Path) {
 
 /// A store over a bespoke functional-predicate base, with a lorestore attached.
 fn functional_store() -> (tempfile::TempDir, Sessions, Store) {
-    let source = "scope canon\n\nratify d-1\n\nhome(nara, shallows) decided d-1\n";
+    let source = "scope canon\n\nratify d-1\n\nhome(lyra, shallows) decided d-1\n";
     let (document, diagnostics) = dli_syntax::parse_document(source);
     assert!(
         diagnostics.iter().all(|d| !d.class.is_error()),
@@ -151,7 +151,7 @@ fn merge_conflict_surfaces_through_the_wire() {
     let (_t, mut sessions, mut store) = functional_store();
     let ws = open_workspace("canon", &mut sessions, &mut store);
 
-    // Create a rival branch and commit an incompatible `home` for nara directly
+    // Create a rival branch and commit an incompatible `home` for lyra directly
     // on the lorestore — a deliberate shortcut past the wire-only certain-conflict
     // path (WS-3: defeat the base value citing a new decision, add the rival
     // value cited, materialize on the branch — see
@@ -166,7 +166,7 @@ fn merge_conflict_surfaces_through_the_wire() {
             ClaimId::from_label("rival/home"),
             dli_eval::world::GroundAtom {
                 pred: "home".to_owned(),
-                args: vec!["nara".to_owned(), "highlands".to_owned()],
+                args: vec!["lyra".to_owned(), "highlands".to_owned()],
             },
             PosBool::pos(Atom(0)),
             PosBool::FALSE,
@@ -250,11 +250,11 @@ fn proposed_contradiction_is_still_blocked_upstream() {
         &mut store,
     );
 
-    // A *proposed* second `home` value for nara contradicts the canon functional
-    // slot `home(nara, shallows)`.
+    // A *proposed* second `home` value for lyra contradicts the canon functional
+    // slot `home(lyra, shallows)`.
     drive(
         &json!({ "dli": V, "id": "2", "op": "author.add_relation",
-                 "params": { "workspace": ws, "relation": "home", "from": "nara", "to": "highlands",
+                 "params": { "workspace": ws, "relation": "home", "from": "lyra", "to": "highlands",
                              "provenance": { "kind": "proposed", "origin": "demo" } } }),
         &mut sessions,
         &mut store,

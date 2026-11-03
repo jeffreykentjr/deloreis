@@ -323,3 +323,17 @@ omit unsafe rendered lines with the warning.
 **Rationale.** Some valid typed origins cannot be expressed as one token in the
 current text grammar. A successful export must not silently attach a claim to a
 different origin.
+
+## DL-0117 — Reauthor pre-release fiction fixtures
+
+*Date: 2026-11-03*
+
+**Attribution:** machine.
+
+**Ruling.** Permit the exact registry transition identified in the fixture
+checker for the reauthored contract 2.0.0 examples. Replay the fixtures and
+validate their schemas; all other changes remain subject to the existing
+contract-version fence.
+
+**Rationale.** The first public release needs examples independent of a
+former consuming project while preserving the contract's behavior.

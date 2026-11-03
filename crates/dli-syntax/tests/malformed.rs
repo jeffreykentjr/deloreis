@@ -52,7 +52,7 @@ fn bare_option_diagnoses_at_top_level_and_in_a_question() {
 
 #[test]
 fn every_non_option_question_child_diagnoses() {
-    let source = "question q\n  fact nara keeps ledger proposed\n  stray words\n";
+    let source = "question q\n  fact lyra keeps ledger proposed\n  stray words\n";
     let malformed = error_classes(source)
         .into_iter()
         .filter(|class| *class == DiagClass::Malformed)
@@ -63,7 +63,7 @@ fn every_non_option_question_child_diagnoses() {
 
 #[test]
 fn fork_commands_are_preserved_without_error() {
-    let source = "fork q\n  suppose h\n  add fact nara keeps ledger\n";
+    let source = "fork q\n  suppose h\n  add fact lyra keeps ledger\n";
     assert!(
         error_classes(source).is_empty(),
         "fork commands are intentional body clauses"
@@ -152,7 +152,7 @@ fn trailing_junk_after_slot_fact_diagnoses() {
 fn fmt_refuses_a_lossy_document() {
     // The malformed second line parses to a dropped declaration; rendering the
     // document back would delete the author's line. `format_source` must refuse.
-    let source = "place a \"A\" proposed\nfact nara lives-in\n";
+    let source = "place a \"A\" proposed\nfact lyra lives-in\n";
     let outcome = format_source(source);
     assert!(outcome.is_err(), "fmt must refuse a lossy document");
     assert!(

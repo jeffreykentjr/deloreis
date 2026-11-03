@@ -109,19 +109,19 @@ fn predicate_identity_is_declaration_only_and_symmetric_transitive() {
         ratify("D-1"),
         predicate_same_as("current-work", "current-job", Some(ratified("D-1"))),
         predicate_same_as("current-job", "occupation", Some(ratified("D-1"))),
-        fact("current-work", &["nara"], Some(ratified("D-1"))),
+        fact("current-work", &["lyra"], Some(ratified("D-1"))),
         // Similar spelling and overlapping value are not an identity claim.
-        fact("current-workshop", &["nara"], Some(ratified("D-1"))),
+        fact("current-workshop", &["lyra"], Some(ratified("D-1"))),
     ]))
     .expect("lowers")
     .fixpoint()
     .expect("saturates");
 
     for predicate in ["current-work", "current-job", "occupation"] {
-        assert_eq!(status(&world, predicate, &["nara"]), Status::Certain);
+        assert_eq!(status(&world, predicate, &["lyra"]), Status::Certain);
     }
     assert_eq!(
-        status(&world, "current-workshop", &["nara"]),
+        status(&world, "current-workshop", &["lyra"]),
         Status::Certain
     );
     assert_eq!(
@@ -142,18 +142,18 @@ fn identity_supports_copies_and_defeat_unmerges_without_deleting_source() {
     let world = World::lower(&document(vec![
         ratify("D-fact"),
         ratify("D-identity"),
-        fact("current-work", &["nara"], Some(ratified("D-fact"))),
+        fact("current-work", &["lyra"], Some(ratified("D-fact"))),
         predicate_same_as("current-work", "current-job", Some(ratified("D-identity"))),
     ]))
     .expect("lowers")
     .fixpoint()
     .expect("saturates");
 
-    assert_eq!(status(&world, "current-job", &["nara"]), Status::Certain);
+    assert_eq!(status(&world, "current-job", &["lyra"]), Status::Certain);
     let copy = world
         .derived
         .iter()
-        .find(|row| row.atom == source_fact("current-job", "nara"))
+        .find(|row| row.atom == source_fact("current-job", "lyra"))
         .expect("identity creates the alias row");
     let why = Why::of_support(&copy.support, &world.interner);
     let names: Vec<&str> = why.rendered.iter().map(String::as_str).collect();
@@ -164,15 +164,15 @@ fn identity_supports_copies_and_defeat_unmerges_without_deleting_source() {
     let identity = defeated.interner.intern("D-identity");
     defeated.valuation.set(identity, false);
     assert_eq!(
-        status(&defeated, "current-work", &["nara"]),
+        status(&defeated, "current-work", &["lyra"]),
         Status::Certain
     );
-    assert_eq!(status(&defeated, "current-job", &["nara"]), Status::Dead);
+    assert_eq!(status(&defeated, "current-job", &["lyra"]), Status::Dead);
     assert!(
         defeated
             .facts
             .iter()
-            .any(|fact| fact.atom == source_fact("current-work", "nara"))
+            .any(|fact| fact.atom == source_fact("current-work", "lyra"))
     );
 }
 
@@ -180,14 +180,14 @@ fn identity_supports_copies_and_defeat_unmerges_without_deleting_source() {
 fn proposed_identity_is_possible_until_its_support_is_ruled() {
     let world = World::lower(&document(vec![
         ratify("D-fact"),
-        fact("current-work", &["nara"], Some(ratified("D-fact"))),
+        fact("current-work", &["lyra"], Some(ratified("D-fact"))),
         predicate_same_as("current-work", "current-job", Some(proposed())),
     ]))
     .expect("lowers")
     .fixpoint()
     .expect("saturates");
-    assert_eq!(status(&world, "current-work", &["nara"]), Status::Certain);
-    assert_eq!(status(&world, "current-job", &["nara"]), Status::Possible);
+    assert_eq!(status(&world, "current-work", &["lyra"]), Status::Certain);
+    assert_eq!(status(&world, "current-job", &["lyra"]), Status::Possible);
 
     let proposal = world
         .interner
@@ -199,14 +199,14 @@ fn proposed_identity_is_possible_until_its_support_is_ruled() {
     let mut supposed = world.clone();
     let proposal_atom = supposed.interner.intern(&proposal);
     supposed.valuation.set(proposal_atom, true);
-    assert_eq!(status(&supposed, "current-job", &["nara"]), Status::Certain);
+    assert_eq!(status(&supposed, "current-job", &["lyra"]), Status::Certain);
 }
 
 #[test]
 fn rules_use_identity_for_bodies_and_heads() {
     let mut world = World::new();
     world.assert_fact(
-        source_fact("current-work", "nara"),
+        source_fact("current-work", "lyra"),
         dli_core::ann::Ann::unconditional(),
     );
     world.assert_predicate_same_as(
@@ -243,26 +243,26 @@ fn rules_use_identity_for_bodies_and_heads() {
     dli_eval::world::synthesize_predicate_alias_rules(&mut world);
     let world = world.fixpoint().expect("saturates");
 
-    assert_eq!(status(&world, "current-job", &["nara"]), Status::Certain);
-    assert_eq!(status(&world, "employed", &["nara"]), Status::Certain);
+    assert_eq!(status(&world, "current-job", &["lyra"]), Status::Certain);
+    assert_eq!(status(&world, "employed", &["lyra"]), Status::Certain);
 }
 
 #[test]
 fn self_merge_and_identity_free_world_are_behavior_neutral() {
     let base = World::lower(&document(vec![
         ratify("D-1"),
-        fact("rank", &["nara", "gold"], Some(ratified("D-1"))),
+        fact("rank", &["lyra", "gold"], Some(ratified("D-1"))),
     ]))
     .expect("lowers");
     let self_merge = World::lower(&document(vec![
         ratify("D-1"),
         predicate_same_as("rank", "rank", Some(ratified("D-1"))),
-        fact("rank", &["nara", "gold"], Some(ratified("D-1"))),
+        fact("rank", &["lyra", "gold"], Some(ratified("D-1"))),
     ]))
     .expect("lowers");
     let same = World::lower(&document(vec![
         ratify("D-1"),
-        fact("rank", &["nara", "gold"], Some(ratified("D-1"))),
+        fact("rank", &["lyra", "gold"], Some(ratified("D-1"))),
     ]))
     .expect("lowers");
     assert!(self_merge.rules.is_empty());
@@ -280,7 +280,7 @@ fn self_merge_and_identity_free_world_are_behavior_neutral() {
         status(
             &self_merge.fixpoint().expect("saturates"),
             "rank",
-            &["nara", "gold"]
+            &["lyra", "gold"]
         ),
         Status::Certain
     );
@@ -295,12 +295,12 @@ fn ordinary_predicate_same_as_fact_never_activates_identity() {
             &["current-work", "current-job"],
             Some(ratified("D-1")),
         ),
-        fact("current-work", &["nara"], Some(ratified("D-1"))),
+        fact("current-work", &["lyra"], Some(ratified("D-1"))),
     ]))
     .expect("lowers")
     .fixpoint()
     .expect("saturates");
-    assert_eq!(status(&world, "current-work", &["nara"]), Status::Certain);
+    assert_eq!(status(&world, "current-work", &["lyra"]), Status::Certain);
     assert!(
         world
             .facts
@@ -320,7 +320,7 @@ fn ordinary_predicate_same_as_fact_never_activates_identity() {
 fn zero_predicate_identity_preserves_serialized_world() {
     let document = document(vec![
         ratify("D-1"),
-        fact("rank", &["nara", "gold"], Some(ratified("D-1"))),
+        fact("rank", &["lyra", "gold"], Some(ratified("D-1"))),
     ]);
     let lowered = World::lower(&document).expect("lowers");
     assert!(lowered.predicate_same_as_links.is_empty());

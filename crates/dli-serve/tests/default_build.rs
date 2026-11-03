@@ -596,8 +596,8 @@ fn the_structural_key_is_a_recomputable_digest_of_the_declaration() {
     use dli_serve::author::digest::digest_of;
 
     let decl = Decl::Term(TermDecl {
-        name: Ident::synthetic("hedgerow"),
-        label: Some("the pleached boundary road".to_owned()),
+        name: Ident::synthetic("orchard-lane"),
+        label: Some("the old orchard lane".to_owned()),
         provenance: None,
     });
 
@@ -653,7 +653,7 @@ fn the_structural_key_is_a_recomputable_digest_of_the_declaration() {
     //    to drop.
     let other = Decl::Term(TermDecl {
         name: Ident::synthetic("ford"),
-        label: Some("the pleached boundary road".to_owned()),
+        label: Some("the old orchard lane".to_owned()),
         provenance: None,
     });
     assert_ne!(digest_of(&decl), digest_of(&other));
@@ -674,8 +674,8 @@ fn the_structural_key_is_a_recomputable_digest_of_the_declaration() {
             "author.add_term",
             &json!({
                 "workspace": workspace,
-                "id": "hedgerow",
-                "label": "the pleached boundary road",
+                "id": "orchard-lane",
+                "label": "the old orchard lane",
                 "provenance": { "kind": "proposed", "origin": "dm4-key" },
             }),
         ),
@@ -695,8 +695,8 @@ fn the_structural_key_is_a_recomputable_digest_of_the_declaration() {
     // The staged declaration carries the tool's provenance, so rebuild the same
     // declaration rather than reusing `decl` above, which carries none.
     let with_provenance = Decl::Term(TermDecl {
-        name: Ident::synthetic("hedgerow"),
-        label: Some("the pleached boundary road".to_owned()),
+        name: Ident::synthetic("orchard-lane"),
+        label: Some("the old orchard lane".to_owned()),
         provenance: Some(dli_ast::annot::Annotation {
             marker: dli_ast::annot::ProvenanceMarker::Proposed,
             citations: Vec::new(),

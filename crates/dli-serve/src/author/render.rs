@@ -106,15 +106,15 @@ pub const fn renders_dli() -> bool {
 /// use dli_serve::author::render::render_decls;
 /// let decl = Decl::Entity(EntityDecl {
 ///     kind: EntityKind::Person,
-///     name: Ident::synthetic("nara"),
-///     label: Some("Nara".to_owned()),
+///     name: Ident::synthetic("lyra"),
+///     label: Some("Lyra".to_owned()),
 ///     time: None,
 ///     slots: Vec::new(),
 ///     provenance: None,
 /// });
 /// let lines = render_decls(&[decl]);
 /// # #[cfg(feature = "syntax")]
-/// assert_eq!(lines, vec!["person nara \"Nara\""]);
+/// assert_eq!(lines, vec!["person lyra \"Lyra\""]);
 /// # #[cfg(not(feature = "syntax"))]
 /// assert!(lines.is_empty());
 /// ```
@@ -215,10 +215,10 @@ pub fn render_option(
 ///
 /// ```
 /// use dli_serve::author::render::escape_controls;
-/// assert_eq!(escape_controls("nara"), "nara");
+/// assert_eq!(escape_controls("lyra"), "lyra");
 /// assert_eq!(escape_controls("s\nperson forged"), "s\\nperson forged");
 /// // U+202E RIGHT-TO-LEFT OVERRIDE cannot silently reverse the visible line.
-/// assert_eq!(escape_controls("Nara\u{202e}x"), "Nara\\u{202e}x");
+/// assert_eq!(escape_controls("Lyra\u{202e}x"), "Lyra\\u{202e}x");
 /// ```
 #[must_use]
 pub fn escape_controls(text: &str) -> String {

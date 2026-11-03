@@ -204,7 +204,7 @@ impl World {
     /// // One unconditional (certain) fact and one open-variable (possible) fact.
     /// let keeps = |who: &str| GroundAtom { pred: "keeps".to_owned(), args: vec![who.to_owned()] };
     /// world.assert_fact(keeps("fen"), Ann::unconditional());
-    /// world.assert_fact(keeps("nara"), Ann::supported(PosBool::pos(Atom(0))));
+    /// world.assert_fact(keeps("lyra"), Ann::supported(PosBool::pos(Atom(0))));
     /// let world = world.fixpoint().expect("stratifiable");
     ///
     /// let goal = Query {

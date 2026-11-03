@@ -1191,7 +1191,7 @@ mod explanation_tests {
     fn unconditional_support_is_one_explicit_empty_path() {
         let atom = GroundAtom {
             pred: "unconditional".to_owned(),
-            args: vec!["nara".to_owned()],
+            args: vec!["lyra".to_owned()],
         };
         let mut program = dli_eval::world::World::new();
         program.assert_fact(atom.clone(), Ann::unconditional());
@@ -1348,7 +1348,7 @@ mod cache_tests {
             .parts_mut("ws-1")
             .expect("workspace exists")
             .1
-            .push_decl(person("nara"));
+            .push_decl(person("lyra"));
         staged_world(&store, store.get("ws-1").expect("workspace")).expect("recompile");
         staged_world(&store, store.get("ws-1").expect("workspace")).expect("second hit");
         assert_eq!(
@@ -1382,7 +1382,7 @@ mod cache_tests {
                 .parts_mut("ws-1")
                 .expect("workspace exists")
                 .1
-                .push_decl(person("nara"));
+                .push_decl(person("lyra"));
             let ws = store.get("ws-1").expect("workspace");
             let enabled = staged_world(&store, ws).expect("enabled compile");
             let query_params = AuthorQueryParams {
@@ -1435,7 +1435,7 @@ mod cache_tests {
             .parts_mut("ws-1")
             .expect("workspace exists")
             .1
-            .push_decl(person("nara"));
+            .push_decl(person("lyra"));
         let store = Arc::new(store);
         let barrier = Arc::new(Barrier::new(8));
         let mut threads = Vec::new();
@@ -1468,7 +1468,7 @@ mod cache_tests {
             .expect("workspace opens");
         staged_world(&store, store.get("ws-1").unwrap()).unwrap();
 
-        store.parts_mut("ws-1").unwrap().1.push_decl(person("nara"));
+        store.parts_mut("ws-1").unwrap().1.push_decl(person("lyra"));
         staged_world(&store, store.get("ws-1").unwrap()).unwrap();
         store
             .parts_mut("ws-1")
@@ -1523,14 +1523,14 @@ mod cache_tests {
                 "ratify d1\n",
                 "ratify d10\n",
                 "ratify d11\n",
-                "person nara \"Nara\" ratified d11\n",
-                "p(nara) ratified d1\n",
+                "person lyra \"Lyra\" ratified d11\n",
+                "p(lyra) ratified d1\n",
                 "rule p-to-q ratified d10\n",
-                "  q(nara) :- p(nara)\n",
+                "  q(lyra) :- p(lyra)\n",
             )
             .to_owned();
             for index in 0..claim_count {
-                writeln!(&mut source, "noise-{index}(nara) ratified d11")
+                writeln!(&mut source, "noise-{index}(lyra) ratified d11")
                     .expect("writing a String is infallible");
             }
             let (document, diagnostics) = dli_syntax::parse_document(&source);
@@ -1647,7 +1647,7 @@ mod cache_tests {
                         goal: String::new(),
                         goal_atom: Some(AtomExpr {
                             pred: Ident::synthetic("q"),
-                            args: vec![Term::Sym(Ident::synthetic("nara"))],
+                            args: vec![Term::Sym(Ident::synthetic("lyra"))],
                         }),
                         layer: None,
                         why: false,

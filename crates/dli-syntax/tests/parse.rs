@@ -29,9 +29,9 @@ adjacent(storybook, riverside)  decided d-0003
 ";
 
 const ENTITY_SLOTS: &str = "\
-person nara \"Nara of the Weirs\"     decided d-0002
-  nara.trade = eel-fisher           decided d-0002
-  nara.home  = riverside         proposed
+person lyra \"Lyra of the Weirs\"     decided d-0002
+  lyra.trade = eel-fisher           decided d-0002
+  lyra.home  = riverside         proposed
 
 thing bellsong \"The Bellsong\"     decided d-0004
   bellsong.kept-at = storybook    decided d-0004
@@ -72,13 +72,13 @@ fn entity_slots_lower_into_the_entity() {
         "unexpected errors: {:?}",
         errors(&diags)
     );
-    let Decl::Entity(nara) = &doc.decls[0] else {
+    let Decl::Entity(lyra) = &doc.decls[0] else {
         panic!("expected an entity");
     };
-    assert_eq!(nara.name.text, "nara");
-    assert_eq!(nara.slots.len(), 2);
-    assert_eq!(nara.slots[0].subject.text, "nara");
-    assert_eq!(nara.slots[0].attr.text, "trade");
+    assert_eq!(lyra.name.text, "lyra");
+    assert_eq!(lyra.slots.len(), 2);
+    assert_eq!(lyra.slots[0].subject.text, "lyra");
+    assert_eq!(lyra.slots[0].attr.text, "trade");
 }
 
 #[test]
@@ -131,7 +131,7 @@ keeps(the-lake, excalibur) proposed assumes the-lake and h-return
 #[test]
 fn column_free_options_fold_into_the_question() {
     // The committed examples write options at column zero, not indented.
-    let source = "question who-keeps-the-ledger\noption old-fen\noption nara\n";
+    let source = "question who-keeps-the-ledger\noption old-fen\noption lyra\n";
     let (doc, diags) = parse_document(source);
     assert!(
         errors(&diags).is_empty(),
@@ -208,15 +208,15 @@ fn clause_atom_reads_a_relation() {
 #[test]
 fn clause_atom_reads_a_slot_fact() {
     // `subject.slot = value` lowers to `slot(subject, value)`, matching the loader.
-    let atom = parse_clause_atom(&clause("nara.trade = eel-fisher")).unwrap();
+    let atom = parse_clause_atom(&clause("lyra.trade = eel-fisher")).unwrap();
     assert_eq!(atom.pred.text, "trade");
-    assert!(matches!(&atom.args[0], Term::Sym(s) if s.text == "nara"));
+    assert!(matches!(&atom.args[0], Term::Sym(s) if s.text == "lyra"));
     assert!(matches!(&atom.args[1], Term::Sym(s) if s.text == "eel-fisher"));
 }
 
 #[test]
 fn clause_atom_reads_a_triple() {
-    let atom = parse_clause_atom(&clause("fact nara lives-in storybook")).unwrap();
+    let atom = parse_clause_atom(&clause("fact lyra lives-in storybook")).unwrap();
     assert_eq!(atom.pred.text, "lives-in");
     assert_eq!(atom.args.len(), 2);
 }

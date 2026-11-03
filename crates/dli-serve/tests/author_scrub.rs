@@ -490,7 +490,7 @@ fn no_free_text_field_of_any_staged_declaration_can_forge_a_line() {
         ),
         (
             Op::AuthorAddTerm,
-            json!({"id":"hedgerow","label":"the boundary road","provenance":provenance}),
+            json!({"id":"orchard-lane","label":"the boundary road","provenance":provenance}),
         ),
         (
             Op::AuthorAddBanned,

@@ -343,7 +343,7 @@ fn articy_v1_maps_entities_scopes_and_quests() {
         loaded_fact("place", &["the-mill"]),
         loaded_relation("owes", &["the-reeve", "the-mill"]),
         loaded_relation("knows", &["moorlands", "owes(the-reeve, the-mill)"]),
-        loaded_relation("promise", &["mend-the-weir"]),
+        loaded_relation("promise", &["mend-north-gate"]),
     ];
     let refs: Vec<&LoadedAtom> = atoms.iter().collect();
     let spec = neutral_articy_spec();
@@ -375,7 +375,7 @@ fn articy_v1_maps_entities_scopes_and_quests() {
     let quest = export
         .quests
         .iter()
-        .find(|q| q.id == "mend-the-weir")
+        .find(|q| q.id == "mend-north-gate")
         .expect("the promise quest");
     assert_eq!(quest.state, "hook");
     assert_eq!(quest.flow, vec!["hook".to_owned()]);
@@ -394,16 +394,16 @@ fn articy_quest_folds_stages_into_one_flow() {
     // A single quest id that is promised, owed, then discharged folds into one
     // quest whose state is the furthest reached and whose flow is ordered.
     let atoms = [
-        loaded_relation("promise", &["mend-the-weir"]),
-        loaded_relation("debt", &["mend-the-weir"]),
-        loaded_relation("discharge", &["mend-the-weir"]),
+        loaded_relation("promise", &["mend-north-gate"]),
+        loaded_relation("debt", &["mend-north-gate"]),
+        loaded_relation("discharge", &["mend-north-gate"]),
     ];
     let refs: Vec<&LoadedAtom> = atoms.iter().collect();
     let export = dli_export::articy::compile(&neutral_articy_spec(), "certain", &refs).unwrap();
 
     assert_eq!(export.quests.len(), 1);
     let quest = &export.quests[0];
-    assert_eq!(quest.id, "mend-the-weir");
+    assert_eq!(quest.id, "mend-north-gate");
     assert_eq!(quest.state, "complete");
     assert_eq!(
         quest.flow,
@@ -420,7 +420,7 @@ fn articy_output_is_deterministic() {
     let atoms = [
         loaded_fact("person", &["the-reeve"]),
         loaded_relation("owes", &["the-reeve", "the-mill"]),
-        loaded_relation("promise", &["mend-the-weir"]),
+        loaded_relation("promise", &["mend-north-gate"]),
     ];
     let refs: Vec<&LoadedAtom> = atoms.iter().collect();
     let spec = neutral_articy_spec();
@@ -565,7 +565,7 @@ fn articy_rejects_relations_to_unselected_declared_entities() {
 fn articy_entity_and_quest_provenance_obeys_the_profile() {
     let mut person = loaded_fact("person", &["arden"]);
     person.citations = vec!["d-0001".to_owned()];
-    let mut promise = loaded_relation("promise", &["mend-the-weir"]);
+    let mut promise = loaded_relation("promise", &["mend-north-gate"]);
     promise.citations = vec!["d-0002".to_owned()];
     let atoms = [&person, &promise];
 

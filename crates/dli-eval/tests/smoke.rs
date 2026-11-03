@@ -99,7 +99,7 @@ fn storybook_document() -> Document {
             ),
             decided_fact(
                 "adjacent",
-                vec![sym("riverside"), sym("the-weir")],
+                vec![sym("riverside"), sym("north-gate")],
                 "d-storybook-map",
             ),
             Decl::Question(QuestionDecl {
@@ -111,7 +111,7 @@ fn storybook_document() -> Document {
                         "keeps",
                         vec![sym("old-fen"), sym("the-salt-ledger")],
                     ),
-                    option("nara", "keeps", vec![sym("nara"), sym("the-salt-ledger")]),
+                    option("lyra", "keeps", vec![sym("lyra"), sym("the-salt-ledger")]),
                 ],
                 provenance: Some(Annotation {
                     marker: ProvenanceMarker::Proposed,
@@ -176,7 +176,7 @@ fn slot_attributes_lower_to_evaluable_facts() {
     let document = Document {
         scope: None,
         decls: vec![Decl::Attr(AttrDecl {
-            subject: Ident::synthetic("nara"),
+            subject: Ident::synthetic("lyra"),
             attr: Ident::synthetic("role"),
             value: Term::Str("river warden".to_owned()),
             provenance: Some(provenance(ProvenanceMarker::Proposed, &[])),
@@ -184,7 +184,7 @@ fn slot_attributes_lower_to_evaluable_facts() {
     };
     let world = World::lower(&document).unwrap().fixpoint().unwrap();
     let answer = world
-        .query(&query(atom("role", vec![sym("nara"), var("description")])))
+        .query(&query(atom("role", vec![sym("lyra"), var("description")])))
         .unwrap();
 
     assert_eq!(answer.rows.len(), 1);
@@ -223,7 +223,7 @@ fn lower_realizes_state_as_fact() {
 #[test]
 fn t2_transitive_closure_reaches_the_weir() {
     let world = storybook_world();
-    // reachable(storybook, ?Z) closes over adjacency: riverside and the-weir.
+    // reachable(storybook, ?Z) closes over adjacency: riverside and north-gate.
     let answer = world
         .query(&query(atom("reachable", vec![sym("storybook"), var("Z")])))
         .unwrap();
@@ -233,7 +233,7 @@ fn t2_transitive_closure_reaches_the_weir() {
         .map(|row| row.bindings["Z"].clone())
         .collect();
     reached.sort();
-    assert_eq!(reached, vec!["riverside", "the-weir"]);
+    assert_eq!(reached, vec!["riverside", "north-gate"]);
     // Every hop rests on the ruled map decision, so the closure is certain.
     assert!(answer.rows.iter().all(|row| row.status == Status::Certain));
 }
@@ -244,7 +244,7 @@ fn t2_support_rests_on_the_map_decision() {
     let answer = world
         .query(&query(atom(
             "reachable",
-            vec![sym("storybook"), sym("the-weir")],
+            vec![sym("storybook"), sym("north-gate")],
         )))
         .unwrap();
     assert_eq!(answer.rows.len(), 1);
@@ -266,7 +266,7 @@ fn t1_open_option_is_a_shadow_then_ruled_certain() {
     assert!(open.rows.iter().all(|row| row.status == Status::Possible));
 
     // Suppose the question rules for old-fen: old-fen becomes certain, and the
-    // excluded option (nara) goes dead — dropped from the answer.
+    // excluded option (lyra) goes dead — dropped from the answer.
     let ruled = world
         .fork_eval(&query(goal), &[Ident::synthetic("old-fen")])
         .unwrap();
@@ -325,7 +325,7 @@ fn support_index_answers_why_and_defeater() {
         .iter()
         .position(|n| n == "d-storybook-map")
         .unwrap();
-    let reachable = atom("reachable", vec![sym("storybook"), sym("the-weir")]);
+    let reachable = atom("reachable", vec![sym("storybook"), sym("north-gate")]);
     assert_eq!(
         index.why(&reachable),
         vec![vec![ClaimId(u32::try_from(map).unwrap())]]

@@ -194,9 +194,9 @@ fn predicates_track_the_specific_workspace_not_the_request() {
     let mut store = base(concat!(
         "scope storybook\n",
         "ratify D-0001\n",
-        "place nara \"Nara\"  ratified D-0001\n",
+        "place lyra \"Lyra\"  ratified D-0001\n",
         "place keeper \"Keeper\"  ratified D-0001\n",
-        "alpha-rel(nara, keeper)  ratified D-0001\n",
+        "alpha-rel(lyra, keeper)  ratified D-0001\n",
     ));
     let ws_a = open_scope(&mut store, "1.10.0", "storybook");
     let ws_b = open_scope(&mut store, "1.10.0", "storybook");
@@ -206,7 +206,7 @@ fn predicates_track_the_specific_workspace_not_the_request() {
         &mut store,
         "1.10.0",
         &ws_a,
-        "nara",
+        "lyra",
         "beta-rel",
         "keeper",
         proposed(),
@@ -382,7 +382,7 @@ fn an_empty_staged_world_has_an_empty_predicate_census() {
 fn an_empty_staged_world_yields_no_entity_candidates() {
     let mut store = base("scope storybook\n");
     let ws = open_scope(&mut store, "1.10.0", "storybook");
-    for surface in ["nara", "keeper", "anything-at-all"] {
+    for surface in ["lyra", "keeper", "anything-at-all"] {
         let out = candidates(&mut store, "1.10.0", &ws, surface, 25);
         assert!(
             candidate_names(result(&out)).is_empty(),
@@ -410,7 +410,7 @@ fn predicates_functional_flag_agrees_with_fd_violation_both_directions() {
     let mut store = base(concat!(
         "scope storybook\n",
         "ratify D-0001\n",
-        "person nara \"Nara\"  ratified D-0001\n",
+        "person lyra \"Lyra\"  ratified D-0001\n",
     ));
     let ws = open_scope(&mut store, "1.10.0", "storybook");
 
@@ -426,12 +426,12 @@ fn predicates_functional_flag_agrees_with_fd_violation_both_directions() {
     );
     assert!(declared.ok, "declare rank functional: {declared:?}");
 
-    // Two distinct CERTAIN values for each predicate on `nara`.
+    // Two distinct CERTAIN values for each predicate on `lyra`.
     add_fact(
         &mut store,
         "1.10.0",
         &ws,
-        "nara",
+        "lyra",
         "rank",
         "captain",
         cited("D-0001"),
@@ -440,7 +440,7 @@ fn predicates_functional_flag_agrees_with_fd_violation_both_directions() {
         &mut store,
         "1.10.0",
         &ws,
-        "nara",
+        "lyra",
         "rank",
         "admiral",
         cited("D-0001"),
@@ -449,7 +449,7 @@ fn predicates_functional_flag_agrees_with_fd_violation_both_directions() {
         &mut store,
         "1.10.0",
         &ws,
-        "nara",
+        "lyra",
         "hobby",
         "chess",
         cited("D-0001"),
@@ -458,7 +458,7 @@ fn predicates_functional_flag_agrees_with_fd_violation_both_directions() {
         &mut store,
         "1.10.0",
         &ws,
-        "nara",
+        "lyra",
         "hobby",
         "go",
         cited("D-0001"),
@@ -515,7 +515,7 @@ fn a_declared_functional_predicate_with_no_facts_agrees_by_absence() {
     let mut store = base(concat!(
         "scope storybook\n",
         "ratify D-0001\n",
-        "person nara \"Nara\"  ratified D-0001\n",
+        "person lyra \"Lyra\"  ratified D-0001\n",
     ));
     let ws = open_scope(&mut store, "1.10.0", "storybook");
     let declared = dispatch(
@@ -545,7 +545,7 @@ fn a_declared_functional_predicate_with_no_facts_agrees_by_absence() {
 }
 
 /// The entity-candidate canonical representative keys the SAME way
-/// `continuity.fd-violation`'s subject does. A certain `same-as nara = sora`
+/// `continuity.fd-violation`'s subject does. A certain `same-as lyra = sora`
 /// merges two conflicting `rank` facts into one class; the FD check names the
 /// class by its canonical representative (`data.subject`), and
 /// `entity_candidates` for the aliased surface `sora` folds to that SAME
@@ -556,9 +556,9 @@ fn entity_candidates_canonical_rep_matches_the_fd_violation_subject() {
     let mut store = base(concat!(
         "scope storybook\n",
         "ratify D-0001\n",
-        "person nara \"Nara\"  ratified D-0001\n",
+        "person lyra \"Lyra\"  ratified D-0001\n",
         "person sora \"Sora\"  ratified D-0001\n",
-        "rank(nara, gold)  ratified D-0001\n",
+        "rank(lyra, gold)  ratified D-0001\n",
         "rank(sora, silver)  ratified D-0001\n",
     ));
     let ws = open_scope(&mut store, "1.10.0", "storybook");
@@ -579,7 +579,7 @@ fn entity_candidates_canonical_rep_matches_the_fd_violation_subject() {
             "1.10.0",
             "sa",
             Op::AuthorAssertSameAs,
-            json!({ "workspace": ws, "left": "nara", "right": "sora", "provenance": cited("D-0001") }),
+            json!({ "workspace": ws, "left": "lyra", "right": "sora", "provenance": cited("D-0001") }),
         ),
         &mut store,
     );
@@ -609,6 +609,6 @@ fn entity_candidates_canonical_rep_matches_the_fd_violation_subject() {
         !names.contains(&"sora".to_owned()),
         "the aliased member never surfaces separately from its rep: {names:?}"
     );
-    // Nail it down: the canonical representative is `nara` (lexicographic min).
-    assert_eq!(fd_subject, "nara", "the class's canonical subject");
+    // Nail it down: the canonical representative is `lyra` (lexicographic min).
+    assert_eq!(fd_subject, "lyra", "the class's canonical subject");
 }

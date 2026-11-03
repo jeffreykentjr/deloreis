@@ -39,10 +39,10 @@ fn base() -> Store {
         "scope storybook\n",
         "ratify D-1\n",
         "ratify D-3\n",
-        "person nara \"Nara\" ratified D-1\n",
+        "person lyra \"Lyra\" ratified D-1\n",
         "functional current-work ratified D-1\n",
-        "current-work(nara, software) ratified D-1\n",
-        "current-job(nara, employment) ratified D-1\n",
+        "current-work(lyra, software) ratified D-1\n",
+        "current-job(lyra, employment) ratified D-1\n",
     );
     let (document, diagnostics) = dli_syntax::parse_document(source);
     assert!(diagnostics.is_empty(), "base parses: {diagnostics:?}");
@@ -58,8 +58,8 @@ fn base_surface_only() -> Store {
         "scope storybook\n",
         "ratify D-1\n",
         "ratify D-3\n",
-        "person nara \"Nara\" ratified D-1\n",
-        "current-work(nara, software) ratified D-1\n",
+        "person lyra \"Lyra\" ratified D-1\n",
+        "current-work(lyra, software) ratified D-1\n",
     );
     let (document, diagnostics) = dli_syntax::parse_document(source);
     assert!(
@@ -279,7 +279,7 @@ fn durable_defeat_unmerges_predicates_and_keeps_the_source_fact() {
             Op::AuthorQuery,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": "current-job", "args": [{"Sym": "nara"}, {"Sym": "software"}]},
+                "goal_atom": {"pred": "current-job", "args": [{"Sym": "lyra"}, {"Sym": "software"}]},
                 "layer": "all"
             }),
         ),
@@ -311,7 +311,7 @@ fn durable_defeat_unmerges_predicates_and_keeps_the_source_fact() {
             Op::AuthorQuery,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": "current-job", "args": [{"Sym": "nara"}, {"Sym": "software"}]},
+                "goal_atom": {"pred": "current-job", "args": [{"Sym": "lyra"}, {"Sym": "software"}]},
                 "layer": "all"
             }),
         ),
@@ -325,7 +325,7 @@ fn durable_defeat_unmerges_predicates_and_keeps_the_source_fact() {
             Op::AuthorQuery,
             json!({
                 "workspace": workspace,
-                "goal_atom": {"pred": "current-work", "args": [{"Sym": "nara"}, {"Sym": "software"}]},
+                "goal_atom": {"pred": "current-work", "args": [{"Sym": "lyra"}, {"Sym": "software"}]},
                 "layer": "all"
             }),
         ),

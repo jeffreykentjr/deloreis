@@ -15,9 +15,9 @@
       "id": "pre-2",
       "op": "author.add_entity",
       "params": {
-        "id": "nara",
+        "id": "lyra",
         "kind": "person",
-        "name": "Nara",
+        "name": "Lyra",
         "provenance": {
           "decisions": [
             "d-1"
@@ -48,8 +48,8 @@
         "result": {
           "findings": [],
           "rendered": [],
-          "root_hash": "sha256:96cefb84eeeed04c4f5cd936bf0378db090d797bfc3b9a7cc4b211f1c8b03b42",
-          "workspace_digest": "jcs:sha256:fbbf3221462689f70767faec1df363dd9b60f7a54910d0893a725a7231df6110"
+          "root_hash": "sha256:a2c5c4a69818a6b0991b94619e5991fc189bdd34982953fb46d7e71c6f91535e",
+          "workspace_digest": "jcs:sha256:56af2f8803e9448801014272ce65de5227fb6a60b2ac4f22593e22c36dca6f71"
         }
       },
       "send": {
@@ -57,7 +57,7 @@
         "id": "1",
         "op": "author.set_standing",
         "params": {
-          "claim_id": "sha256:c71b49b1fc49abb25a1356d16457229ec43750ca0e97371f1a217612c9c998c2",
+          "claim_id": "sha256:cad83f2eb308ea4900f13fc26597c15d147e41f8e8dd9469e023355a898e1715",
           "decision": "d-1",
           "workspace": "ws-1"
         }
@@ -71,8 +71,8 @@
         "result": {
           "findings": [],
           "rendered": [],
-          "root_hash": "sha256:da733b92bdcebf918045947f740169154a4d284451bb5ab50ec3c9cc0d4ce1c6",
-          "workspace_digest": "jcs:sha256:3e245213910459a06a12c2969ba9940e217f0eac73244f1c2de62550aa9cb66f"
+          "root_hash": "sha256:ce4d09ff7ceaa17598d6c72d0ef6f53685bc03889e0598ef7603d34f66de790a",
+          "workspace_digest": "jcs:sha256:fe5faa0547b53d02a6f805021cfa4c6488d597e7409d1bffb0960080d6b3e587"
         }
       },
       "send": {
@@ -80,7 +80,7 @@
         "id": "2",
         "op": "author.defeat",
         "params": {
-          "claim_id": "sha256:c71b49b1fc49abb25a1356d16457229ec43750ca0e97371f1a217612c9c998c2",
+          "claim_id": "sha256:cad83f2eb308ea4900f13fc26597c15d147e41f8e8dd9469e023355a898e1715",
           "decision": "d-2",
           "defeated_decision": "d-1",
           "workspace": "ws-1"

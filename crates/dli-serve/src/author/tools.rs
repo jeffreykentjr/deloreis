@@ -4474,8 +4474,8 @@ mod tests {
 
     #[test]
     fn heap_ranking_matches_exhaustive_distance_ordering() {
-        let names = ["nara", "marc", "mira", "moor", "zzzzzz", "Mára", "河守"];
-        let surface = "nara";
+        let names = ["lyra", "marc", "mira", "moor", "zzzzzz", "Mára", "河守"];
+        let surface = "lyra";
         let chars: Vec<char> = surface.chars().collect();
         let mut expected: Vec<(usize, String)> = names
             .iter()

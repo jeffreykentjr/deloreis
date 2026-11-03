@@ -19,7 +19,7 @@ fn draft_payload_round_trips() {
         },
         scenes: vec!["s1".to_owned(), "s2".to_owned()],
         beats: vec!["b1".to_owned()],
-        names: vec!["nara".to_owned()],
+        names: vec!["lyra".to_owned()],
         ..DraftPayload::default()
     };
     let json = serde_json::to_string(&payload).unwrap();

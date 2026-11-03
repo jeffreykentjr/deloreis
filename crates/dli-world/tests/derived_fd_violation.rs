@@ -146,7 +146,7 @@ fn messages(world: &CompiledWorld, code: &str) -> Vec<String> {
 fn a_rule_derived_second_value_is_flagged_only_at_the_derived_layer() {
     let w = world(vec![
         functional("rank", "D-1"),
-        certain_fact("rank", "nara", "gold", "D-1"),
+        certain_fact("rank", "lyra", "gold", "D-1"),
         rule(
             "gold-implies-silver",
             "rank($x, silver) :- rank($x, gold)",
@@ -155,13 +155,13 @@ fn a_rule_derived_second_value_is_flagged_only_at_the_derived_layer() {
     ]);
     assert!(
         messages(&w, "continuity.fd-violation").is_empty(),
-        "the source (pre-saturation) layer holds exactly one authored rank for nara"
+        "the source (pre-saturation) layer holds exactly one authored rank for lyra"
     );
     let derived = messages(&w, "continuity.derived-fd-violation");
     assert_eq!(derived.len(), 1, "{derived:?}");
     assert!(
         derived[0].contains("rank")
-            && derived[0].contains("nara")
+            && derived[0].contains("lyra")
             && derived[0].contains("gold")
             && derived[0].contains("silver"),
         "names the slot and both values: {}",
@@ -171,11 +171,11 @@ fn a_rule_derived_second_value_is_flagged_only_at_the_derived_layer() {
 
 #[test]
 fn a_rule_deriving_no_new_value_raises_nothing() {
-    // The rule fires (nara's own gold restates itself as a "gold" derivation
+    // The rule fires (lyra's own gold restates itself as a "gold" derivation
     // via a trivial self-echo) but produces no SECOND distinct value.
     let w = world(vec![
         functional("rank", "D-1"),
-        certain_fact("rank", "nara", "gold", "D-1"),
+        certain_fact("rank", "lyra", "gold", "D-1"),
         rule("echo", "echoed-rank($x, $y) :- rank($x, $y)", "D-1"),
     ]);
     assert!(messages(&w, "continuity.fd-violation").is_empty());
@@ -191,8 +191,8 @@ fn a_rule_deriving_no_new_value_raises_nothing() {
 fn a_source_only_break_is_reported_once_never_doubled() {
     let w = world(vec![
         functional("rank", "D-1"),
-        certain_fact("rank", "nara", "captain", "D-1"),
-        certain_fact("rank", "nara", "admiral", "D-1"),
+        certain_fact("rank", "lyra", "captain", "D-1"),
+        certain_fact("rank", "lyra", "admiral", "D-1"),
     ]);
     let source = messages(&w, "continuity.fd-violation");
     assert_eq!(source.len(), 1, "{source:?}");
@@ -207,17 +207,17 @@ fn a_source_only_break_is_reported_once_never_doubled() {
 
 /// A derived break reachable ONLY through an identity-closure copy: `moira`
 /// alone authors the functional predicate's one certain value (`gold`);
-/// `nara` alone carries an unrelated marker fact a rule turns into a
-/// SEPARATE, second value (`silver`) — on `nara`, never on `moira`. Neither
+/// `lyra` alone carries an unrelated marker fact a rule turns into a
+/// SEPARATE, second value (`silver`) — on `lyra`, never on `moira`. Neither
 /// subject holds two values by itself; the break exists only once `same-as`
 /// merges them into one canonical subject, so it appears if and only if the
 /// identity link is certain.
 fn closure_world(same_as_provenance: Option<Annotation>) -> CompiledWorld {
     world(vec![
         functional("rank", "D-1"),
-        same_as("nara", "moira", same_as_provenance),
+        same_as("lyra", "moira", same_as_provenance),
         certain_fact("rank", "moira", "gold", "D-1"),
-        certain_fact("special", "nara", "yes", "D-1"),
+        certain_fact("special", "lyra", "yes", "D-1"),
         rule(
             "special-implies-silver",
             "rank($x, silver) :- special($x, yes)",

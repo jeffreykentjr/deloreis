@@ -600,7 +600,7 @@ mod tests {
     fn contract_2_names_the_successor_field() {
         let (field, successor) = killed_field_successor(
             Op::Query,
-            &json!({ "document": "d", "goal": "serves(nara, ?who)" }),
+            &json!({ "document": "d", "goal": "serves(lyra, ?who)" }),
         )
         .expect("`goal` is registered as retired for dli.query");
         assert_eq!((field, successor), ("goal", "goal_atom"));
@@ -633,7 +633,7 @@ mod tests {
             "the typed successor is not a killed form"
         );
         assert!(
-            killed_field_successor(Op::Check, &json!({ "goal": "serves(nara)" })).is_none(),
+            killed_field_successor(Op::Check, &json!({ "goal": "serves(lyra)" })).is_none(),
             "`goal` is retired for dli.query, not for every op that might carry it"
         );
     }

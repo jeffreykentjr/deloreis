@@ -76,10 +76,10 @@ fn base_with_latent_conflict() -> Store {
     base(concat!(
         "scope storybook\n",
         "ratify D-0001\n",
-        "place nara \"Nara\"  ratified D-0001\n",
+        "place lyra \"Lyra\"  ratified D-0001\n",
         "place mira \"Mira\"  ratified D-0001\n",
         "functional current-role decided D-0001\n",
-        "current-role(nara, keeper) decided D-0001\n",
+        "current-role(lyra, keeper) decided D-0001\n",
         "current-role(mira, warden) decided D-0001\n",
     ))
 }
@@ -107,7 +107,7 @@ fn stage_same_as(store: &mut Store, ws: &str) -> dli_serve::Response {
             "sa",
             Op::AuthorAssertSameAs,
             json!({
-                "workspace": ws, "left": "nara", "right": "mira",
+                "workspace": ws, "left": "lyra", "right": "mira",
                 "provenance": { "kind": "cited", "decisions": ["D-0001"], "state": "ratified" }
             }),
         ),
@@ -223,10 +223,10 @@ fn a_non_colliding_same_as_previews_clean() {
     let mut store = base(concat!(
         "scope storybook\n",
         "ratify D-0001\n",
-        "place nara \"Nara\"  ratified D-0001\n",
+        "place lyra \"Lyra\"  ratified D-0001\n",
         "place mira \"Mira\"  ratified D-0001\n",
         "functional current-role decided D-0001\n",
-        "current-role(nara, keeper) decided D-0001\n",
+        "current-role(lyra, keeper) decided D-0001\n",
     ));
     let ws = open_scope(&mut store, "storybook");
     assert!(stage_same_as(&mut store, &ws).ok);

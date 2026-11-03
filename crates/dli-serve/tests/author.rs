@@ -101,19 +101,19 @@ fn golden_session_flows_end_to_end() {
     let ws = open_scope(&mut store, "storybook");
 
     // Two entities, then a fact relating them; no dialect is configured.
-    let nara = send(
+    let lyra = send(
         &mut store,
         &req(
             "2",
             Op::AuthorAddEntity,
-            json!({ "workspace": ws, "kind": "person", "id": "nara", "name": "Nara",
+            json!({ "workspace": ws, "kind": "person", "id": "lyra", "name": "Lyra",
                     "provenance": { "kind": "proposed", "origin": "session-fx01" } }),
         ),
     );
-    assert!(codes(result(&nara)).is_empty());
+    assert!(codes(result(&lyra)).is_empty());
     assert_eq!(
-        result(&nara)["rendered"],
-        json!(["person nara \"Nara\" proposed session-fx01"])
+        result(&lyra)["rendered"],
+        json!(["person lyra \"Lyra\" proposed session-fx01"])
     );
 
     let shallows = send(
@@ -132,7 +132,7 @@ fn golden_session_flows_end_to_end() {
         &req(
             "4",
             Op::AuthorAddFact,
-            json!({ "workspace": ws, "entity": "nara", "key": "home", "value": "riverside",
+            json!({ "workspace": ws, "entity": "lyra", "key": "home", "value": "riverside",
                     "provenance": { "kind": "proposed", "origin": "session-fx01" } }),
         ),
     );
@@ -140,7 +140,7 @@ fn golden_session_flows_end_to_end() {
     assert!(codes(result(&fact)).is_empty());
     assert_eq!(
         result(&fact)["rendered"],
-        json!(["nara.home = riverside proposed session-fx01"])
+        json!(["lyra.home = riverside proposed session-fx01"])
     );
 
     let diff = send(
@@ -150,9 +150,9 @@ fn golden_session_flows_end_to_end() {
     assert_eq!(
         result(&diff)["rendered"],
         json!([
-            "person nara \"Nara\" proposed session-fx01",
+            "person lyra \"Lyra\" proposed session-fx01",
             "place riverside \"Riverside\" proposed session-fx01",
-            "nara.home = riverside proposed session-fx01"
+            "lyra.home = riverside proposed session-fx01"
         ])
     );
     assert!(
@@ -176,9 +176,9 @@ fn golden_session_flows_end_to_end() {
         json!([
             "scope storybook",
             "",
-            "person nara \"Nara\" proposed session-fx01",
+            "person lyra \"Lyra\" proposed session-fx01",
             "place riverside \"Riverside\" proposed session-fx01",
-            "nara.home = riverside proposed session-fx01"
+            "lyra.home = riverside proposed session-fx01"
         ])
     );
     assert!(codes(result(&materialized)).is_empty());
@@ -231,7 +231,7 @@ fn add_state_then_query_surfaces_the_fluent() {
 #[test]
 fn add_fact_quotes_multiword_values_and_materialized_output_reparses() {
     let (document, diagnostics) = dli_syntax::parse_document(
-        "scope storybook\nratify d-1\nplace nara \"Nara\" decided d-1\n",
+        "scope storybook\nratify d-1\nplace lyra \"Lyra\" decided d-1\n",
     );
     assert!(diagnostics.is_empty(), "base parses: {diagnostics:?}");
     let mut store = Store::with_pack(dli_world::pack::Pack {
@@ -247,7 +247,7 @@ fn add_fact_quotes_multiword_values_and_materialized_output_reparses() {
             Op::AuthorAddFact,
             json!({
                 "workspace": ws,
-                "entity": "nara",
+                "entity": "lyra",
                 "key": "role",
                 "value": "river warden",
                 "provenance": {"kind": "proposed", "origin": "session-7c9"}
@@ -256,7 +256,7 @@ fn add_fact_quotes_multiword_values_and_materialized_output_reparses() {
     );
     assert_eq!(
         result(&added)["rendered"],
-        json!(["nara.role = \"river warden\" proposed session-7c9"])
+        json!(["lyra.role = \"river warden\" proposed session-7c9"])
     );
 
     let queried = send(
@@ -264,7 +264,7 @@ fn add_fact_quotes_multiword_values_and_materialized_output_reparses() {
         &req(
             "query",
             Op::AuthorQuery,
-            json!({"workspace": ws, "goal": "role(nara, ?value)"}),
+            json!({"workspace": ws, "goal": "role(lyra, ?value)"}),
         ),
     );
     let query_result = result(&queried);
@@ -359,14 +359,14 @@ fn stale_fence_refuses_a_moved_workspace() {
         &req(
             "2",
             Op::AuthorAddEntity,
-            json!({ "workspace": ws, "kind": "person", "id": "nara", "name": "Nara",
+            json!({ "workspace": ws, "kind": "person", "id": "lyra", "name": "Lyra",
                     "provenance": { "kind": "proposed", "origin": "s" } }),
         ),
     );
     let mut stale = req(
         "3",
         Op::AuthorAddFact,
-        json!({ "workspace": ws, "entity": "nara", "key": "home", "value": "x",
+        json!({ "workspace": ws, "entity": "lyra", "key": "home", "value": "x",
                 "provenance": { "kind": "proposed", "origin": "s" } }),
     );
     stale.expected_digest = Some("jcs:sha256:deadbeef".to_owned());
@@ -385,7 +385,7 @@ fn idempotent_retry_replays_and_stages_nothing() {
     let mut call = req(
         "2",
         Op::AuthorAddEntity,
-        json!({ "workspace": ws, "kind": "person", "id": "nara", "name": "Nara",
+        json!({ "workspace": ws, "kind": "person", "id": "lyra", "name": "Lyra",
                 "provenance": { "kind": "proposed", "origin": "s" } }),
     );
     call.idempotency_key = Some("idem-1".to_owned());
@@ -464,7 +464,7 @@ fn materialize_refuses_on_error_findings_then_succeeds_when_resolved() {
         &req(
             "2",
             Op::AuthorAddRelation,
-            json!({ "workspace": ws, "relation": "serves", "from": "nara", "to": "the-warden",
+            json!({ "workspace": ws, "relation": "serves", "from": "lyra", "to": "the-warden",
                     "provenance": { "kind": "proposed", "origin": "s" } }),
         ),
     );
@@ -481,7 +481,7 @@ fn materialize_refuses_on_error_findings_then_succeeds_when_resolved() {
     assert_eq!(blocking["blocking"], json!(["entity.unknown"]));
 
     // Resolve by adding the referenced entities; the full re-check clears the block.
-    for (id, name) in [("nara", "Nara"), ("the-warden", "The Warden")] {
+    for (id, name) in [("lyra", "Lyra"), ("the-warden", "The Warden")] {
         send(
             &mut store,
             &req(
@@ -510,12 +510,12 @@ fn add_relation_unknown_entity_carries_candidates() {
         &req(
             "1",
             Op::AuthorAddRelation,
-            json!({ "workspace": ws, "relation": "serves", "from": "nara", "to": "the-wardn",
+            json!({ "workspace": ws, "relation": "serves", "from": "lyra", "to": "the-wardn",
                     "provenance": { "kind": "proposed", "origin": "s" } }),
         ),
     );
     let findings = result(&response)["findings"].as_array().expect("findings");
-    // `nara` is unknown; `the-wardn` is a near-miss for the base's `the-warden`.
+    // `lyra` is unknown; `the-wardn` is a near-miss for the base's `the-warden`.
     let unknown: Vec<&Value> = findings
         .iter()
         .filter(|f| f["code"] == json!("entity.unknown"))
@@ -859,7 +859,7 @@ fn control_char_in_origin_cannot_forge_and_bars_materialize() {
         &req(
             "2",
             Op::AuthorAddEntity,
-            json!({ "workspace": ws, "kind": "person", "id": "nara", "name": "Nara",
+            json!({ "workspace": ws, "kind": "person", "id": "lyra", "name": "Lyra",
                     "provenance": { "kind": "proposed", "origin": forged } }),
         ),
     );
@@ -1131,7 +1131,7 @@ fn bidi_and_zero_width_chars_are_caught_and_omitted() {
         &req(
             "2",
             Op::AuthorAddEntity,
-            json!({ "workspace": ws, "kind": "person", "id": "nara", "name": "Nara\u{202e}9999d",
+            json!({ "workspace": ws, "kind": "person", "id": "lyra", "name": "Lyra\u{202e}9999d",
                     "provenance": { "kind": "proposed", "origin": "s" } }),
         ),
     );
@@ -1163,7 +1163,7 @@ fn materialize_output_is_canonical_dli() {
         &req(
             "2",
             Op::AuthorAddEntity,
-            json!({ "workspace": ws, "kind": "person", "id": "nara", "name": "Nara",
+            json!({ "workspace": ws, "kind": "person", "id": "lyra", "name": "Lyra",
                     "provenance": { "kind": "proposed", "origin": "s" } }),
         ),
     );
@@ -1203,29 +1203,29 @@ fn discard_invalidates_idempotency_replay() {
     let mut add = req(
         "2",
         Op::AuthorAddEntity,
-        json!({ "workspace": ws, "kind": "person", "id": "nara", "name": "Nara",
+        json!({ "workspace": ws, "kind": "person", "id": "lyra", "name": "Lyra",
                 "provenance": { "kind": "proposed", "origin": "s" } }),
     );
     add.idempotency_key = Some("K1".to_owned());
     let first = send(&mut store, &add);
-    let nara_line = result(&first)["rendered"][0]
+    let lyra_line = result(&first)["rendered"][0]
         .as_str()
-        .expect("nara line")
+        .expect("lyra line")
         .to_owned();
 
-    // Discard nara, then replay the same add under K1.
+    // Discard lyra, then replay the same add under K1.
     send(
         &mut store,
         &req(
             "3",
             Op::AuthorDiscard,
-            json!({ "workspace": ws, "decl": nara_line }),
+            json!({ "workspace": ws, "decl": lyra_line }),
         ),
     );
     let replay = send(&mut store, &add);
     assert!(replay.ok);
 
-    // The replay re-executed (nara is back), and its digest matches the live
+    // The replay re-executed (lyra is back), and its digest matches the live
     // workspace — not the stale pre-discard result.
     let diff = send(
         &mut store,
@@ -1233,7 +1233,7 @@ fn discard_invalidates_idempotency_replay() {
     );
     let lines = result(&diff)["rendered"].as_array().expect("rendered");
     assert_eq!(lines.len(), 1);
-    assert!(lines[0].as_str().unwrap_or_default().contains("nara"));
+    assert!(lines[0].as_str().unwrap_or_default().contains("lyra"));
     let status = send(
         &mut store,
         &req("5", Op::AuthorStatus, json!({ "workspace": ws })),
@@ -1301,7 +1301,7 @@ fn author_fixtures() -> Vec<(String, Value)> {
             req(
                 "2",
                 Op::AuthorAddEntity,
-                json!({ "workspace": "ws-1", "kind": "person", "id": "nara", "name": "Nara",
+                json!({ "workspace": "ws-1", "kind": "person", "id": "lyra", "name": "Lyra",
                         "provenance": { "kind": "proposed", "origin": "session-fx01" } }),
             ),
             req(
@@ -1313,7 +1313,7 @@ fn author_fixtures() -> Vec<(String, Value)> {
             req(
                 "4",
                 Op::AuthorAddFact,
-                json!({ "workspace": "ws-1", "entity": "nara", "key": "home", "value": "riverside",
+                json!({ "workspace": "ws-1", "entity": "lyra", "key": "home", "value": "riverside",
                         "provenance": { "kind": "proposed", "origin": "session-fx01" } }),
             ),
             req("5", Op::AuthorDiff, json!({ "workspace": "ws-1" })),

@@ -25,9 +25,9 @@
       "id": "pre-3",
       "op": "author.add_entity",
       "params": {
-        "id": "nara",
+        "id": "lyra",
         "kind": "person",
-        "name": "Nara",
+        "name": "Lyra",
         "provenance": {
           "kind": "proposed",
           "origin": "session-fx01"
@@ -53,7 +53,7 @@
             "  name-kind person.given = given-proto",
             "}"
           ],
-          "workspace_digest": "jcs:sha256:f658287acbc9865a0dec17383bd66cf0294fcec6afb241044335a86a41d2075f"
+          "workspace_digest": "jcs:sha256:4a36755b1ff116fa7041e16df92a4eb1f20ac8e4b53f26fe8a2452e4119233e4"
         }
       },
       "send": {
@@ -109,7 +109,7 @@
           "rendered": [
             "name-part wyn \"fair\" role given-proto proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:662259cba6c482f484a2dd3b78e884a55158ea19ce95bdcf68d962a9a19837a7"
+          "workspace_digest": "jcs:sha256:3f58aaba156ff90226ee4401d560937ca6d748c36d45245b2bdf34c0f4dc9899"
         }
       },
       "send": {
@@ -158,9 +158,9 @@
           "rendered": [
             "name gwenwyn \"Gwenwyn\" person.given in elder-tongue-fringe proposed session-fx01",
             "  = given-proto wyn",
-            "  bearer nara"
+            "  bearer lyra"
           ],
-          "workspace_digest": "jcs:sha256:0c0a43480ff9921f3b3575e4c91a775458a7d592e90c1b46aaa67fde6d9774b9"
+          "workspace_digest": "jcs:sha256:cd9afedf2227eca98488d7216076c9175d0977ca5cd1e592629b40bf93644632"
         }
       },
       "send": {
@@ -168,7 +168,7 @@
         "id": "3",
         "op": "author.add_name",
         "params": {
-          "bearer": "nara",
+          "bearer": "lyra",
           "composition": [
             {
               "morpheme": "wyn",
@@ -198,9 +198,9 @@
         "result": {
           "findings": [],
           "rendered": [
-            "term hedgerow \"the pleached boundary road\" proposed session-fx01"
+            "term orchard-lane \"the old orchard lane\" proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:4f1eeee4a30bde3c49b3be0a235c174ef5085f49931bed877ce2bb2144ccf650"
+          "workspace_digest": "jcs:sha256:7de0a9ee9be6ee86302d01e40560fcb40f932f9cdb2449ddd33e4eef14aa20d2"
         }
       },
       "send": {
@@ -208,8 +208,8 @@
         "id": "4",
         "op": "author.add_term",
         "params": {
-          "id": "hedgerow",
-          "label": "the pleached boundary road",
+          "id": "orchard-lane",
+          "label": "the old orchard lane",
           "provenance": {
             "kind": "proposed",
             "origin": "session-fx01"
@@ -234,7 +234,7 @@
             }
           ],
           "rendered": [],
-          "workspace_digest": "jcs:sha256:06abdb6211eca9273c7d3544a732247f3c0f69cd9b1d76a3c2fee093cee30cc9"
+          "workspace_digest": "jcs:sha256:4e0f804c79c6feaea48396a9695879810494c8d6ddf92820c51cba0e14b6fb82"
         }
       },
       "send": {
@@ -260,9 +260,9 @@
         "result": {
           "findings": [],
           "rendered": [
-            "state nara.water-status = tidebound during first-tides proposed session-fx01"
+            "state lyra.water-status = tidebound during first-tides proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:0b10ec699bf99f40364141d76cce2375640dc7aa5ec7b49c8649e1ebf58b469d"
+          "workspace_digest": "jcs:sha256:751e4316419e900910230afd9fe0e4579f34efa97117c6b3e1515adfecaa9e6c"
         }
       },
       "send": {
@@ -270,7 +270,7 @@
         "id": "6",
         "op": "author.add_state",
         "params": {
-          "id": "nara.water-status",
+          "id": "lyra.water-status",
           "provenance": {
             "kind": "proposed",
             "origin": "session-fx01"
@@ -294,7 +294,7 @@
           "rendered": [
             "attest who-holds-the-ford proposed session-fx01"
           ],
-          "workspace_digest": "jcs:sha256:ff3291d38b28d9de004982f8ab29ad3f7bc91a7efffd9961034ca80e5625e044"
+          "workspace_digest": "jcs:sha256:04a71816bdfc994ab6bb79eebad6219129e6b3d94b9b9d56b610c8ecd8222227"
         }
       },
       "send": {

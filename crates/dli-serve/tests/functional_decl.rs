@@ -68,10 +68,10 @@ fn base(source: &str) -> Store {
     .expect("base compiles")
 }
 
-/// A base declaring the decision `D-0001` and the officer `nara`, so a staged
+/// A base declaring the decision `D-0001` and the officer `lyra`, so a staged
 /// fact citing `D-0001` reads certain and its subject is known.
 fn officer_base() -> Store {
-    base("scope storybook\nratify D-0001\nperson nara \"Nara\"  ratified D-0001\n")
+    base("scope storybook\nratify D-0001\nperson lyra \"Lyra\"  ratified D-0001\n")
 }
 
 fn open_scope(store: &mut Store, dli: &str, scope: &str) -> String {
@@ -146,13 +146,13 @@ fn declared_functional_predicate_makes_two_staged_facts_a_violation() {
         codes(result(&declared))
     );
 
-    let first = add_certain_fact(&mut store, "1.6.0", &ws, "nara", "rank", "captain");
+    let first = add_certain_fact(&mut store, "1.6.0", &ws, "lyra", "rank", "captain");
     assert!(
         codes(result(&first)).is_empty(),
         "the first rank contradicts nothing: {:?}",
         codes(result(&first))
     );
-    let second = add_certain_fact(&mut store, "1.6.0", &ws, "nara", "rank", "admiral");
+    let second = add_certain_fact(&mut store, "1.6.0", &ws, "lyra", "rank", "admiral");
     assert!(
         !codes(result(&second)).contains(&"fact.contradiction".to_owned()),
         "add-time sees no base conflict — the sibling clash is the check's job: {:?}",
@@ -173,8 +173,8 @@ fn the_violation_blocks_materialize() {
     let mut store = officer_base();
     let ws = open_scope(&mut store, "1.6.0", "storybook");
     declare_functional(&mut store, "1.6.0", &ws, "rank");
-    add_certain_fact(&mut store, "1.6.0", &ws, "nara", "rank", "captain");
-    add_certain_fact(&mut store, "1.6.0", &ws, "nara", "rank", "admiral");
+    add_certain_fact(&mut store, "1.6.0", &ws, "lyra", "rank", "captain");
+    add_certain_fact(&mut store, "1.6.0", &ws, "lyra", "rank", "admiral");
 
     let blocked = dispatch(
         &req(
@@ -200,8 +200,8 @@ fn without_the_declaration_the_same_two_staged_facts_pass() {
     // is what carries the judgment.
     let mut store = officer_base();
     let ws = open_scope(&mut store, "1.6.0", "storybook");
-    add_certain_fact(&mut store, "1.6.0", &ws, "nara", "rank", "captain");
-    add_certain_fact(&mut store, "1.6.0", &ws, "nara", "rank", "admiral");
+    add_certain_fact(&mut store, "1.6.0", &ws, "lyra", "rank", "captain");
+    add_certain_fact(&mut store, "1.6.0", &ws, "lyra", "rank", "admiral");
 
     assert!(
         !check_codes(&mut store, "1.6.0", &ws).contains(&"continuity.fd-violation".to_owned()),
@@ -227,8 +227,8 @@ fn cosmetic_drift_on_a_declared_predicate_is_not_a_violation() {
     let mut store = officer_base();
     let ws = open_scope(&mut store, "1.6.0", "storybook");
     declare_functional(&mut store, "1.6.0", &ws, "rank");
-    add_certain_fact(&mut store, "1.6.0", &ws, "nara", "rank", "captain");
-    add_certain_fact(&mut store, "1.6.0", &ws, "nara", "rank", "Captain");
+    add_certain_fact(&mut store, "1.6.0", &ws, "lyra", "rank", "captain");
+    add_certain_fact(&mut store, "1.6.0", &ws, "lyra", "rank", "Captain");
 
     assert!(
         !check_codes(&mut store, "1.6.0", &ws).contains(&"continuity.fd-violation".to_owned()),
