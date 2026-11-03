@@ -26,7 +26,6 @@ dli-lorestore.workspace = true
 dli-export.workspace = true
 dli-serve = { path = "../dli-serve", version = "0.1.0", default-features = false }
 clap.workspace = true
-miette = { workspace = true, features = ["fancy"] }
 serde.workspace = true
 serde_json.workspace = true
 serde_saphyr.workspace = true
