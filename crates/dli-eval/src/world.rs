@@ -2128,13 +2128,22 @@ fn negative_poison(
         let Some(row) = relation.get(&ground) else {
             continue;
         };
-        for monomial in row.support.monomials() {
-            if !monomial.is_contradictory() && theory.respects(monomial) {
-                poison = poison.or_(&PosBool::conjunction(monomial.lits()));
-            }
-        }
+        poison = poison.or_(&negative_row_poison(row, theory));
     }
     Ok(poison)
+}
+
+/// Valuation-neutral negative-premise poison contributed by one derived row.
+/// Only structurally admissible support paths can block a rule.
+#[must_use]
+pub fn negative_row_poison(row: &Derived, theory: &Theory) -> PosBool {
+    let mut poison = PosBool::FALSE;
+    for monomial in row.support.monomials() {
+        if !monomial.is_contradictory() && theory.respects(monomial) {
+            poison = poison.or_(&PosBool::conjunction(monomial.lits()));
+        }
+    }
+    poison
 }
 
 /// Recursively join the remaining body atoms over the relation, accumulating the
