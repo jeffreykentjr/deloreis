@@ -1084,28 +1084,46 @@ struct CitedEntityReplay<'a> {
     interner: &'a Interner,
     pack_name: &'a str,
     replay_interner: Option<Interner>,
+    bundle_counter: u32,
     markers: Option<MarkerIndex>,
 }
 
 impl CitedEntityReplay<'_> {
+    fn observe(&mut self, decl: &Decl) {
+        if let Some(replay) = &mut self.replay_interner {
+            let _ = lower_decl(decl, self.pack_name, replay, &mut self.bundle_counter);
+        }
+    }
+
     fn prepare(
         &mut self,
         decl: &mut Decl,
         name: &str,
+        preceding: &[Decl],
     ) -> Result<Option<Vec<CarriedFactKey>>, ReconstructError> {
         let eligible = matches!(decl, Decl::Entity(entity)
-            if entity.provenance.as_ref().is_some_and(|ann| ann.marker.requires_citation())
-                && entity.slots.iter().all(|slot| slot.provenance.as_ref()
-                    .or(entity.provenance.as_ref())
-                    .is_some_and(|ann| ann.marker.requires_citation())));
+                    if entity.provenance.as_ref().is_some_and(|ann| ann.marker.requires_citation())
+        );
         if !eligible {
             return Ok(None);
         }
-        let replay = self
-            .replay_interner
-            .get_or_insert_with(|| self.interner.clone());
+        if self.replay_interner.is_none() {
+            let mut replay = self.interner.clone();
+            for previous in preceding {
+                let _ = lower_decl(
+                    previous,
+                    self.pack_name,
+                    &mut replay,
+                    &mut self.bundle_counter,
+                );
+            }
+            self.replay_interner = Some(replay);
+        }
+        let Some(replay) = &mut self.replay_interner else {
+            return Ok(None);
+        };
         let initial_names = replay.names().len();
-        let generated = lower_decl(decl, self.pack_name, replay, &mut 0);
+        let generated = lower_decl(decl, self.pack_name, replay, &mut self.bundle_counter);
         if replay.names().len() != initial_names {
             return Err(ReconstructError::Carriage {
                 name: name.to_owned(),
@@ -1256,6 +1274,7 @@ fn missing_ratify_decls(
 ///
 /// The `pack_name` seeds the proposal-bundle variable naming — it must match
 /// the original pack's scope header.
+#[allow(clippy::too_many_lines)]
 pub fn reconstruct_pack(
     fact_objects: &[FactObject],
     interner: &Interner,
@@ -1269,13 +1288,30 @@ pub fn reconstruct_pack(
         interner,
         pack_name,
         replay_interner: None,
+        bundle_counter: 0,
         markers: None,
     };
     let mut index = 0;
+    let mut pending: BTreeMap<CarriedFactKey, usize> = BTreeMap::new();
     while index < fact_objects.len() {
         let fo = &fact_objects[index];
 
+        if !pending.is_empty()
+            && fo.expert_body.is_none()
+            && let Ok(hash) = fo.content_hash()
+        {
+            let key = (hash, fo.claim_id.clone());
+            if let Some(count) = pending.get_mut(&key) {
+                *count -= 1;
+                if *count == 0 {
+                    pending.remove(&key);
+                }
+                index += 1;
+                continue;
+            }
+        }
         if let Some(body) = &fo.expert_body {
+            pending.clear();
             // The located body when there is one, else the normalized body —
             // reconstruction is a fidelity path (DL-0055).
             let json = fo
@@ -1289,24 +1325,22 @@ pub fn reconstruct_pack(
                     name: body.name.clone(),
                     reason: e.to_string(),
                 })?;
-            let cited_entity_identity = cited_entities.prepare(&mut decl, &body.name)?;
-            // Skip the atom objects this declaration regenerates on recompile
-            // — by identity, in order, tolerating absences (commit-chain
-            // dedup can elide an atom already present in an earlier commit).
+            let cited_entity_identity = cited_entities.prepare(&mut decl, &body.name, &decls)?;
             index += 1;
-            for (position, expected) in carried_atom_renders(&decl).into_iter().enumerate() {
-                if fact_objects.get(index).is_some_and(|next| {
-                    next.expert_body.is_none()
-                        && next.atom.render() == expected
-                        && cited_entity_identity
-                            .as_ref()
-                            .and_then(|keys| keys.get(position))
-                            .is_none_or(|(hash, claim_id)| {
-                                next.claim_id == *claim_id
-                                    && next.content_hash().ok().as_ref() == Some(hash)
-                            })
-                }) {
-                    index += 1;
+            if let Some(keys) = cited_entity_identity {
+                // Intervening independent supports can precede a carried
+                // child. Keep looking by exact identity until the next carriage.
+                for key in keys {
+                    *pending.entry(key).or_default() += 1;
+                }
+            } else {
+                cited_entities.observe(&decl);
+                for expected in carried_atom_renders(&decl) {
+                    if fact_objects.get(index).is_some_and(|next| {
+                        next.expert_body.is_none() && next.atom.render() == expected
+                    }) {
+                        index += 1;
+                    }
                 }
             }
             decls.push(decl);
@@ -1363,6 +1397,9 @@ pub fn reconstruct_pack(
                 triple: false,
                 provenance: annotation,
             }));
+        }
+        if let Some(decl) = decls.last() {
+            cited_entities.observe(decl);
         }
         index += 1;
     }
