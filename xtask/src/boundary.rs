@@ -9,6 +9,8 @@ use sha2::{Digest as _, Sha256};
 
 /// Digests of retired tokens and their accepted separator variants.
 const TOKEN_DIGESTS: &[&str] = &[
+    "cfa2d9ecf71fc52ce726283361c5ff25ab946c4f7f7edaef5cdfd94084bd85b7",
+    "8287200cff3fd8265e50e3a97844047d7427224c4023a573095737d6389b0482",
     "0115e19e1b9249cd7ce52773aeb19e3358a515ad1df1ab1bb7fdfdf41ddd096f",
     "042ba62725a66a3c48bb563157ebdd61498a7934853f61cea186bc426f3eb0dc",
     "0437b7605a3fb94f1b4fd0b19c4529ce951262adc08d3c98132366546d1c58fd",
@@ -287,7 +289,9 @@ fn scan_packages(
 
 #[cfg(test)]
 mod tests {
-    use super::{digest, find_match, scan_packages};
+    use super::{
+        INFLECTED_PREFIX_DIGEST, TOKEN_DIGESTS, TOKEN_LENGTHS, digest, find_match, scan_packages,
+    };
     use std::collections::{BTreeSet, HashSet};
     use std::process::Command;
 
@@ -310,6 +314,24 @@ mod tests {
         assert!(find_match("a branched path", &HashSet::new(), &[6], &prefix).is_some());
         assert!(find_match("a BRANCHEDNESS path", &HashSet::new(), &[6], &prefix).is_some());
         assert!(find_match("a branching path", &HashSet::new(), &[6], &prefix).is_none());
+    }
+
+    #[test]
+    fn retired_sort_is_caught_with_common_separators() {
+        let digests: HashSet<&str> = TOKEN_DIGESTS.iter().copied().collect();
+        for separator in ["-", "_"] {
+            let name = ["the", "tide"].join(separator);
+            assert!(find_match(&name, &digests, TOKEN_LENGTHS, INFLECTED_PREFIX_DIGEST).is_some());
+            assert!(
+                find_match(
+                    &name.to_uppercase(),
+                    &digests,
+                    TOKEN_LENGTHS,
+                    INFLECTED_PREFIX_DIGEST
+                )
+                .is_some()
+            );
+        }
     }
 
     #[test]

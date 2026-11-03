@@ -163,6 +163,18 @@ pub fn gate_steps(ci: bool) -> Vec<GateStep> {
             ],
         ),
         command_step("default lane: 1.0-native acceptance", &default_nextest),
+        command_step(
+            "parser-free CLI test build",
+            &[
+                "cargo",
+                "test",
+                "-p",
+                "deloreis",
+                "--no-default-features",
+                "--no-run",
+                "--locked",
+            ],
+        ),
         // --- the syntax lane: the full legacy surface -----------------------
         command_step(
             "clippy",
