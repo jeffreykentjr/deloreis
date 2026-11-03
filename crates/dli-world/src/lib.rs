@@ -146,6 +146,7 @@ pub(crate) fn ledger_valuation(
             known_decisions,
             atom.kind,
             &atom.citations,
+            atom.provenance_span,
         );
     }
     for sort in model.sorts() {
@@ -156,6 +157,7 @@ pub(crate) fn ledger_valuation(
             known_decisions,
             sort.kind,
             &sort.citations,
+            sort.span,
         );
     }
     gate_language_citations(&mut nu, &mut findings, model, pack, known_decisions);
@@ -202,28 +204,47 @@ fn gate_language_citations(
     for decl in pack.documents.iter().flat_map(|doc| &doc.decls) {
         match decl {
             Decl::Proof(proof) => {
-                let citations = harvest_clause_citations(proof.body.clauses());
-                gate_citations(
-                    nu,
-                    findings,
-                    model,
-                    known_decisions,
-                    Provenance::Decided,
-                    &citations,
-                );
+                for clause in proof.body.clauses() {
+                    let citations = harvest_clause_citations(std::iter::once(clause));
+                    gate_citations(
+                        nu,
+                        findings,
+                        model,
+                        known_decisions,
+                        Provenance::Decided,
+                        &citations,
+                        Some(clause.span),
+                    );
+                }
             }
             Decl::Ratify(ratify) => {
                 // The parser (`dli_syntax::structure_ratify_body`) already
                 // harvested the body's cited decision ids into the typed interior
                 // (LS-9), so the gate reads them without re-scanning clause text.
-                gate_citations(
-                    nu,
-                    findings,
-                    model,
-                    known_decisions,
-                    Provenance::Decided,
-                    &ratify.body.citations,
-                );
+                let mut sources =
+                    std::collections::BTreeMap::<String, std::collections::VecDeque<_>>::new();
+                for line in &ratify.body.clauses {
+                    for citation in harvest_clause_citations(std::iter::once(&line.clause)) {
+                        sources
+                            .entry(citation)
+                            .or_default()
+                            .push_back(line.clause.span);
+                    }
+                }
+                for citation in &ratify.body.citations {
+                    let span = sources
+                        .get_mut(citation)
+                        .and_then(std::collections::VecDeque::pop_front);
+                    gate_citations(
+                        nu,
+                        findings,
+                        model,
+                        known_decisions,
+                        Provenance::Decided,
+                        std::slice::from_ref(citation),
+                        span,
+                    );
+                }
             }
             Decl::Rule(rule) => {
                 if let Some(annotation) = &rule.provenance {
@@ -239,6 +260,7 @@ fn gate_language_citations(
                         known_decisions,
                         Provenance::from_marker(annotation.marker),
                         &citations,
+                        Some(annotation.span),
                     );
                 }
             }
@@ -262,6 +284,7 @@ fn gate_language_citations(
                         known_decisions,
                         Provenance::from_marker(annotation.marker),
                         &citations,
+                        Some(annotation.span),
                     );
                 }
             }
@@ -283,6 +306,7 @@ fn gate_language_citations(
                         known_decisions,
                         Provenance::from_marker(annotation.marker),
                         &citations,
+                        Some(annotation.span),
                     );
                 }
             }
@@ -346,6 +370,7 @@ fn gate_citations(
     known_decisions: &BTreeSet<&str>,
     kind: Provenance,
     citations: &[String],
+    span: Option<dli_ast::span::Span>,
 ) {
     if !matches!(
         kind,
@@ -363,6 +388,7 @@ fn gate_citations(
             findings.push(LowerFinding {
                 code: "citation.unknown-decision".to_owned(),
                 message: format!("cited decision '{id}' is not a declared decision"),
+                span: span.filter(|span| span.end > span.start),
             });
         }
     }

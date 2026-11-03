@@ -79,10 +79,13 @@ pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
         out.push(load_finding_to_world(finding));
     }
     for finding in &world.model.world.findings {
-        out.push(WorldFinding::error(
-            finding.code.clone(),
-            finding.message.clone(),
-        ));
+        let world_finding = WorldFinding::error(finding.code.clone(), finding.message.clone());
+        let span = finding.span.filter(|span| span.end > span.start);
+        out.push(if let Some(span) = span {
+            world_finding.with_span(span)
+        } else {
+            world_finding
+        });
     }
     // The identity-closure canon map is built ONCE per battery run, from the
     // world's certain `same-as` links (WS-1) — every reader below

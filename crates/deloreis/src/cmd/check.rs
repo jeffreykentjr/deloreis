@@ -116,6 +116,9 @@ fn render_semantic_finding(finding: &check::WorldFinding, files: &[cmd::CorpusFi
         "name.fixed-token-reuse" => Some("choose a name that does not reuse the reserved token"),
         "name.gender-morphology" => Some("use name parts without conflicting gender markers"),
         "name.banned-in-name" => Some("choose a name without the banned word or revise the rule"),
+        "citation.unknown-decision" => {
+            Some("declare the cited decision with ratify or correct the citation")
+        }
         "continuity.chronology-cycle" => Some("correct an ordering in the reported cycle"),
         "continuity.identity-temporal-unsupported" => {
             Some("refer to one era or event instead of merging time points")

@@ -90,6 +90,9 @@ pub struct LoadedAtom {
     pub pack: String,
     /// Source location of the declaration.
     pub span: Span,
+    /// Source of its provenance, which may be inherited from an enclosing declaration.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance_span: Option<Span>,
 }
 
 impl LoadedAtom {
@@ -123,6 +126,9 @@ pub struct SortEntry {
     pub citations: Vec<String>,
     /// The pack the sort was declared in.
     pub pack: String,
+    /// Source location of the declaration, when available.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub span: Option<Span>,
 }
 
 /// An entity — a ground symbol observed in the world — with its sort when known.

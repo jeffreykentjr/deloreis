@@ -984,5 +984,6 @@ fn loaded_atom(pred: &str, args: Vec<Term>) -> LoadedAtom {
         citations: Vec::new(),
         pack: "moon-cycle".to_owned(),
         span: Span::synthetic(),
+        provenance_span: None,
     }
 }
