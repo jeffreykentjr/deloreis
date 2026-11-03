@@ -1994,6 +1994,42 @@ fn a_chained_rule_witness_is_grounded_in_a_fact() {
 }
 
 #[test]
+fn a_chained_rule_with_a_possible_negative_premise_has_a_witness() {
+    let dir = tmp("chained-negative-rule-witness");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nratify d-1\nfunctional home ratified d-1\nseed(wren) ratified d-1\nflooded(wren) proposed report\nrule present ratified d-1\n  present($who) :- seed($who), not flooded($who)\nrule shore ratified d-1\n  home($who, shore) :- present($who)\nrule marsh ratified d-1\n  home($who, marsh) :- present($who)\n").unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.derived-fd-violation"))
+        .expect(&text);
+    assert!(
+        line.contains(&format!("{}:9:", corpus.display()))
+            || line.contains(&format!("{}:11:", corpus.display())),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_blocked_chained_rule_does_not_claim_the_conflict() {
+    let dir = tmp("blocked-chained-rule-witness");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope storybook\nratify d-1\nfunctional home ratified d-1\nseed(wren) ratified d-1\nflooded(wren) ratified d-1\nrule present ratified d-1\n  present($who) :- seed($who)\nrule blocked ratified d-1\n  home($who, shore) :- present($who), not flooded($who)\nrule shore ratified d-1\n  home($who, shore) :- present($who), not burning($who)\nrule marsh ratified d-1\n  home($who, marsh) :- present($who), not burning($who)\n").unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.derived-fd-violation"))
+        .expect(&text);
+    assert!(
+        line.contains(&format!("{}:11:", corpus.display()))
+            || line.contains(&format!("{}:13:", corpus.display())),
+        "{text}"
+    );
+}
+
+#[test]
 fn a_grounded_recursive_chain_can_locate_the_conflicting_rule() {
     let dir = tmp("recursive-rule-witness");
     let corpus = dir.join("world.dli");

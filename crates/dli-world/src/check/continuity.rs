@@ -2246,10 +2246,9 @@ fn unify_witness(
     true
 }
 
-/// Find an authored positive rule application backed by a finite chain of
-/// certain facts and positive rules. Constructing the chain from facts avoids
-/// treating a circular restatement as evidence. The independent search budget
-/// may leave a finding unlocated rather than guessing.
+/// Find an authored rule application backed by a finite chain of certain
+/// facts and rules. Constructing the chain from facts avoids treating a
+/// circular restatement as evidence. The search may leave a finding unlocated.
 #[allow(clippy::too_many_lines)]
 fn chained_rule_witness(
     world: &CompiledWorld,
@@ -2284,14 +2283,13 @@ fn chained_rule_witness(
             .flat_map(|(atom, paths)| paths.iter().map(|path| (atom.clone(), path.clone())))
             .collect();
         for (index, rule) in model.world.rules.iter().enumerate() {
-            if rule.body.is_empty()
-                || rule.body.iter().any(|literal| literal.negated)
+            if !rule.body.iter().any(|literal| !literal.negated)
                 || rule.ann.status(valuation, theory) != Status::Certain
             {
                 continue;
             }
             let mut states = vec![(BTreeMap::new(), rule.ann.clone())];
-            for literal in &rule.body {
+            for literal in rule.body.iter().filter(|literal| !literal.negated) {
                 let mut next = Vec::new();
                 for (state, support) in states {
                     for (atom, annotation) in &snapshot {
@@ -2312,6 +2310,22 @@ fn chained_rule_witness(
                 states = next;
             }
             for (bindings, support) in states {
+                let mut poison = dli_core::posbool::PosBool::FALSE;
+                for literal in rule.body.iter().filter(|literal| literal.negated) {
+                    for candidate in &model.world.derived {
+                        budget = budget.checked_sub(1)?;
+                        let mut candidate_bindings = bindings.clone();
+                        if unify_witness(&literal.atom, &candidate.atom, &mut candidate_bindings) {
+                            poison = poison
+                                .or_(&dli_eval::world::negative_row_poison(candidate, theory));
+                        }
+                    }
+                }
+                let negative = Ann::new(dli_core::posbool::PosBool::truth(), poison);
+                let support = conjoin_annotations(&support, &negative);
+                if support.status(valuation, theory) != Status::Certain {
+                    continue;
+                }
                 let mut args = Vec::with_capacity(rule.head.args.len());
                 for term in &rule.head.args {
                     let value = match term {
