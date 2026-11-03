@@ -6,16 +6,16 @@ error[dli::syntax::curly-quote]: that is a curly quote — write labels with str
   --> line 1:12
   |
 1 | place weir “The Weir” proposed
-  |            ^^^ curly quote
+  |            ^ curly quote
   |
   = what: a curly (smart) quote appears where a label's straight-quoted text belongs — the artifact an editor leaves when it auto-replaces quotes
   = fix:  replace the curly quote with a straight `"`
   = rule: there is one way to write a label — straight quotes — so the canonical surface never turns on a character an editor might substitute unseen  (koan 7 — one way to write it; 01-syntax.md §1)
 error[dli::syntax::curly-quote]: that is a curly quote — write labels with straight quotes, like "Camelot".
-  --> line 1:23
+  --> line 1:21
   |
 1 | place weir “The Weir” proposed
-  |                       ^^^ curly quote
+  |                     ^ curly quote
   |
   = what: a curly (smart) quote appears where a label's straight-quoted text belongs — the artifact an editor leaves when it auto-replaces quotes
   = fix:  replace the curly quote with a straight `"`
