@@ -27,6 +27,19 @@ pub struct Strata {
 
 /// Partition a rule set's head predicates into dependency-ordered strata.
 pub fn stratify_rules(rules: &[Rule]) -> Result<Strata, EvalError> {
+    stratify_with_witness(rules).map_err(|(head, dep)| EvalError::Unstratifiable {
+        reason: format!("predicate '{head}' depends on 'not {dep}' inside a recursive cycle"),
+    })
+}
+
+/// The deterministic negative edge that makes a rule set unstratifiable.
+/// Both predicates belong to the same recursive component.
+#[must_use]
+pub fn negative_cycle_witness(rules: &[Rule]) -> Option<(String, String)> {
+    stratify_with_witness(rules).err()
+}
+
+fn stratify_with_witness(rules: &[Rule]) -> Result<Strata, (String, String)> {
     let mut preds: Vec<String> = rules.iter().map(|r| r.head.pred.text.clone()).collect();
     preds.sort();
     preds.dedup();
@@ -68,12 +81,7 @@ pub fn stratify_rules(rules: &[Rule]) -> Result<Strata, EvalError> {
     // Iterating the sorted set makes the reported blame deterministic.
     for &(head, dep) in &negative_edges {
         if component_of[head] == component_of[dep] {
-            return Err(EvalError::Unstratifiable {
-                reason: format!(
-                    "predicate '{}' depends on 'not {}' inside a recursive cycle",
-                    preds[head], preds[dep]
-                ),
-            });
+            return Err((preds[head].clone(), preds[dep].clone()));
         }
     }
 

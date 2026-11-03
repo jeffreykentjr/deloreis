@@ -1135,6 +1135,30 @@ fn query_unknown_as_of_exits_two() {
     assert_eq!(output.status.code(), Some(2));
 }
 
+#[test]
+fn negative_rule_cycle_names_a_real_contributing_clause() {
+    let dir = tmp("rule-cycle-source");
+    let first = dir.join("a.dli");
+    let second = dir.join("b.dli");
+    fs::write(
+        &first,
+        "scope storybook\nratify d-0001\nrule invalid ratified d-0001\n  a($x) :- not b($x)\n",
+    )
+    .unwrap();
+    fs::write(&second, "scope storybook\nrule first ratified d-0001\n  a($x) :- base($x), not b($x)\nrule second ratified d-0001\n  b($x) :- base($x), a($x)\n").unwrap();
+    let output = bin().arg("check").arg(&dir).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("compile.unstratifiable"))
+        .expect(&text);
+    assert!(line.contains(&format!("{}:3:", second.display())), "{text}");
+    assert!(
+        text.contains("help: remove or revise a negative dependency in the reported cycle"),
+        "{text}"
+    );
+}
+
 /// M7 regression: a real chronology point is still accepted.
 #[test]
 fn query_known_as_of_is_accepted() {

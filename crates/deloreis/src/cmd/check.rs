@@ -60,7 +60,22 @@ pub(crate) fn run(args: &CheckArgs) -> CmdResult {
                 lines.push(render_semantic_finding(&finding, &files));
             }
         }
-        Err(message) => lines.push(format!("error  compile.unstratifiable — {message}")),
+        Err(message) => {
+            let finding = check::WorldFinding::error("compile.unstratifiable", message);
+            let source = negative_cycle_source(&files);
+            let finding = if let Some(span) = source {
+                finding.with_span(span)
+            } else {
+                finding
+            };
+            let mut line = render_semantic_finding(&finding, &files);
+            if source.is_some() {
+                line.push_str(
+                    "\n  help: remove or revise a negative dependency in the reported cycle",
+                );
+            }
+            lines.push(line);
+        }
     }
     lines.extend(likely_entity_typos(&files));
     lines.sort();
@@ -77,6 +92,56 @@ pub(crate) fn run(args: &CheckArgs) -> CmdResult {
         outln!("checked {count} document(s): {findings} finding(s)");
         Ok(EXIT_FINDINGS)
     }
+}
+
+/// Locate an authored rule containing the exact negative edge selected by the
+/// evaluator. Typed rule bodies are compared to loaded rules so an invalid or
+/// synthetic rule cannot claim a source location.
+fn negative_cycle_source(files: &[cmd::CorpusFile]) -> Option<dli_ast::span::Span> {
+    let loaded = dli_world::loader::Loader::load(&cmd::documents(files));
+    let rules = &loaded.world.world.rules;
+    let (head, dep) = dli_eval::strata::negative_cycle_witness(rules)?;
+    for file in files {
+        for decl in &file.document.decls {
+            let Decl::Rule(rule) = decl else { continue };
+            if rule.domain.is_some() {
+                continue;
+            }
+            let clauses = rule
+                .body
+                .clauses
+                .iter()
+                .map(|clause| (clause, clause.clause.span))
+                .chain(
+                    rule.body
+                        .inline
+                        .iter()
+                        .map(|clause| (clause, rule.name.span)),
+                );
+            for (clause, span) in clauses {
+                let Some(datalog) = &clause.datalog else {
+                    continue;
+                };
+                if span.end <= span.start
+                    || datalog.head.pred.text != head
+                    || !datalog
+                        .body
+                        .iter()
+                        .any(|lit| lit.negated && lit.atom.pred.text == dep)
+                {
+                    continue;
+                }
+                if rules.iter().any(|loaded| {
+                    loaded.name == rule.name.text
+                        && loaded.head == datalog.head
+                        && loaded.body == datalog.body
+                }) {
+                    return Some(span);
+                }
+            }
+        }
+    }
+    None
 }
 
 fn render_semantic_finding(finding: &check::WorldFinding, files: &[cmd::CorpusFile]) -> String {
