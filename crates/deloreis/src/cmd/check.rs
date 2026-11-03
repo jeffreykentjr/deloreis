@@ -54,6 +54,9 @@ pub(crate) fn run(args: &CheckArgs) -> CmdResult {
     match cmd::compile_corpus(&files, "check") {
         Ok(world) => {
             for finding in check::run(&world) {
+                if redundant_provenance_finding(&finding, &files) {
+                    continue;
+                }
                 lines.push(render_semantic_finding(&finding, &files));
             }
             for finding in language::check(&world.model.language) {
@@ -76,6 +79,32 @@ pub(crate) fn run(args: &CheckArgs) -> CmdResult {
         outln!("checked {count} document(s): {findings} finding(s)");
         Ok(EXIT_FINDINGS)
     }
+}
+
+/// A ruling without a decision produces both an origin-required syntax error
+/// and a malformed-provenance loader finding. They describe the same repair.
+fn redundant_provenance_finding(finding: &check::WorldFinding, files: &[cmd::CorpusFile]) -> bool {
+    if finding.code != "load.malformed-provenance" {
+        return false;
+    }
+    let Some(span) = finding.span else {
+        return false;
+    };
+    let Some(file) = files.get(span.file.0 as usize) else {
+        return false;
+    };
+    let source = file
+        .source
+        .strip_prefix('\u{feff}')
+        .unwrap_or(&file.source)
+        .as_bytes();
+    file.diagnostics.iter().any(|diagnostic| {
+        let first = (diagnostic.span.start as usize).min(source.len());
+        let second = (span.start as usize).min(source.len());
+        diagnostic.class == dli_syntax::diag::DiagClass::OriginRequired
+            && diagnostic.span.file == span.file
+            && !source[first.min(second)..first.max(second)].contains(&b'\n')
+    })
 }
 
 /// Render a corpus compile failure consistently for every CLI command.

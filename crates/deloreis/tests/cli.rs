@@ -1556,14 +1556,9 @@ fn nested_slot_provenance_points_to_the_slot_line() {
     .unwrap();
     let output = bin().arg("check").arg(&corpus).output().unwrap();
     let text = stdout(&output);
-    let line = text
-        .lines()
-        .find(|line| line.contains("load.malformed-provenance"))
-        .unwrap();
-    assert!(
-        line.contains(&format!("{}:4:3", corpus.display())),
-        "{text}"
-    );
+    assert!(text.contains("dli::syntax::origin-required"), "{text}");
+    assert!(text.contains("line 4:"), "{text}");
+    assert!(!text.contains("load.malformed-provenance"), "{text}");
 }
 
 #[test]
@@ -1573,14 +1568,32 @@ fn wrapped_era_provenance_points_to_the_continuation() {
     fs::write(&corpus, "scope storybook\nera dawn <\n  dusk decided\n").unwrap();
     let output = bin().arg("check").arg(&corpus).output().unwrap();
     let text = stdout(&output);
-    let line = text
-        .lines()
-        .find(|line| line.contains("load.malformed-provenance"))
-        .unwrap();
-    assert!(
-        line.contains(&format!("{}:3:3", corpus.display())),
+    assert!(text.contains("dli::syntax::origin-required"), "{text}");
+    assert!(text.contains("line 3:"), "{text}");
+    assert!(!text.contains("load.malformed-provenance"), "{text}");
+}
+
+#[test]
+fn duplicate_ruling_diagnostics_are_suppressed_without_hiding_other_origins() {
+    let dir = tmp("syntax-provenance-cascade");
+    let corpus = dir.join("world.dli");
+    fs::write(
+        &corpus,
+        "scope storybook\nfact wren home ashby ratified ???\nperson fox \"Fox\"\nperson rowan \"Rowan\" ???\n",
+    )
+    .unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    assert_eq!(output.status.code(), Some(1), "{text}");
+    assert!(text.contains("dli::syntax::origin-required"), "{text}");
+    assert!(!text.contains("load.malformed-provenance"), "{text}");
+    assert_eq!(
+        text.matches("dli::syntax::origin-missing").count(),
+        2,
         "{text}"
     );
+    assert_eq!(text.matches("load.missing-provenance").count(), 2, "{text}");
+    assert!(text.contains(&format!("{}:3:", corpus.display())), "{text}");
 }
 
 /// M8: `name check --dialect` must not claim register-fit that the kernel vet

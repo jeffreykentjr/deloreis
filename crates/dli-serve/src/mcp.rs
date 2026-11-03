@@ -151,6 +151,7 @@ fn initialize_result() -> Value {
 fn tool_descriptors(profile: ToolProfile) -> Vec<Value> {
     const CORE: &[Op] = &[
         Op::Check,
+        Op::NameCheck,
         Op::AuthorOpen,
         Op::AuthorStatus,
         Op::AuthorAddEntity,

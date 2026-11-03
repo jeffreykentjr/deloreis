@@ -43,7 +43,7 @@ checks references and continuity, not who is authorized to rule.
 
 ## Core tools
 
-The default MCP profile advertises `dli.check` and:
+The default MCP profile advertises `dli.check`, `dli.name.check`, and:
 
 - Workspace and inspection: `author.open`, `author.status`, `author.check`,
   `author.findings`, `author.predicates`, `author.query`, `author.why`,
