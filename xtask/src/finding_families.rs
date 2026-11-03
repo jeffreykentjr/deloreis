@@ -1323,10 +1323,9 @@ impl<'ast> Visit<'ast> for ProductionVisitor {
         self.impl_context = ImplContext::Other;
         if let syn::Type::Path(path) = item.self_ty.as_ref()
             && let Some(name) = path.path.segments.last()
+            && name.ident == "ResourceViolationCode"
         {
-            if name.ident == "ResourceViolationCode" {
-                self.impl_context = ImplContext::ResourceViolationCode;
-            }
+            self.impl_context = ImplContext::ResourceViolationCode;
         }
         visit::visit_item_impl(self, item);
         self.impl_context = prior;
