@@ -58,13 +58,7 @@ pub(crate) fn run(args: &FmtArgs) -> CmdResult {
             Err(diagnostics) => {
                 // The safe entry refused: rendering the partial AST would drop the
                 // malformed line on save. Show the fault, write nothing.
-                out!(
-                    "{path}:\n{}",
-                    ladder::render(
-                        file.source.strip_prefix('\u{feff}').unwrap_or(&file.source),
-                        &diagnostics
-                    )
-                );
+                out!("{path}:\n{}", ladder::render(&file.source, &diagnostics));
                 outln!(
                     "{path}: refusing to format — {} diagnostic(s); a rewrite would drop the \
                      malformed line",

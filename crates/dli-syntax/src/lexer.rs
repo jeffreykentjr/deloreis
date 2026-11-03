@@ -117,13 +117,20 @@ pub(crate) fn lines(source: &str, file: FileId) -> Vec<Line> {
     let mut offset: u32 = 0;
     for physical in source.split_inclusive('\n') {
         let without_nl = physical.strip_suffix('\n').unwrap_or(physical);
-        let indent = without_nl
+        let (visible, bom_bytes) = if offset == 0 {
+            without_nl
+                .strip_prefix('\u{feff}')
+                .map_or((without_nl, 0), |line| (line, 3))
+        } else {
+            (without_nl, 0)
+        };
+        let indent = visible
             .chars()
             .take_while(|c| *c == ' ' || *c == '\t')
             .count();
-        let after_indent = &without_nl[indent..];
+        let after_indent = &visible[indent..];
         let content = strip_comment(after_indent).trim_end();
-        let content_start = offset + to_u32(indent);
+        let content_start = offset + bom_bytes + to_u32(indent);
         let span = Span {
             file,
             start: content_start,

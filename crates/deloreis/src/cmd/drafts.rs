@@ -59,7 +59,7 @@ pub(crate) fn run_check_proof(args: &CheckProofArgs) -> CmdResult {
         out!(
             "{}:\n{}",
             args.proof.display(),
-            ladder::render(text.strip_prefix('\u{feff}').unwrap_or(&text), &errors)
+            ladder::render(&text, &errors)
         );
         outln!(
             "proof: {} syntax finding(s); replay refused because malformed proof text \
@@ -244,8 +244,8 @@ fn proof_source_position(source: &str, span: Span) -> Option<(usize, usize)> {
     if span.end <= span.start {
         return None;
     }
-    let source = source.strip_prefix('\u{feff}').unwrap_or(source);
     let prefix = source.get(..span.start as usize)?;
+    let prefix = prefix.strip_prefix('\u{feff}').unwrap_or(prefix);
     let line = prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
     let column = prefix.rsplit('\n').next().unwrap_or("").chars().count() + 1;
     Some((line, column))

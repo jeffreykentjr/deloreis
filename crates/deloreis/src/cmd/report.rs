@@ -67,10 +67,7 @@ pub(crate) fn run(args: &ReportArgs) -> CmdResult {
             } else {
                 "warn"
             };
-            let ladder = dli_syntax::ladder::render(
-                file.source.strip_prefix('\u{feff}').unwrap_or(&file.source),
-                std::slice::from_ref(diagnostic),
-            );
+            let ladder = dli_syntax::ladder::render(&file.source, std::slice::from_ref(diagnostic));
             let details = ladder.split_once('\n').map_or("", |(_, details)| details);
             graded.push((
                 Grade::Checked,

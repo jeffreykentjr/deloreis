@@ -62,10 +62,9 @@ pub fn parse_document(input: &str) -> (Document, Vec<Diagnostic>) {
 /// Nested reparsed fragments can retain synthetic or fragment-relative spans.
 #[must_use]
 pub fn parse_document_in_file(input: &str, file: FileId) -> (Document, Vec<Diagnostic>) {
-    // Strip a leading UTF-8 BOM so it never lands inside the first token.
-    let source = input.strip_prefix('\u{feff}').unwrap_or(input);
-    let mut diags = lexical_diagnostics(source, file);
-    let records = assemble_records(&lines(source, file), file, &mut diags);
+    // The lexer skips a leading BOM while retaining offsets into the input.
+    let mut diags = lexical_diagnostics(input, file);
+    let records = assemble_records(&lines(input, file), file, &mut diags);
 
     let mut scope = None;
     let mut items: Vec<Item> = Vec::new();
@@ -97,8 +96,8 @@ pub fn parse_document_in_file(input: &str, file: FileId) -> (Document, Vec<Diagn
 
 /// Pre-lexing scan for lexical hazards that would otherwise lose text silently:
 /// curly / smart quotes where a straight string belongs (M7), and unterminated
-/// string literals (L1). Runs on the BOM-stripped source; strings never span
-/// lines, so an open string at a newline is unterminated.
+/// string literals (L1). Offsets refer to the original source, including any
+/// leading BOM. Strings never span lines, so a newline ends an open string.
 fn lexical_diagnostics(source: &str, file: FileId) -> Vec<Diagnostic> {
     let mut diags = Vec::new();
     let mut in_str = false;

@@ -186,6 +186,33 @@ fn unknown_entity_flags_a_claim_on_an_entity_canon_never_saw() {
 }
 
 #[test]
+fn fragment_relative_claims_do_not_claim_a_file_location() {
+    let world = saltcast_world();
+    let clause = dli_ast::clause::Clause {
+        text: "gender(ghost, female)".to_owned(),
+        span: Span {
+            file: dli_ast::span::FileId(7),
+            start: 100,
+            end: 121,
+        },
+    };
+    let claim = dli_syntax::parse_clause_atom(&clause).unwrap();
+    assert!(
+        claim.pred.span.end > claim.pred.span.start,
+        "the fragment has token offsets"
+    );
+    let findings = check::continuity::check_claims(&world, &[claim]);
+    let finding = findings
+        .iter()
+        .find(|finding| finding.code == "continuity.unknown-entity")
+        .unwrap();
+    assert_eq!(
+        finding.span, None,
+        "fragment-relative offsets must not be reported as file offsets"
+    );
+}
+
+#[test]
 fn prior_contradiction_reverses_a_prior_ledger_value() {
     let prior: BTreeMap<(String, String), String> = [(
         ("gender".to_owned(), "anchor".to_owned()),

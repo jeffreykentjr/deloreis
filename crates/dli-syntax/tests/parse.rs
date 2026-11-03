@@ -359,6 +359,45 @@ fn a_leading_bom_is_stripped() {
 }
 
 #[test]
+fn bom_spans_index_original_bytes_and_render_without_a_visible_column() {
+    let source = "\u{feff}person wren \"é\" proposed “\nfact wren home ashby proposed\n";
+    let file = dli_ast::span::FileId(7);
+    let (document, diagnostics) = dli_syntax::parser::parse_document_in_file(source, file);
+    let entity = document
+        .decls
+        .iter()
+        .find_map(|decl| match decl {
+            dli_ast::decl::Decl::Entity(entity) => Some(entity),
+            _ => None,
+        })
+        .unwrap();
+    let span = entity.name.span;
+    assert_eq!(span.file, file);
+    assert_eq!(&source[span.start as usize..span.end as usize], "wren");
+    let fact = document
+        .decls
+        .iter()
+        .find_map(|decl| match decl {
+            dli_ast::decl::Decl::Fact(fact) => Some(fact),
+            _ => None,
+        })
+        .unwrap();
+    let span = fact.atom.pred.span;
+    assert_eq!(&source[span.start as usize..span.end as usize], "home");
+    let curly = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.class == DiagClass::CurlyQuote)
+        .unwrap();
+    assert_eq!(
+        &source[curly.span.start as usize..curly.span.end as usize],
+        "“"
+    );
+    let rendered = dli_syntax::ladder::render(source, std::slice::from_ref(curly));
+    assert!(rendered.contains("line 1:26"), "{rendered}");
+    assert!(!rendered.contains('\u{feff}'), "{rendered}");
+}
+
+#[test]
 fn a_curly_quote_diagnoses_without_dropping_the_record() {
     // M7: a smart-quoted label is flagged; the record still stands.
     let source = "place weir \u{201C}The Weir\u{201D} proposed\n";

@@ -1533,6 +1533,132 @@ fn semantic_findings_name_the_source_file_and_offer_repairs() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Fixture data for the diagnostic audit.
+fn check_findings_identify_the_authored_line_and_a_specific_repair() {
+    let dir = tmp("loader-finding-audit");
+    let cases = [
+        (
+            "missing",
+            "scope storybook\nperson wren \"Wren\"\n",
+            "load.missing-provenance",
+            &[2][..],
+            "add provenance to the declaration",
+        ),
+        (
+            "malformed-origin",
+            "scope storybook\nperson wren \"Wren\" proposed assumes x and not x\n",
+            "load.malformed-provenance",
+            &[2][..],
+            "correct the declaration's provenance",
+        ),
+        (
+            "rule",
+            "scope storybook\nratify d-1\nrule checker ratified d-1\n  beat $b requires slot >= 10\n",
+            "load.malformed-world-rule",
+            &[3, 4][..],
+            "write a valid rule head and body",
+        ),
+        (
+            "unbound",
+            "scope storybook\nratify d-1\nrule risky ratified d-1\n  risky($x) :- not safe($x)\n",
+            "load.unbound-head-variable",
+            &[3, 4][..],
+            "bind each head variable",
+        ),
+        (
+            "anchor",
+            "scope storybook\nratify d-1\nstate wren.home = ashby since missing ratified d-1\n",
+            "load.unknown-temporal-reference",
+            &[3][..],
+            "declare the referenced era or event",
+        ),
+        (
+            "duplicate",
+            "scope storybook\nperson wren \"Wren\" proposed a\nperson wren \"Wren\" proposed b\n",
+            "load.duplicate-declaration",
+            &[3][..],
+            "rename or remove one of the duplicate declarations",
+        ),
+        (
+            "inert",
+            "scope storybook\nstate weather proposed a\n",
+            "load.inert-declaration",
+            &[2][..],
+            "give the state a subject or a value",
+        ),
+        (
+            "citation",
+            "scope storybook\nfact wren home ashby ratified d-9999\n",
+            "citation.unknown-decision",
+            &[2][..],
+            "declare the cited decision",
+        ),
+        (
+            "chronology",
+            "scope storybook\nratify d-1\nera first < second ratified d-1\nera second < first ratified d-1\n",
+            "continuity.chronology-cycle",
+            &[3, 4][..],
+            "correct an ordering in the reported cycle",
+        ),
+        (
+            "identity",
+            "scope storybook\nratify d-1\nera first ratified d-1\nera second ratified d-1\nsame-as first = second ratified d-1\n",
+            "continuity.identity-temporal-unsupported",
+            &[5][..],
+            "refer to one era or event instead of merging time points",
+        ),
+        (
+            "functional",
+            "scope storybook\nratify d-1\nfunctional home ratified d-1\nfact wren home ashby ratified d-1\nfact wren home thornfield ratified d-1\n",
+            "continuity.fd-violation",
+            &[4, 5][..],
+            "revise or defeat a conflicting value",
+        ),
+        (
+            "derived",
+            "scope storybook\nratify d-1\nfunctional home ratified d-1\nfact wren home ashby ratified d-1\nrule another ratified d-1\n  home($who, thornfield) :- home($who, ashby)\n",
+            "continuity.derived-fd-violation",
+            &[4, 5, 6][..],
+            "revise a conflicting source claim or derivation rule",
+        ),
+        (
+            "fluent",
+            "scope storybook\nratify d-1\nevent first ratified d-1\nstate wren.home = ashby since first ratified d-1\nstate wren.home = thornfield since first ratified d-1\n",
+            "continuity.fluent-contradiction",
+            &[4, 5][..],
+            "adjust the time bounds or revise a conflicting state",
+        ),
+    ];
+    for (name, source, code, valid_lines, repair) in cases {
+        let path = dir.join(format!("{name}.dli"));
+        fs::write(&path, source).unwrap();
+        let output = bin().arg("check").arg(&path).output().unwrap();
+        let text = stdout(&output);
+        let mut lines = text.lines();
+        let line = lines
+            .by_ref()
+            .find(|line| line.contains(code))
+            .unwrap_or_else(|| panic!("{name}: {text}"));
+        assert!(
+            valid_lines
+                .iter()
+                .any(|number| line.contains(&format!("{}:{number}:", path.display()))),
+            "{name}: {text}"
+        );
+        let column = line
+            .rsplit_once(':')
+            .and_then(|(_, value)| value.strip_suffix(')'))
+            .and_then(|value| value.parse::<usize>().ok());
+        assert!(column.is_some_and(|value| value > 0), "{name}: {text}");
+        let help = lines.next().unwrap_or_default();
+        assert!(
+            help.starts_with("  help: ") && help.contains(repair),
+            "{name}: {text}"
+        );
+    }
+}
+
+#[test]
 fn continuity_warnings_identify_contributing_sources_and_repairs() {
     let dir = tmp("continuity-warning-sources");
     let cases = [
