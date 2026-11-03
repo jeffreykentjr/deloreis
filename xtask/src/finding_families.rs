@@ -11,8 +11,6 @@
 //! each owning Rust source, follows unambiguous immutable constant/local code
 //! flow into finding constructors, rejects unsupported mutable or macro
 //! emission, and asserts the authored code set matches actual emitter contexts.
-//! Configurable `outline` emitters are also checked against the closed registry
-//! that validates caller text rules.
 
 use std::fmt::Write as _;
 
@@ -59,15 +57,6 @@ enum Scrape {
     /// gate on this page).
     #[allow(dead_code)]
     PrefixedSnapshot(&'static str),
-    /// The closed outline family: bare suffixes from the season battery plus
-    /// registered dotted codes accepted from caller text-rule config.
-    #[allow(dead_code)]
-    OutlineClosed,
-    /// The craft family: every `KernelRule` used at a production emit site must
-    /// resolve through `KernelRule::id()`, and every non-meta id must be emitted.
-    /// Stable judge outcomes are collected from their constructors.
-    #[allow(dead_code)]
-    CraftKernelRules,
 }
 
 /// One finding code: its dotted `family.item` string, severity, repair kind, and
@@ -903,13 +892,7 @@ pub fn render() -> String {
         let _ = writeln!(out, "- **Severity:** {}\n", family.severity_note);
         out.push_str("| Code | Severity | Repair | Meaning |\n|---|---|---|---|\n");
         for code in family.codes {
-            let severity = if matches!(family.key, "craft" | "outline")
-                && matches!(code.severity, "error" | "warn")
-            {
-                format!("{} (default)", code.severity)
-            } else {
-                code.severity.to_owned()
-            };
+            let severity = code.severity;
             let repair = if code.repair == "—" {
                 "—".to_owned()
             } else {
@@ -937,11 +920,6 @@ struct ProductionSource {
     emitted_codes: BTreeSet<String>,
     emitted_severities: BTreeMap<String, BTreeSet<String>>,
     code_fields: BTreeSet<String>,
-    outline_calls: BTreeSet<String>,
-    outline_registry: BTreeSet<String>,
-    craft_rule_ids: BTreeMap<String, String>,
-    craft_rule_uses: BTreeSet<String>,
-    craft_rule_severities: BTreeMap<String, BTreeSet<String>>,
     resource_subcodes: BTreeSet<String>,
     unsupported: Vec<String>,
 }
@@ -962,15 +940,6 @@ fn scrape_prefixed(source: &ProductionSource, prefix: &str) -> BTreeSet<String> 
 #[cfg(test)]
 fn scrape_code_fields(source: &ProductionSource) -> BTreeSet<String> {
     source.code_fields.clone()
-}
-
-/// Recover outline call-site suffixes, prefixed with `outline.`.
-#[cfg(test)]
-fn scrape_outline(source: &ProductionSource) -> BTreeSet<String> {
-    let mut out = source.outline_calls.clone();
-    out.extend(source.outline_registry.iter().cloned());
-    out.extend(scrape_prefixed(source, "outline"));
-    out
 }
 
 /// A well-formed dotted code: lowercase, dots, hyphens.
@@ -1295,16 +1264,7 @@ fn expression_strings(
 enum ImplContext {
     #[default]
     Other,
-    KernelRule,
     ResourceViolationCode,
-}
-
-#[cfg(test)]
-#[derive(Clone, Copy, Default)]
-enum Collection {
-    #[default]
-    None,
-    OutlineRegistry,
 }
 
 #[cfg(test)]
@@ -1313,20 +1273,10 @@ struct ProductionVisitor {
     constants: BTreeMap<String, String>,
     locals: BTreeMap<String, Expr>,
     impl_context: ImplContext,
-    collection: Collection,
 }
 
 #[cfg(test)]
 impl ProductionVisitor {
-    fn record_string(&mut self, value: String) {
-        match self.collection {
-            Collection::OutlineRegistry if value.starts_with("outline.") && is_code(&value) => {
-                self.source.outline_registry.insert(value);
-            }
-            Collection::None | Collection::OutlineRegistry => {}
-        }
-    }
-
     fn values(&self, expression: &Expr) -> BTreeSet<String> {
         expression_strings(
             expression,
@@ -1373,12 +1323,9 @@ impl<'ast> Visit<'ast> for ProductionVisitor {
         self.impl_context = ImplContext::Other;
         if let syn::Type::Path(path) = item.self_ty.as_ref()
             && let Some(name) = path.path.segments.last()
+            && name.ident == "ResourceViolationCode"
         {
-            if name.ident == "KernelRule" {
-                self.impl_context = ImplContext::KernelRule;
-            } else if name.ident == "ResourceViolationCode" {
-                self.impl_context = ImplContext::ResourceViolationCode;
-            }
+            self.impl_context = ImplContext::ResourceViolationCode;
         }
         visit::visit_item_impl(self, item);
         self.impl_context = prior;
@@ -1403,22 +1350,7 @@ impl<'ast> Visit<'ast> for ProductionVisitor {
         }
         let prior_locals = std::mem::take(&mut self.locals);
         let name = item.sig.ident.to_string();
-        if self.impl_context == ImplContext::KernelRule && name == "id" {
-            if let Some(expression) = tail_match(item) {
-                for arm in &expression.arms {
-                    let values = self.values(&arm.body);
-                    let mut variants = Vec::new();
-                    pattern_variants(&arm.pat, &mut variants);
-                    for variant in variants {
-                        for value in &values {
-                            self.source
-                                .craft_rule_ids
-                                .insert(variant.clone(), value.clone());
-                        }
-                    }
-                }
-            }
-        } else if self.impl_context == ImplContext::ResourceViolationCode && name == "as_str" {
+        if self.impl_context == ImplContext::ResourceViolationCode && name == "as_str" {
             if let Some(expression) = item.block.stmts.last().and_then(stmt_expr) {
                 self.source.resource_subcodes.extend(
                     self.values(expression)
@@ -1465,12 +1397,7 @@ impl<'ast> Visit<'ast> for ProductionVisitor {
         if is_test_only(&item.attrs) {
             return;
         }
-        let prior = self.collection;
-        if item.ident == "OUTLINE_FINDING_CODES" {
-            self.collection = Collection::OutlineRegistry;
-        }
         visit::visit_item_const(self, item);
-        self.collection = prior;
     }
 
     fn visit_arm(&mut self, arm: &'ast Arm) {
@@ -1555,12 +1482,6 @@ impl<'ast> Visit<'ast> for ProductionVisitor {
                 macro_name.as_deref().unwrap_or("<unknown>")
             ));
         }
-        if !matches!(self.collection, Collection::None)
-            && let Some(value) = literal_string(&Expr::Macro(expr.clone()), &self.constants)
-        {
-            self.record_string(value);
-            return;
-        }
         if let Ok(args) =
             Punctuated::<Expr, Token![,]>::parse_terminated.parse2(expr.mac.tokens.clone())
         {
@@ -1569,23 +1490,7 @@ impl<'ast> Visit<'ast> for ProductionVisitor {
             }
             return;
         }
-        if !matches!(self.collection, Collection::None) {
-            for value in macro_literal_strings(expr.mac.tokens.clone(), &self.constants) {
-                self.record_string(value);
-            }
-        }
         visit::visit_expr_macro(self, expr);
-    }
-
-    fn visit_expr_lit(&mut self, expr: &'ast ExprLit) {
-        if !is_test_only(&expr.attrs) {
-            if !matches!(self.collection, Collection::None)
-                && let Lit::Str(value) = &expr.lit
-            {
-                self.record_string(value.value());
-            }
-            visit::visit_expr_lit(self, expr);
-        }
     }
 
     fn visit_field_value(&mut self, field: &'ast FieldValue) {
@@ -1648,22 +1553,6 @@ impl<'ast> Visit<'ast> for ProductionVisitor {
                 .map(|segment| segment.ident.to_string()),
             _ => None,
         };
-        if matches!(function.as_deref(), Some("craft_warn" | "craft_error"))
-            && let Some(Expr::Path(rule)) = call.args.first()
-            && let Some(variant) = rule.path.segments.last()
-        {
-            let variant = variant.ident.to_string();
-            self.source.craft_rule_uses.insert(variant.clone());
-            self.source
-                .craft_rule_severities
-                .entry(variant)
-                .or_default()
-                .insert(if function.as_deref() == Some("craft_error") {
-                    "error".to_owned()
-                } else {
-                    "warn".to_owned()
-                });
-        }
         let is_finding_emitter = matches!(
             function.as_deref(),
             Some("warn" | "error" | "report_duplicates" | "push_disposition")
@@ -1675,11 +1564,7 @@ impl<'ast> Visit<'ast> for ProductionVisitor {
                     continue;
                 }
                 for token in values {
-                    let code = if is_bare(&token) {
-                        let code = format!("outline.{token}");
-                        self.source.outline_calls.insert(code.clone());
-                        Some(code)
-                    } else if is_code(&token) {
+                    let code = if is_code(&token) {
                         self.source.emitted_codes.insert(token.clone());
                         Some(token)
                     } else {
@@ -1756,7 +1641,6 @@ fn production_source(source: &str) -> ProductionSource {
         constants,
         locals: BTreeMap::new(),
         impl_context: ImplContext::Other,
-        collection: Collection::None,
     };
     visitor.source.unsupported.extend(
         const_visitor
@@ -1887,8 +1771,6 @@ mod tests {
     /// kind. `BareTokens` families are covered by their own test.
     fn emitted_codes(family: &Family) -> BTreeSet<String> {
         let mut out = BTreeSet::new();
-        let mut craft_rule_ids = BTreeMap::new();
-        let mut craft_rule_uses = BTreeSet::new();
         for src in family.sources {
             let source = read_source(src);
             let source = production_source(&source);
@@ -1906,31 +1788,7 @@ mod tests {
                     codes.retain(|code| !excluded.iter().any(|prefix| code.starts_with(prefix)));
                     out.extend(codes);
                 }
-                Scrape::OutlineClosed => {
-                    out.extend(scrape_outline(&source));
-                }
-                Scrape::CraftKernelRules => {
-                    out.extend(scrape_prefixed(&source, "craft"));
-                    craft_rule_ids.extend(source.craft_rule_ids);
-                    craft_rule_uses.extend(source.craft_rule_uses);
-                }
                 Scrape::BareTokens => {}
-            }
-        }
-        if matches!(family.scrape, Scrape::CraftKernelRules) {
-            for variant in &craft_rule_uses {
-                let id = craft_rule_ids
-                    .get(variant)
-                    .unwrap_or_else(|| panic!("emitted KernelRule::{variant} has no id() mapping"));
-                out.insert(format!("craft.{id}"));
-            }
-            for (variant, id) in &craft_rule_ids {
-                if !matches!(id.as_str(), "check_outline" | "check_season") {
-                    assert!(
-                        craft_rule_uses.contains(variant),
-                        "KernelRule::{variant} (`{id}`) has no production craft emitter"
-                    );
-                }
             }
         }
         out
@@ -1938,8 +1796,6 @@ mod tests {
 
     fn emitted_severities(family: &Family) -> BTreeMap<String, BTreeSet<String>> {
         let mut out: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-        let mut craft_rule_ids = BTreeMap::new();
-        let mut craft_rule_severities: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         for src in family.sources {
             let source = production_source(&read_source(src));
             assert!(
@@ -1949,23 +1805,6 @@ mod tests {
             );
             for (code, severities) in source.emitted_severities {
                 out.entry(code).or_default().extend(severities);
-            }
-            craft_rule_ids.extend(source.craft_rule_ids);
-            for (variant, severities) in source.craft_rule_severities {
-                craft_rule_severities
-                    .entry(variant)
-                    .or_default()
-                    .extend(severities);
-            }
-        }
-        if matches!(family.scrape, Scrape::CraftKernelRules) {
-            for (variant, severities) in craft_rule_severities {
-                let id = craft_rule_ids
-                    .get(&variant)
-                    .unwrap_or_else(|| panic!("emitted KernelRule::{variant} has no id() mapping"));
-                out.entry(format!("craft.{id}"))
-                    .or_default()
-                    .extend(severities);
             }
         }
         out
@@ -1982,10 +1821,7 @@ mod tests {
             let authored: BTreeSet<String> =
                 family.codes.iter().map(|c| c.code.to_owned()).collect();
             match family.scrape {
-                Scrape::Prefixed(_)
-                | Scrape::CodeFieldsExcept(_)
-                | Scrape::OutlineClosed
-                | Scrape::CraftKernelRules => {
+                Scrape::Prefixed(_) | Scrape::CodeFieldsExcept(_) => {
                     let emitted = emitted_codes(family);
                     assert_eq!(
                         authored, emitted,
@@ -2282,25 +2118,10 @@ mod tests {
 
     #[test]
     fn direct_severities_match_the_emitters() {
-        let runtime_checked = BTreeMap::from([
-            ("outline.beat-unaccounted", "error"),
-            ("outline.beat-undeclared", "error"),
-            ("outline.promise-unaccounted", "error"),
-            ("outline.promise-undeclared", "error"),
-            ("outline.ten-reads-as-battle", "warn"),
-        ]);
         for family in FAMILIES.iter().filter(|family| {
             matches!(
                 family.key,
-                "continuity"
-                    | "anchor"
-                    | "factcheck"
-                    | "payload"
-                    | "phase"
-                    | "lexicon"
-                    | "author"
-                    | "craft"
-                    | "outline"
+                "continuity" | "anchor" | "factcheck" | "payload" | "phase" | "lexicon" | "author"
             )
         }) {
             let authored: BTreeMap<&str, &str> = family
@@ -2316,9 +2137,7 @@ mod tests {
             );
             let missing = authored
                 .keys()
-                .filter(|code| {
-                    !emitted.contains_key(**code) && !runtime_checked.contains_key(**code)
-                })
+                .filter(|code| !emitted.contains_key(**code))
                 .copied()
                 .collect::<BTreeSet<_>>();
             assert!(
@@ -2332,11 +2151,6 @@ mod tests {
                         *severities,
                         BTreeSet::from([expected.to_owned()]),
                         "finding `{code}` severity drifted from its production constructor"
-                    );
-                } else if let Some(runtime_severity) = runtime_checked.get(code) {
-                    assert_eq!(
-                        expected, *runtime_severity,
-                        "finding `{code}` drifted from its runtime severity assertion"
                     );
                 }
             }

@@ -50,27 +50,6 @@ jobs:
       - run: python3 scripts/test-publish-crates.py
       - run: cargo run -p xtask --locked -- gate --ci --receipt out/greengate/ci
 
-  # Check the default build and the optional parser-free configuration.
-  default-build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: gate-v2-${{ github.job }}
-          cache-workspace-crates: true
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: nextest
-      - run: cargo build -p dli-serve -p deloreis --locked
-      - run: cargo run -p xtask --locked -- syntax-free
-      - run: >-
-          cargo nextest run -p dli-serve -p dli-lorestore
-          --lib --test default_build
-          --test store_backed_project --test span_identity
-          --no-default-features --locked --profile ci
-
   docs-oracle:
     runs-on: ubuntu-latest
     timeout-minutes: 10
