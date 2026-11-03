@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorRecordDecisionsParams",
-  "description": "`author.record_decisions` atomically records several supporting decisions\non one workspace branch (contract 1.13.0).",
+  "description": "`author.record_decisions` atomically records several supporting decisions\non one workspace branch.",
   "type": "object",
   "properties": {
     "records": {

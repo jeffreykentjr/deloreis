@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorAssertSameAsParams",
-  "description": "`author.assert_same_as` params: assert two entity ids name the same bearer\n(WS-1, contract 1.7.0).\n\nThis stages a `Decl::SameAs`, closed symmetric-transitively by the\ncompiled world (`dli_eval::world::synthesize_alias_rules`): every other\npredicate's tuples merge across `left` and `right`, and the merge's\nstanding is carried entirely by this claim's own provenance — defeating\nthe citing decision un-merges every consequence algebraically, with no\nrecompile (DL-0078). A plain `author.add_relation {pred: \"same-as\", …}`\ndoes NOT merge anything; only this declaration form does (koan 3).",
+  "description": "`author.assert_same_as` params: assert two entity ids name the same bearer.\n\nThis stages a `Decl::SameAs`, closed symmetric-transitively by the\ncompiled world (`dli_eval::world::synthesize_alias_rules`): every other\npredicate's tuples merge across `left` and `right`, and the merge's\nstanding is carried entirely by this claim's own provenance — defeating\nthe citing decision un-merges every consequence algebraically, with no\nrecompile (DL-0078). A plain `author.add_relation {pred: \"same-as\", …}`\ndoes NOT merge anything; only this declaration form does (koan 3).",
   "type": "object",
   "properties": {
     "left": {

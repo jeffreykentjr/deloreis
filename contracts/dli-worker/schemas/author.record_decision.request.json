@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorRecordDecisionParams",
-  "description": "`author.record_decision` records a baseline ratified (supporting) decision\non the workspace's branch (contract 1.9.0, DL-0083).\n\nIt writes a `ratify` carriage object for `decision` and grows the commit's\nknown-decision list, so a fact that cites `decision` reads `certain` on the\nnext compile — the wire way to reach certainty and make contradiction checks\n(`continuity.fd-violation` and its kin) fire, closing the bootstrap gap the\nout-of-band `fixture-authority` binary used to fill. The id is\ncaller-supplied and matched by exact equality (re-recording a known id is\nidempotent), the recorded decision is defeasible by `author.defeat`, and\nthis does NOT move the DL-0054 boundary: it records the caller's claim that a\nruling was made, exactly as `cited`/`set_standing`/`defeat` already record\ncaller-supplied decision state as data — it never decides *who* may rule.",
+  "description": "`author.record_decision` records a baseline ratified (supporting) decision\non the workspace's branch.\n\nA fact citing this decision can read `certain` and participate in canon\nchecks. The caller supplies the exact decision id; recording it again is\nidempotent. A later `author.defeat` can defeat it. The engine records the\nruling but does not decide who is allowed to make one.",
   "type": "object",
   "properties": {
     "decision": {

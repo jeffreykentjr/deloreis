@@ -38,7 +38,7 @@
       }
     },
     "supporting_decisions": {
-      "description": "The recorded decisions in the atom's support antichain — the support\nmonomials' claim ids filtered to the known-decision set (contract 1.9.0,\nDL-0083). The auditability affordance: it lets a caller confirm a fact\nreached certainty through recorded decisions. The field is omitted when\nthere are no supporting decisions.",
+      "description": "The recorded decisions in the atom's support antichain — the support\nmonomials' claim ids filtered to the known-decision set. This lets a\ncaller see which recorded decisions support a fact. The field is\nomitted when there are no supporting decisions.",
       "type": "array",
       "items": {
         "type": "string"

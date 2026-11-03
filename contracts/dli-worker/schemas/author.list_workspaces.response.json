@@ -25,7 +25,7 @@
           "type": "string"
         },
         "branch": {
-          "description": "The branch this workspace targets, if any (WS-3). Emitted only on a\n≥ 1.7.0 request.",
+          "description": "The branch this workspace targets, if any.",
           "type": [
             "string",
             "null"

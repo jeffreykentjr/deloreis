@@ -229,7 +229,7 @@ declaration is how an author makes it. It lowers to no atom — there is no fact
 "`ruler-of` is functional" to query — and rides, with its provenance, on the
 stored declaration. Its provenance is recorded but does not gate the structural
 constraint (DL-0074). Agents declare it with `author.declare_functional`
-(`11-agent-authoring.md §3.11`; contract `1.6.0`, DL-0074).
+(`11-agent-authoring.md §3.11`; DL-0074).
 
 A **`same-as`** declaration states a claim about the world rather than a
 constraint on a predicate: `same-as <left> = <right>` says two names denote

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AuthorDeclareFunctionalParams",
-  "description": "`author.declare_functional` params: declare a predicate single-valued.\n\nThis stages a `Decl::Functional`, marking `pred` a functional dependency —\neach subject may carry at most one certain value for it, so two distinct\ncertain values are a contradiction (`continuity.fd-violation`). It lets an\nauthor judge a *first-seen* predicate single-valued, which canon precedent\nalone cannot (issue 49, sub-claim 4; contract 1.6.0).",
+  "description": "`author.declare_functional` params: declare a predicate single-valued.\n\nThis stages a `Decl::Functional`, marking `pred` a functional dependency —\neach subject may carry at most one certain value for it, so two distinct\ncertain values are a contradiction (`continuity.fd-violation`). It lets an\nauthor judge a *first-seen* predicate single-valued, which canon precedent\nalone cannot.",
   "type": "object",
   "properties": {
     "pred": {
