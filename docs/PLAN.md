@@ -604,7 +604,7 @@ author or consumer artifact that this repository does not own.
 | SERVE-1 | done | `cargo test -p dli-serve --features syntax --test dispatch --test fixture_replay` exercises serving and contract replay. |
 | CLI-1 | done | The built Clap graph generates the command reference; `cargo test -p deloreis --test cli --test serve_project` covers every command/help path, positive and negative workflows, and project-backed transport |
 | AUTH-1 | done | `cargo test -p dli-serve --test author --test author_read --test fixture_replay` |
-| AUTH-2 | open | The former consumer fixture is retired; the original Hollow scenario and transcript remain to be built. |
+| AUTH-2 | done | `cargo test -p deloreis --test hollow` replays the worked scenario over MCP and checks its transcript. |
 | EXT-F3 | deferred | Retired under DL-0101; no release deliverable. |
 | EXT-F4 | deferred | Retired under DL-0101; no release deliverable. |
 | EXP-1 | done | `cargo test -p dli-export` |
