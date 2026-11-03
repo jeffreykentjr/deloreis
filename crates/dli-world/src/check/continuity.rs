@@ -291,16 +291,19 @@ fn identity_temporal_unsupported(world: &CompiledWorld) -> Vec<WorldFinding> {
             let Some(sort @ ("era" | "event")) = sorts.get(name).copied() else {
                 continue;
             };
-            out.push(
-                WorldFinding::error(
+            let finding = WorldFinding::error(
                     "continuity.identity-temporal-unsupported",
                     format!(
                         "same-as {} = {} names {sort} '{name}'; identity over eras/events is not supported (v1 boundary) — point unification would half-merge the chronology",
                         link.left, link.right
                     ),
                 )
-                .with_citations(link.citations.clone()),
-            );
+                .with_citations(link.citations.clone());
+            out.push(if let Some(span) = link.span {
+                finding.with_span(span)
+            } else {
+                finding
+            });
             break; // one finding per link, even when both endpoints are temporal
         }
     }
@@ -317,6 +320,7 @@ struct DeclaredLink<'a> {
     right: &'a str,
     ann: &'a Ann,
     citations: Vec<String>,
+    span: Option<dli_ast::span::Span>,
 }
 
 /// Every declared identity link, in channel order. This — never a scan of
@@ -335,7 +339,8 @@ fn declared_links(world: &CompiledWorld) -> Vec<DeclaredLink<'_>> {
         .world
         .same_as_links
         .iter()
-        .map(|(left, right, ann)| {
+        .enumerate()
+        .map(|(index, (left, right, ann))| {
             let citations = world
                 .model
                 .atoms()
@@ -353,6 +358,12 @@ fn declared_links(world: &CompiledWorld) -> Vec<DeclaredLink<'_>> {
                 right,
                 ann,
                 citations,
+                span: world
+                    .model
+                    .same_as_spans
+                    .get(&index)
+                    .copied()
+                    .filter(|span| span.end > span.start),
             }
         })
         .collect()

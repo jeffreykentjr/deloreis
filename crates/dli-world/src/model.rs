@@ -448,6 +448,10 @@ pub struct WorldModel {
     /// Source locations for direct chronology edges, parallel to the edge list.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub chronology_spans: Vec<dli_ast::span::Span>,
+    /// Source locations keyed by index in `world.same_as_links`. Missing entries
+    /// represent synthetic or older worlds without source information.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub same_as_spans: BTreeMap<usize, dli_ast::span::Span>,
     /// Event-in-era assertions, kept symbolic until read under a valuation.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub era_memberships: Vec<EraMembership>,

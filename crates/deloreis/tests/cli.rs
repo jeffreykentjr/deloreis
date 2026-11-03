@@ -1822,6 +1822,30 @@ fn conflicting_canon_names_a_source_and_a_repair() {
 }
 
 #[test]
+fn unsupported_temporal_identity_points_to_the_declaration() {
+    let dir = tmp("temporal-identity-source");
+    let first = dir.join("a.dli");
+    let second = dir.join("b.dli");
+    fs::write(&first, "scope storybook\nratify d-0001\nera first ratified d-0001\nera second ratified d-0001\nfact first same-as second ratified d-0001\n").unwrap();
+    fs::write(
+        &second,
+        "scope storybook\nsame-as first = second ratified d-0001\n",
+    )
+    .unwrap();
+    let output = bin().arg("check").arg(&dir).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.identity-temporal-unsupported"))
+        .expect(&text);
+    assert!(line.contains(&format!("{}:2:", second.display())), "{text}");
+    assert!(
+        text.contains("help: refer to one era or event instead of merging time points"),
+        "{text}"
+    );
+}
+
+#[test]
 fn conflicting_values_with_identity_aliases_keep_a_source_location() {
     let dir = tmp("continuity-alias-location");
     let corpus = dir.join("world.dli");

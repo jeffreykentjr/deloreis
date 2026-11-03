@@ -890,6 +890,9 @@ impl LoadCtx {
         // `process_fact`, which never touches the channel — that asymmetry
         // (mirroring `Decl::Before`'s chronology edge) is what keeps identity
         // a declaration-only claim (koan 3, DL-0078).
+        self.wm
+            .same_as_spans
+            .insert(self.wm.world.same_as_links.len(), same_as.left.span);
         self.wm.world.assert_same_as(
             same_as.left.text.clone(),
             same_as.right.text.clone(),
