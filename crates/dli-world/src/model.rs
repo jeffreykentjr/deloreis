@@ -503,6 +503,9 @@ pub struct WorldModel {
     /// `#[serde(default)]` so a world serialized before this field round-trips.
     #[serde(default)]
     pub functional_predicates: BTreeSet<String>,
+    /// Source locations of authored functional declarations, when available.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub functional_spans: BTreeMap<String, dli_ast::span::Span>,
     /// Predicates an author has declared fluent-persistent via `inertial
     /// <pred>`, each mapped to the **OR of its declaring provenance's [`Ann`]**
     /// (a predicate may be declared inertial more than once). The continuity

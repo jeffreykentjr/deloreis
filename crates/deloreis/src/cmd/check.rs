@@ -195,12 +195,12 @@ fn render_semantic_finding(finding: &check::WorldFinding, files: &[cmd::CorpusFi
         "continuity.fluent-contradiction" => {
             Some("adjust the time bounds or revise a conflicting state")
         }
-        "continuity.fd-violation" => {
-            Some("revise or defeat a conflicting value for the functional slot")
-        }
-        "continuity.derived-fd-violation" => {
-            Some("revise a conflicting source claim or derivation rule")
-        }
+        "continuity.fd-violation" => Some(
+            "revise or defeat a conflicting value for the functional slot, or review its functional declarations",
+        ),
+        "continuity.derived-fd-violation" => Some(
+            "revise a conflicting source claim or derivation rule, or review the functional declarations",
+        ),
         _ => None,
     };
     if let Some(help) = help {

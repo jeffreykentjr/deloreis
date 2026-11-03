@@ -792,6 +792,22 @@ fn effective_functional_predicates(world: &CompiledWorld) -> BTreeSet<String> {
         .effective_functional(&world.model.functional_predicates, &predicate_canon)
 }
 
+/// A source declaration that makes a canonical predicate functional. This is
+/// relevant to the violation even when no value-producing source is provable.
+fn functional_source(world: &CompiledWorld, predicate: &str) -> Option<dli_ast::span::Span> {
+    let canon = predicate_canon(world);
+    world
+        .model
+        .functional_spans
+        .iter()
+        .find_map(|(name, span)| {
+            (world.model.functional_predicates.contains(name)
+                && dli_core::alias::canon(&canon, name) == predicate
+                && span.end > span.start)
+                .then_some(*span)
+        })
+}
+
 /// Report the explicit policy consequence of union semantics when an identity
 /// component promotes a declaration from one member onto another. The engine
 /// does not infer the policy; it only makes the caller-declared merge's effect
@@ -1929,7 +1945,7 @@ fn fd_violations(world: &CompiledWorld, canon: &BTreeMap<String, String>) -> Vec
             .with_data(fd_violation_data(world, &violation));
             let span = source_spans.get(&slot).and_then(|sources| {
                 violation.values.iter().find_map(|value| sources.get(&dli_core::fd::fd_value_key(value)).copied())
-            });
+            }).or_else(|| functional_source(world, &violation.pred));
             if let Some(span) = span { finding.with_span(span) } else { finding }
         })
         .collect()
@@ -2107,7 +2123,8 @@ fn derived_fd_violations(
                     sources.get(&dli_core::fd::fd_value_key(value)).copied()
                 })
             }).or_else(|| direct_rule_witness(world, canon, &violation))
-                .or_else(|| chained_rule_witness(world, canon, &violation));
+                .or_else(|| chained_rule_witness(world, canon, &violation))
+                .or_else(|| functional_source(world, &violation.pred));
             if let Some(span) = span { finding.with_span(span) } else { finding }
         })
         .collect()

@@ -473,12 +473,13 @@ Contract `1.6.0` adds one declaration over predicates:
   functional dependency — each subject holds at most one certain value for it,
   so two distinct certain values raise `continuity.fd-violation` (DL-0073).
 
-It stages like any other add and commits with `author.materialize`. Undeclared,
-the checker infers single-valuedness from canon's precedent, which cannot judge a
-predicate's *first* use; whether a relation admits one value or many is a ruling
-about the world, not one the engine makes (koan 3), so the caller declares it.
-The declaration lowers to no atom — there is no fact to query — and rides, with
-its provenance, on the stored declaration (DL-0074).
+It stages like any other add and commits with `author.materialize`. Draft-claim
+checking can infer single-valuedness from canon's precedent, but canon
+consistency checks use declared constraints. Whether a relation admits one value
+or many is a ruling about the world, not one the engine makes (koan 3), so the
+caller declares it. The declaration lowers to no atom — there is no fact to
+query — and its provenance is stored but does not gate the structural constraint
+(DL-0074).
 
 ### 3.12 Coreference declarations
 
@@ -546,9 +547,9 @@ Contract `1.8.0` adds one declaration over fluent predicates:
 - `author.declare_inertial {workspace, pred, provenance}` declares `pred`
   inertial: a fluent value asserted `since t` with no authored `until` is
   meant to persist forward until a later, distinct, live value on the same
-  slot defeats it. Mirrors `author.declare_functional` (§3.11) exactly — a
-  carriage-only declaration, no ground atom, provenance riding the stored
-  declaration.
+  slot defeats it. Like `author.declare_functional` (§3.11), this is a
+  carriage-only declaration with no ground atom. Unlike the structural
+  functional constraint, inertial policy is gated by its provenance.
 
   **The projection.** The op stages and materializes the declaration and
   carries it through every lowering (the compiled world, forks, merges, and

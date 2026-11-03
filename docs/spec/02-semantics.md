@@ -563,8 +563,10 @@ re-fixpoint is needed to make the valuation change visible.
 
 Functionality and inertia use **union semantics** within a certain predicate
 identity component: the merged property is functional if any member has a
-certain functional declaration, and inertial if any member has a certain
-inertial declaration. A promotion emits a structured
+functional declaration, and inertial if any member has a certain inertial
+declaration. A `functional` declaration is a structural constraint: its
+provenance is stored but does not gate the constraint (DL-0074). Inertial
+provenance does gate its policy. A promotion emits a structured
 `predicate-identity.policy-promoted` warning naming the identity assertion,
 policy kind, affected members, and policy declaration support. The warning is
 non-blocking; it records that merging changed the effective policy rather than

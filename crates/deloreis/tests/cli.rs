@@ -2048,6 +2048,35 @@ fn a_blocked_chained_rule_does_not_claim_the_conflict() {
 }
 
 #[test]
+fn a_conflicting_slot_can_fall_back_to_its_functional_declaration() {
+    use std::fmt::Write as _;
+    let dir = tmp("functional-source-fallback");
+    let corpus = dir.join("world.dli");
+    let mut source = String::from(
+        "scope storybook\nratify d-1\nfunctional other ratified d-1\nfunctional home ratified d-1\n",
+    );
+    for index in 0..170 {
+        writeln!(source, "seed(wren, item{index}) ratified d-1").unwrap();
+    }
+    for index in 0..180 {
+        writeln!(source, "rule decoy{index} ratified d-1\n  home(wren, shore) :- seed(wren, $item), missing($item)").unwrap();
+    }
+    source.push_str("rule shore ratified d-1\n  home(wren, shore) :- seed(wren, item0)\nrule marsh ratified d-1\n  home(wren, marsh) :- seed(wren, item0)\n");
+    fs::write(&corpus, source).unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.derived-fd-violation"))
+        .expect(&text);
+    assert!(line.contains(&format!("{}:4:", corpus.display())), "{text}");
+    assert!(
+        text.contains("or review the functional declarations"),
+        "{text}"
+    );
+}
+
+#[test]
 fn unrelated_predicates_do_not_exhaust_rule_witness_search() {
     use std::fmt::Write as _;
     let dir = tmp("rule-witness-unrelated-predicates");
