@@ -36,7 +36,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
     permissions:
-      contents: read
+      # Draft releases are visible only to callers with write access.
+      contents: write
       id-token: write
       attestations: write
     env:
