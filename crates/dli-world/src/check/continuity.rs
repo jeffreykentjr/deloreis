@@ -2106,16 +2106,16 @@ fn derived_fd_violations(
                 violation.values.iter().find_map(|value| {
                     sources.get(&dli_core::fd::fd_value_key(value)).copied()
                 })
-            }).or_else(|| positive_rule_witness(world, canon, &violation));
+            }).or_else(|| direct_rule_witness(world, canon, &violation));
             if let Some(span) = span { finding.with_span(span) } else { finding }
         })
         .collect()
 }
 
-/// Find a direct, certain positive rule application that produces one of the
-/// conflicting rows from certain input facts. This deliberately avoids rule
-/// recursion, negation, and guessed attribution; those cases stay unlocated.
-fn positive_rule_witness(
+/// Find a direct, certain rule application that produces a conflicting row
+/// from certain input facts. A negative premise is accepted only if the
+/// saturated relation has no matching row at all. Other cases stay unlocated.
+fn direct_rule_witness(
     world: &CompiledWorld,
     canon: &BTreeMap<String, String>,
     violation: &dli_core::fd::FdViolation,
@@ -2133,8 +2133,7 @@ fn positive_rule_witness(
         else {
             continue;
         };
-        if rule.body.is_empty()
-            || rule.body.iter().any(|literal| literal.negated)
+        if !rule.body.iter().any(|literal| !literal.negated)
             || rule.ann.status(valuation, theory) != Status::Certain
         {
             continue;
@@ -2161,7 +2160,7 @@ fn positive_rule_witness(
                 continue;
             }
             let mut states = vec![(head_bindings, rule.ann.clone())];
-            for literal in &rule.body {
+            for literal in rule.body.iter().filter(|literal| !literal.negated) {
                 let mut next = Vec::new();
                 for (state, support) in states {
                     for fact in &model.world.facts {
@@ -2184,11 +2183,27 @@ fn positive_rule_witness(
                 }
                 states = next;
             }
-            if states
-                .iter()
-                .any(|(_, support)| support.status(valuation, theory) == Status::Certain)
-            {
-                return Some(span);
+            for (bindings, support) in states {
+                if support.status(valuation, theory) != Status::Certain {
+                    continue;
+                }
+                let mut absent = true;
+                for literal in rule.body.iter().filter(|literal| literal.negated) {
+                    for candidate in &model.world.derived {
+                        budget = budget.checked_sub(1)?;
+                        let mut candidate_bindings = bindings.clone();
+                        if unify_witness(&literal.atom, &candidate.atom, &mut candidate_bindings) {
+                            absent = false;
+                            break;
+                        }
+                    }
+                    if !absent {
+                        break;
+                    }
+                }
+                if absent {
+                    return Some(span);
+                }
             }
         }
     }
