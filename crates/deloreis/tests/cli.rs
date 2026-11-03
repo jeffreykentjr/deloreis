@@ -1208,6 +1208,34 @@ fn chronology_cycle_reports_a_source_file_and_repair() {
 }
 
 #[test]
+fn inferred_chronology_cycle_points_to_an_actual_event_membership() {
+    let dir = tmp("inferred-chronology-cycle-source");
+    let first = dir.join("a.dli");
+    let second = dir.join("b.dli");
+    fs::write(&first, "scope storybook\nratify d-1\nera first < second ratified d-1\nevent comet during first ratified d-1\n").unwrap();
+    fs::write(
+        &second,
+        "scope storybook\nevent comet during second ratified d-1\n",
+    )
+    .unwrap();
+    let output = bin().arg("check").arg(&dir).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.chronology-cycle"))
+        .expect(&text);
+    assert!(
+        line.contains(&format!("{}:4:", first.display()))
+            || line.contains(&format!("{}:2:", second.display())),
+        "{text}"
+    );
+    assert!(
+        text.contains("help: correct an ordering in the reported cycle"),
+        "{text}"
+    );
+}
+
+#[test]
 fn semantic_findings_name_the_source_file_and_offer_repairs() {
     let dir = tmp("semantic-source-locations");
     let first = dir.join("a.dli");
@@ -1855,6 +1883,54 @@ fn rule_only_conflict_does_not_blame_an_unrelated_fact() {
     assert!(!line.contains(&corpus.display().to_string()), "{text}");
     assert!(
         text.contains("help: revise a conflicting source claim or derivation rule"),
+        "{text}"
+    );
+}
+
+#[test]
+fn unsupported_temporal_identity_points_to_the_declaration() {
+    let dir = tmp("temporal-identity-source");
+    let first = dir.join("a.dli");
+    let second = dir.join("b.dli");
+    fs::write(&first, "scope storybook\nratify d-0001\nera first ratified d-0001\nera second ratified d-0001\nfact first same-as second ratified d-0001\n").unwrap();
+    fs::write(
+        &second,
+        "scope storybook\nsame-as first = second ratified d-0001\n",
+    )
+    .unwrap();
+    let output = bin().arg("check").arg(&dir).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.identity-temporal-unsupported"))
+        .expect(&text);
+    assert!(line.contains(&format!("{}:2:", second.display())), "{text}");
+    assert!(
+        text.contains("help: refer to one era or event instead of merging time points"),
+        "{text}"
+    );
+}
+
+#[test]
+fn cross_scope_collision_names_a_contributing_declaration() {
+    let dir = tmp("cross-scope-collision-location");
+    let first = dir.join("a.dli");
+    let second = dir.join("b.dli");
+    fs::write(&first, "scope north\nperson wren proposed session\n").unwrap();
+    fs::write(&second, "scope south\nperson wren proposed session\n").unwrap();
+    let output = bin().arg("check").arg(&dir).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("load.cross-pack-collision"))
+        .expect(&text);
+    assert!(
+        line.contains(&format!("{}:2:", first.display()))
+            || line.contains(&format!("{}:2:", second.display())),
+        "{text}"
+    );
+    assert!(
+        text.contains("help: rename or remove a declaration shared by multiple scopes"),
         "{text}"
     );
 }

@@ -199,6 +199,14 @@ impl IncrementalLoad {
                             span,
                         });
                     }
+                    if span.end > span.start {
+                        self.ctx
+                            .cross_spans
+                            .entry((kind.to_owned(), name.clone()))
+                            .or_default()
+                            .entry(pack.clone())
+                            .or_insert(span);
+                    }
                     self.ctx
                         .cross
                         .entry((kind.to_owned(), name))
@@ -265,6 +273,8 @@ struct LoadCtx {
     declared: BTreeSet<(String, String, String)>,
     /// `(kind, name)` to the packs that declared it — for collision detection.
     cross: BTreeMap<(String, String), BTreeSet<String>>,
+    /// Source locations of declarations contributing to each collision.
+    cross_spans: BTreeMap<(String, String), BTreeMap<String, Span>>,
     /// Typed era/event declarations, including every member of an era-order
     /// chain. Kept separate from observed symbols because temporal clauses are
     /// closed, typed references while ordinary facts may name abstract subjects.
@@ -473,6 +483,9 @@ impl LoadCtx {
         {
             let event = self.time_point(&entity.name.text);
             let era = self.time_point(&era.text);
+            self.wm
+                .era_membership_spans
+                .insert(self.wm.era_memberships.len(), entity.name.span);
             self.wm.era_memberships.push(crate::model::EraMembership {
                 event,
                 era,
@@ -890,6 +903,9 @@ impl LoadCtx {
         // `process_fact`, which never touches the channel — that asymmetry
         // (mirroring `Decl::Before`'s chronology edge) is what keeps identity
         // a declaration-only claim (koan 3, DL-0078).
+        self.wm
+            .same_as_spans
+            .insert(self.wm.world.same_as_links.len(), same_as.left.span);
         self.wm.world.assert_same_as(
             same_as.left.text.clone(),
             same_as.right.text.clone(),
@@ -1274,6 +1290,10 @@ impl LoadCtx {
                     kind: kind.clone(),
                     name: name.clone(),
                     packs: packs.iter().cloned().collect(),
+                    span: self
+                        .cross_spans
+                        .get(&(kind.clone(), name.clone()))
+                        .and_then(|spans| packs.iter().find_map(|pack| spans.get(pack).copied())),
                 });
             }
         }

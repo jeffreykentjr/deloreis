@@ -239,6 +239,9 @@ pub enum LoadFinding {
         name: String,
         /// The packs that each declared it.
         packs: Vec<String>,
+        /// A declaration in one of the colliding packs, when available.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        span: Option<Span>,
     },
     /// The rule set has no valid stratification: a negative-dependency (or
     /// aggregation) cycle. Surfaced from the `dli_eval::stratify` seam (spec 08
@@ -288,7 +291,8 @@ impl LoadFinding {
             | Self::DuplicateDeclaration { span, .. }
             | Self::InertDeclaration { span, .. }
             | Self::PredicateIdentityArityMismatch { span, .. } => Some(*span),
-            Self::CrossPackCollision { .. } | Self::Unstratifiable { .. } => None,
+            Self::CrossPackCollision { span, .. } => *span,
+            Self::Unstratifiable { .. } => None,
         };
         span.filter(|span| span.end > span.start)
     }
@@ -360,7 +364,9 @@ impl LoadFinding {
             } => {
                 format!("'{name}' is declared twice as a {kind} in pack '{pack}'")
             }
-            Self::CrossPackCollision { kind, name, packs } => {
+            Self::CrossPackCollision {
+                kind, name, packs, ..
+            } => {
                 format!(
                     "the {kind} '{name}' is declared in more than one pack ({})",
                     packs.join(", ")
@@ -448,9 +454,16 @@ pub struct WorldModel {
     /// Source locations for direct chronology edges, parallel to the edge list.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub chronology_spans: Vec<dli_ast::span::Span>,
+    /// Source locations keyed by index in `world.same_as_links`. Missing entries
+    /// represent synthetic or older worlds without source information.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub same_as_spans: BTreeMap<usize, dli_ast::span::Span>,
     /// Event-in-era assertions, kept symbolic until read under a valuation.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub era_memberships: Vec<EraMembership>,
+    /// Source locations keyed by index in `era_memberships`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub era_membership_spans: BTreeMap<usize, dli_ast::span::Span>,
     /// Symbolic order among eras with event memberships.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inferred_era_edges: Vec<EraEdge>,

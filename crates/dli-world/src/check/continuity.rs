@@ -199,7 +199,8 @@ fn chronology_cycle(world: &CompiledWorld) -> Vec<WorldFinding> {
                 .get(index)
                 .copied()
                 .filter(|span| span.end > span.start)
-        });
+        })
+        .or_else(|| inferred_cycle_source(world, &cycle_edges));
     let finding = WorldFinding::error(
         "continuity.chronology-cycle",
         format!(
@@ -214,6 +215,52 @@ fn chronology_cycle(world: &CompiledWorld) -> Vec<WorldFinding> {
     } else {
         finding
     }]
+}
+
+/// Find a source belonging to a certain inferred edge in this exact cycle.
+/// A merely possible route cannot establish a source for a certain edge; it
+/// may become certain only through the disjunction of several alternatives.
+fn inferred_cycle_source(
+    world: &CompiledWorld,
+    cycle_edges: &BTreeSet<(u32, u32)>,
+) -> Option<dli_ast::span::Span> {
+    use dli_eval::world::conjoin_annotations;
+    let model = &world.model;
+    for &(earlier, later) in cycle_edges {
+        for (first_index, first) in model.era_memberships.iter().enumerate() {
+            if first.event.0 != earlier {
+                continue;
+            }
+            for (second_index, second) in model.era_memberships.iter().enumerate() {
+                if second.event.0 != later {
+                    continue;
+                }
+                for path in &model.inferred_era_edges {
+                    if path.earlier != first.era || path.later != second.era {
+                        continue;
+                    }
+                    let ann = conjoin_annotations(
+                        &conjoin_annotations(&first.ann, &path.ann),
+                        &second.ann,
+                    );
+                    if ann.status(&model.world.valuation, &model.world.theory) != Status::Certain {
+                        continue;
+                    }
+                    for index in [first_index, second_index] {
+                        if let Some(span) = model
+                            .era_membership_spans
+                            .get(&index)
+                            .copied()
+                            .filter(|span| span.end > span.start)
+                        {
+                            return Some(span);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 
 /// The name of a time point, or a stable `#index` fallback.
@@ -291,16 +338,19 @@ fn identity_temporal_unsupported(world: &CompiledWorld) -> Vec<WorldFinding> {
             let Some(sort @ ("era" | "event")) = sorts.get(name).copied() else {
                 continue;
             };
-            out.push(
-                WorldFinding::error(
+            let finding = WorldFinding::error(
                     "continuity.identity-temporal-unsupported",
                     format!(
                         "same-as {} = {} names {sort} '{name}'; identity over eras/events is not supported (v1 boundary) — point unification would half-merge the chronology",
                         link.left, link.right
                     ),
                 )
-                .with_citations(link.citations.clone()),
-            );
+                .with_citations(link.citations.clone());
+            out.push(if let Some(span) = link.span {
+                finding.with_span(span)
+            } else {
+                finding
+            });
             break; // one finding per link, even when both endpoints are temporal
         }
     }
@@ -317,6 +367,7 @@ struct DeclaredLink<'a> {
     right: &'a str,
     ann: &'a Ann,
     citations: Vec<String>,
+    span: Option<dli_ast::span::Span>,
 }
 
 /// Every declared identity link, in channel order. This — never a scan of
@@ -335,7 +386,8 @@ fn declared_links(world: &CompiledWorld) -> Vec<DeclaredLink<'_>> {
         .world
         .same_as_links
         .iter()
-        .map(|(left, right, ann)| {
+        .enumerate()
+        .map(|(index, (left, right, ann))| {
             let citations = world
                 .model
                 .atoms()
@@ -353,6 +405,12 @@ fn declared_links(world: &CompiledWorld) -> Vec<DeclaredLink<'_>> {
                 right,
                 ann,
                 citations,
+                span: world
+                    .model
+                    .same_as_spans
+                    .get(&index)
+                    .copied()
+                    .filter(|span| span.end > span.start),
             }
         })
         .collect()
