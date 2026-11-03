@@ -1152,6 +1152,38 @@ fn query_known_as_of_is_accepted() {
 }
 
 #[test]
+fn chronology_cycle_reports_a_source_file_and_repair() {
+    let dir = tmp("chronology-source-location");
+    let first = dir.join("a.dli");
+    let second = dir.join("b.dli");
+    fs::write(
+        &first,
+        "scope storybook\nratify d-1\nera first < second ratified d-1\n",
+    )
+    .unwrap();
+    fs::write(
+        &second,
+        "scope storybook\nera second < first ratified d-1\n",
+    )
+    .unwrap();
+    let output = bin().arg("check").arg(&dir).output().unwrap();
+    let text = stdout(&output);
+    let line = text
+        .lines()
+        .find(|line| line.contains("continuity.chronology-cycle"))
+        .unwrap();
+    assert!(
+        line.contains(&format!("{}:3:", first.display()))
+            || line.contains(&format!("{}:2:", second.display())),
+        "{text}"
+    );
+    assert!(
+        text.contains("help: correct an ordering in the reported cycle"),
+        "{text}"
+    );
+}
+
+#[test]
 fn semantic_findings_name_the_source_file_and_offer_repairs() {
     let dir = tmp("semantic-source-locations");
     let first = dir.join("a.dli");

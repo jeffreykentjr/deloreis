@@ -171,17 +171,49 @@ fn chronology_cycle(world: &CompiledWorld) -> Vec<WorldFinding> {
         }
     }
 
-    vec![
-        WorldFinding::error(
-            "continuity.chronology-cycle",
-            format!(
-                "the chronology contradicts itself: an ordering cycle over {} edge(s) — {}",
-                blame.cycle.len(),
-                loop_render.join(", ")
-            ),
-        )
-        .with_citations(citations),
-    ]
+    let cycle_edges: BTreeSet<_> = blame
+        .cycle
+        .iter()
+        .map(|edge| (edge.before.0, edge.after.0))
+        .collect();
+    let span = world
+        .model
+        .world
+        .chronology
+        .edges
+        .iter()
+        .enumerate()
+        .find_map(|(index, &(a, b))| {
+            if !cycle_edges.contains(&(a.0, b.0)) {
+                return None;
+            }
+            let ann = world.model.chronology_anns.get(index)?;
+            if ann.status(&world.model.world.valuation, &world.model.world.theory)
+                != Status::Certain
+            {
+                return None;
+            }
+            world
+                .model
+                .chronology_spans
+                .get(index)
+                .copied()
+                .filter(|span| span.end > span.start)
+        });
+    let finding = WorldFinding::error(
+        "continuity.chronology-cycle",
+        format!(
+            "the chronology contradicts itself: an ordering cycle over {} edge(s) — {}",
+            blame.cycle.len(),
+            loop_render.join(", ")
+        ),
+    )
+    .with_citations(citations);
+    vec![if let Some(span) = span {
+        finding.with_span(span)
+    } else {
+        finding
+    }]
 }
 
 /// The name of a time point, or a stable `#index` fallback.

@@ -445,6 +445,9 @@ pub struct WorldModel {
     /// serialized before this field round-trips.
     #[serde(default)]
     pub chronology_anns: Vec<Ann>,
+    /// Source locations for direct chronology edges, parallel to the edge list.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub chronology_spans: Vec<dli_ast::span::Span>,
     /// Event-in-era assertions, kept symbolic until read under a valuation.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub era_memberships: Vec<EraMembership>,
