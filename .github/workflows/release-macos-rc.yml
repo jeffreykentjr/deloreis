@@ -1,0 +1,76 @@
+name: Build approved macOS RC archive
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Approved RC tag, such as v0.1.0-rc.1
+        required: true
+        type: string
+      commit:
+        description: Full commit SHA for the tag
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-macos-rc-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_COMMIT: ${{ inputs.commit }}
+      RELEASE_TARGET: aarch64-apple-darwin
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify the draft is a matching release candidate
+        run: python3 scripts/release-control.py
+
+  build:
+    needs: verify
+    # Required reviewer approval is configured on this environment.
+    environment: macos-rc
+    runs-on: macos-14
+    timeout-minutes: 40
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_COMMIT: ${{ inputs.commit }}
+      RELEASE_TARGET: aarch64-apple-darwin
+      GH_TOKEN: ${{ github.token }}
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate, build and package
+        run: bash scripts/build-release-archive.sh
+      - name: Attest archive
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*.tar.gz
+      - name: Attach to the draft
+        run: gh release upload "$RELEASE_TAG" dist/*.tar.gz dist/*.tar.gz.sha256 --clobber

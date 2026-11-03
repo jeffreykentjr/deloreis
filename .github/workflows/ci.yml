@@ -7,8 +7,6 @@ on:
     branches: [main]
   workflow_dispatch:
   merge_group:
-  schedule:
-    - cron: "17 6 * * 1"
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -48,6 +46,7 @@ jobs:
         with:
           tool: nextest,cargo-deny
       - run: python3 scripts/test-publish-crates.py
+      - run: python3 scripts/test-release-controls.py
       - run: cargo run -p xtask --locked -- gate --ci --receipt out/greengate/ci
 
   docs-oracle:

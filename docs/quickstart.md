@@ -8,10 +8,10 @@ verdict: "Build a local world, connect an MCP client, and catch a continuity con
 Install De Lore Is with Cargo:
 
 ```sh
-cargo install deloreis --locked
+cargo install --git https://github.com/jeffreykentjr/deloreis --locked deloreis
 ```
 
-You can also download a macOS or Linux archive from the [releases page](https://github.com/jeffreykentjr/deloreis/releases). Unpack it and put `bin/deloreis` somewhere on your `PATH`. Each archive has a SHA-256 checksum alongside it.
+Once a release is published, you can also download an archive from the [releases page](https://github.com/jeffreykentjr/deloreis/releases). Unpack it and put `bin/deloreis` somewhere on your `PATH`. Each archive has a SHA-256 checksum alongside it.
 
 You'll also need an MCP client for this walkthrough; the example below uses
 Claude Code. If you installed with Cargo, make sure Cargo's binary directory

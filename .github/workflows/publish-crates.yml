@@ -23,6 +23,7 @@ concurrency:
 
 jobs:
   publish:
+    if: github.event_name != 'release' || !github.event.release.prerelease
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
