@@ -3618,7 +3618,12 @@ fn durable_standing_change(
                 decisions,
                 pack_name,
             )
-            .map_err(|error| store_fault(&error))?;
+            .map_err(|error| match &error {
+                dli_lorestore::StoreError::Reconstruct(_) => {
+                    schema_error(format!("standing change cannot be replayed: {error}"))
+                }
+                _ => store_fault(&error),
+            })?;
         receipt.commit
     };
 

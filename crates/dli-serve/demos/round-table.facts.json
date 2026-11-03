@@ -19,6 +19,8 @@
       "sha256:032f90b93fe787984a5d92b1caadf67aa3144607de2a5c165ee405ddb8914059",
       "sha256:48a39badf6939c58cf98fffda5545373dbefcf5561f32a16352706eb9df4e757",
       "sha256:fd5dde7bb20a56bb0fb4207d906230b53db40e938ce5dd48d2c0347c3618cc2a",
+      "sha256:96a8eb0782d751345513fbea47ed9e852a8c904d5030ff0e9277523125b6d619",
+      "sha256:a5c4a3f94649d702dfed0449b509c5618da08d36657392f50f0dc9974a17685a",
       "sha256:a9509d168a8e9832c39e29c421de39ad2af5139902f89c9eebdda045fbf21813",
       "sha256:39a41a5e2215b623b137bbc6ff757a1dce790e40be9c07f9133b2fc8717988ad",
       "sha256:dcfe27490306091b2763c42a8b45893f06352700f3ec86713a7ca5357a009316",
@@ -586,6 +588,56 @@
         "pred": "era",
         "args": [
           "uthers-time"
+        ]
+      },
+      "support": {
+        "monomials": [
+          [
+            "+0"
+          ]
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
+    },
+    {
+      "schema_version": 5,
+      "authority": null,
+      "claim_id": "sha256:444ce680d83767b0dd41d3b2e30ed9b7f5c27455375aa6af1da1b90cf79c31ce",
+      "atom": {
+        "pred": "era",
+        "args": [
+          "arthurs-reign"
+        ]
+      },
+      "support": {
+        "monomials": [
+          [
+            "+0"
+          ]
+        ]
+      },
+      "defeaters": {
+        "monomials": []
+      },
+      "grade": "asserted",
+      "provenance": {
+        "marker": "Decided"
+      }
+    },
+    {
+      "schema_version": 5,
+      "authority": null,
+      "claim_id": "sha256:fe46e40618436bf6ce45dd8f1b47ea261bd1293a43108e58fcca43af909433bd",
+      "atom": {
+        "pred": "era",
+        "args": [
+          "after-camlann"
         ]
       },
       "support": {

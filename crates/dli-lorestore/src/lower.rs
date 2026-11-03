@@ -24,7 +24,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use dli_ast::annot::{Annotation, CitationRef, CondExpr, ProvenanceMarker};
-use dli_ast::decl::{Decl, Document, EntityDecl, EntityKind, FactDecl, RatifyDecl, ScopeHeader};
+use dli_ast::decl::{
+    Decl, Document, EntityDecl, EntityKind, FactDecl, RatifyDecl, ScopeHeader, TimeClause,
+};
 use dli_ast::ident::Ident;
 use dli_ast::span::Span;
 use dli_ast::term::{AtomExpr, Term};
@@ -295,6 +297,17 @@ pub fn carried_atom_renders(decl: &Decl) -> Vec<String> {
                 }
                 .render(),
             );
+            if let Some(TimeClause::Order(chain)) = &e.time {
+                for member in chain {
+                    renders.push(
+                        dli_eval::world::GroundAtom {
+                            pred: e.kind.keyword().to_owned(),
+                            args: vec![member.text.clone()],
+                        }
+                        .render(),
+                    );
+                }
+            }
             for slot in &e.slots {
                 let atom = AtomExpr {
                     pred: slot.attr.clone(),
@@ -419,9 +432,9 @@ pub fn lower_decl(
         FactObject::new(
             claim_for(&ground),
             ground,
-            ann.support,
-            ann.defeaters,
-            conditions,
+            ann.support.clone(),
+            ann.defeaters.clone(),
+            conditions.clone(),
             Grade::Asserted,
         )
         .with_provenance(crate::object::FactProvenance {
@@ -430,6 +443,34 @@ pub fn lower_decl(
             ..Default::default()
         }),
     );
+
+    // Each era-chain member is an independently queryable atom backed by the
+    // same annotation as the declaration's head.
+    if let Decl::Entity(entity) = decl
+        && let Some(TimeClause::Order(chain)) = &entity.time
+    {
+        for member in chain {
+            let ground = dli_eval::world::GroundAtom {
+                pred: entity.kind.keyword().to_owned(),
+                args: vec![member.text.clone()],
+            };
+            objects.push(
+                FactObject::new(
+                    claim_for(&ground),
+                    ground,
+                    ann.support.clone(),
+                    ann.defeaters.clone(),
+                    conditions.clone(),
+                    Grade::Asserted,
+                )
+                .with_provenance(crate::object::FactProvenance {
+                    marker: provenance.map(|p| p.marker),
+                    located_body: None,
+                    ..Default::default()
+                }),
+            );
+        }
+    }
 
     // Entity slots — the loader lowers each slot as an attr atom with
     // provenance inherited from the entity when the slot carries none
@@ -1077,9 +1118,8 @@ pub enum ReconstructError {
 type CarriedFactKey = (crate::identity::ContentHash, ClaimId);
 type MarkerIndex = BTreeMap<CarriedFactKey, (Option<ProvenanceMarker>, bool)>;
 
-/// Preserve current metadata for the cited entities whose generated fact has
-/// a stable identity independent of positional proposal numbering.
-struct CitedEntityReplay<'a> {
+/// Recover carried entity facts by identity and preserve their standing.
+struct EntityReplay<'a> {
     objects: &'a [FactObject],
     interner: &'a Interner,
     pack_name: &'a str,
@@ -1088,22 +1128,21 @@ struct CitedEntityReplay<'a> {
     markers: Option<MarkerIndex>,
 }
 
-impl CitedEntityReplay<'_> {
+impl EntityReplay<'_> {
     fn observe(&mut self, decl: &Decl) {
         if let Some(replay) = &mut self.replay_interner {
             let _ = lower_decl(decl, self.pack_name, replay, &mut self.bundle_counter);
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn prepare(
         &mut self,
         decl: &mut Decl,
         name: &str,
         preceding: &[Decl],
     ) -> Result<Option<Vec<CarriedFactKey>>, ReconstructError> {
-        let eligible = matches!(decl, Decl::Entity(entity)
-                    if entity.provenance.as_ref().is_some_and(|ann| ann.marker.requires_citation())
-        );
+        let eligible = matches!(decl, Decl::Entity(entity) if entity.provenance.is_some());
         if !eligible {
             return Ok(None);
         }
@@ -1127,7 +1166,8 @@ impl CitedEntityReplay<'_> {
         if replay.names().len() != initial_names {
             return Err(ReconstructError::Carriage {
                 name: name.to_owned(),
-                reason: "entity provenance is absent from the committed interner".to_owned(),
+                reason: "entity provenance or proposal gate is absent from the committed interner"
+                    .to_owned(),
             });
         }
         let keys: Vec<_> = generated
@@ -1147,7 +1187,11 @@ impl CitedEntityReplay<'_> {
         let Decl::Entity(entity) = decl else {
             return Ok(None);
         };
-        if keys.len() != entity.slots.len() + 1 {
+        let chain_len = match &entity.time {
+            Some(TimeClause::Order(chain)) => chain.len(),
+            _ => 0,
+        };
+        if keys.len() != entity.slots.len() + chain_len + 1 {
             return Err(ReconstructError::Carriage {
                 name: name.to_owned(),
                 reason: "entity did not regenerate its facts".to_owned(),
@@ -1182,11 +1226,24 @@ impl CitedEntityReplay<'_> {
         {
             annotation.marker = marker;
         }
+        for key in &keys[1..=chain_len] {
+            if let Some(marker) = current_marker(key)?
+                && entity
+                    .provenance
+                    .as_ref()
+                    .is_some_and(|parent| parent.marker != marker)
+            {
+                return Err(ReconstructError::Carriage {
+                    name: name.to_owned(),
+                    reason: "era-chain member standing differs from its declaration".to_owned(),
+                });
+            }
+        }
         for ((slot, mut annotation), key) in entity
             .slots
             .iter_mut()
             .zip(slot_annotations)
-            .zip(&keys[1..])
+            .zip(&keys[1 + chain_len..])
         {
             if let Some(marker) = current_marker(key)? {
                 annotation.marker = marker;
@@ -1283,7 +1340,7 @@ pub fn reconstruct_pack(
 ) -> Result<Pack, ReconstructError> {
     let mut decls = missing_ratify_decls(fact_objects, known_decisions);
 
-    let mut cited_entities = CitedEntityReplay {
+    let mut entities_replay = EntityReplay {
         objects: fact_objects,
         interner,
         pack_name,
@@ -1325,16 +1382,16 @@ pub fn reconstruct_pack(
                     name: body.name.clone(),
                     reason: e.to_string(),
                 })?;
-            let cited_entity_identity = cited_entities.prepare(&mut decl, &body.name, &decls)?;
+            let entity_fact_identities = entities_replay.prepare(&mut decl, &body.name, &decls)?;
             index += 1;
-            if let Some(keys) = cited_entity_identity {
+            if let Some(keys) = entity_fact_identities {
                 // Intervening independent supports can precede a carried
                 // child. Keep looking by exact identity until the next carriage.
                 for key in keys {
                     *pending.entry(key).or_default() += 1;
                 }
             } else {
-                cited_entities.observe(&decl);
+                entities_replay.observe(&decl);
                 for expected in carried_atom_renders(&decl) {
                     if fact_objects.get(index).is_some_and(|next| {
                         next.expert_body.is_none() && next.atom.render() == expected
@@ -1399,7 +1456,7 @@ pub fn reconstruct_pack(
             }));
         }
         if let Some(decl) = decls.last() {
-            cited_entities.observe(decl);
+            entities_replay.observe(decl);
         }
         index += 1;
     }
@@ -1493,7 +1550,43 @@ fn ensure_positional_proposals_survive(
         });
     }
     let (regenerated, names) = lower_pack(pack);
-    if collect(&regenerated, &Interner::from_names(names))? != source {
+    let mut replayed = collect(&regenerated, &Interner::from_names(names))?;
+    // Older stores carried an era-chain declaration and its head but did not
+    // store the tail facts separately. Replaying those specifically implied
+    // members is a forward-compatible expansion, provided their support is
+    // exactly the stored head's. Do not excuse any other missing proposal.
+    let mut source_by_atom: BTreeMap<_, Vec<_>> = BTreeMap::new();
+    for (atom, paths) in &source {
+        source_by_atom.entry(atom).or_default().push(paths);
+    }
+    for decl in pack.documents.iter().flat_map(|doc| &doc.decls) {
+        let Decl::Entity(entity) = decl else { continue };
+        let Some(TimeClause::Order(chain)) = &entity.time else {
+            continue;
+        };
+        let head = dli_eval::world::GroundAtom {
+            pred: entity.kind.keyword().to_owned(),
+            args: vec![entity.name.text.clone()],
+        };
+        let Some(paths) = source_by_atom.get(&head) else {
+            continue;
+        };
+        for path in paths {
+            for member in chain {
+                let signature = (
+                    dli_eval::world::GroundAtom {
+                        pred: head.pred.clone(),
+                        args: vec![member.text.clone()],
+                    },
+                    (*path).clone(),
+                );
+                if !source.contains(&signature) {
+                    replayed.remove(&signature);
+                }
+            }
+        }
+    }
+    if replayed != source {
         return Err(ReconstructError::Unfaithful {
             atom: "proposal".to_owned(),
             reason: "anonymous proposal identities change during reconstruction".to_owned(),

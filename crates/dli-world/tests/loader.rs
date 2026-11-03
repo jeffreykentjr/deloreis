@@ -696,6 +696,89 @@ fn before_declarations_build_a_live_chronology() {
 }
 
 #[test]
+fn entity_sorts_and_all_era_chain_members_are_queryable() {
+    let entity = |kind, name: &str, time| {
+        Decl::Entity(EntityDecl {
+            kind,
+            name: ident(name),
+            label: None,
+            time,
+            slots: Vec::new(),
+            provenance: Some(ann(ProvenanceMarker::Proposed, &[])),
+        })
+    };
+    let compiled = dli_world::compile(&Pack {
+        name: "test".to_owned(),
+        documents: vec![doc(
+            "test",
+            vec![
+                entity(EntityKind::Person, "ada", None),
+                entity(
+                    EntityKind::Era,
+                    "first",
+                    Some(TimeClause::Order(vec![ident("second"), ident("third")])),
+                ),
+            ],
+        )],
+    })
+    .expect("world compiles");
+    let query = |predicate: &str| {
+        compiled
+            .model()
+            .world
+            .query(&Query {
+                goal: AtomExpr {
+                    pred: ident(predicate),
+                    args: vec![Term::Var(ident("item"))],
+                },
+            })
+            .expect("declared sort is queryable")
+            .rows
+            .into_iter()
+            .map(|row| row.bindings["item"].clone())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(query("person"), ["ada"]);
+    assert_eq!(query("era"), ["first", "second", "third"]);
+}
+
+#[test]
+fn entity_support_matches_direct_lowering_for_shared_and_untagged_proposals() {
+    let entity = |name: &str, tags: &[&str]| {
+        let mut provenance = ann(ProvenanceMarker::Proposed, &[]);
+        provenance.tags = tags.iter().map(|tag| (*tag).to_owned()).collect();
+        Decl::Entity(EntityDecl {
+            kind: EntityKind::Person,
+            name: ident(name),
+            label: None,
+            time: None,
+            slots: Vec::new(),
+            provenance: Some(provenance),
+        })
+    };
+    let document = doc(
+        "test",
+        vec![
+            entity("ada", &["group"]),
+            fact(
+                "knows",
+                &["ada", "bea"],
+                false,
+                Some(ann(ProvenanceMarker::Proposed, &[])),
+            ),
+            entity("bea", &["group"]),
+            entity("cy", &[]),
+        ],
+    );
+    let loaded = Loader::load(std::slice::from_ref(&document)).world.world;
+    let direct = World::lower(&document).expect("direct lowering");
+    assert_eq!(loaded.interner.names(), direct.interner.names());
+    assert_eq!(loaded.facts, direct.facts);
+    assert_eq!(loaded.facts[0].ann, loaded.facts[2].ann);
+    assert_ne!(loaded.facts[0].ann, loaded.facts[3].ann);
+}
+
+#[test]
 fn chronology_and_time_points_match_the_evaluator_lowering() {
     // The loader must build the timeline byte-for-byte as `World::lower` does:
     // era-order chains and `before`-decls, interned in document order. The chain
@@ -810,4 +893,36 @@ fn a_lone_era_reaches_the_timeline_even_with_no_edge() {
         world.time_points.names().iter().any(|n| n == "first-tides"),
         "a lone era must be interned into the time-point table"
     );
+}
+
+#[test]
+fn era_chain_members_keep_source_and_upgrade_prior_mentions() {
+    let source = "scope story\nratify d-1\nmentions(wren, noon) ratified d-1\nera dawn < noon < dusk ratified d-1\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics.iter().all(|d| !d.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let compiled = dli_world::compile(&Pack {
+        name: "story".into(),
+        documents: vec![document],
+    })
+    .unwrap();
+    for member in ["noon", "dusk"] {
+        assert!(
+            compiled
+                .model
+                .facts_about(member)
+                .iter()
+                .any(|atom| atom.atom.pred.text == "era" && atom.span.end > atom.span.start),
+            "missing source for {member}"
+        );
+        let entity = compiled
+            .model
+            .entities()
+            .iter()
+            .find(|entry| entry.name == member)
+            .unwrap();
+        assert_eq!(entity.sort.as_deref(), Some("era"));
+    }
 }

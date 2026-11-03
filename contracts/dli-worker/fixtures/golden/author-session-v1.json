@@ -136,6 +136,40 @@
                   "status": "dead"
                 },
                 "rendered": "home(nara, riverside): dead (asserted) -> possible (asserted)"
+              },
+              {
+                "after": {
+                  "grade": "asserted",
+                  "status": "possible"
+                },
+                "atom": {
+                  "args": [
+                    "nara"
+                  ],
+                  "pred": "person"
+                },
+                "before": {
+                  "grade": "asserted",
+                  "status": "dead"
+                },
+                "rendered": "person(nara): dead (asserted) -> possible (asserted)"
+              },
+              {
+                "after": {
+                  "grade": "asserted",
+                  "status": "possible"
+                },
+                "atom": {
+                  "args": [
+                    "riverside"
+                  ],
+                  "pred": "place"
+                },
+                "before": {
+                  "grade": "asserted",
+                  "status": "dead"
+                },
+                "rendered": "place(riverside): dead (asserted) -> possible (asserted)"
               }
             ]
           },
@@ -159,6 +193,36 @@
               "atom": "home(nara, riverside)",
               "introduced": true,
               "rendered": "home(nara, riverside): dead (asserted) -> possible (asserted)",
+              "retracted": false
+            },
+            {
+              "after": {
+                "grade": "asserted",
+                "status": "possible",
+                "support": [
+                  [
+                    "+h.session-fx01"
+                  ]
+                ]
+              },
+              "atom": "person(nara)",
+              "introduced": true,
+              "rendered": "person(nara): dead (asserted) -> possible (asserted)",
+              "retracted": false
+            },
+            {
+              "after": {
+                "grade": "asserted",
+                "status": "possible",
+                "support": [
+                  [
+                    "+h.session-fx01"
+                  ]
+                ]
+              },
+              "atom": "place(riverside)",
+              "introduced": true,
+              "rendered": "place(riverside): dead (asserted) -> possible (asserted)",
               "retracted": false
             }
           ],

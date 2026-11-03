@@ -8,7 +8,7 @@
         "id": "1",
         "ok": true,
         "result": {
-          "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
+          "root_hash": "world:sha256:f481cce16ec748aa86efb2a18417fe377d5daa108c625adb4dac46db7092053a",
           "rows": [
             {
               "atom": "adjacent(camelot, the-lake)",
@@ -18,7 +18,7 @@
               ],
               "grade": "asserted",
               "rendered": "certain  adjacent(camelot, the-lake)  (asserted)",
-              "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
+              "root_hash": "world:sha256:f481cce16ec748aa86efb2a18417fe377d5daa108c625adb4dac46db7092053a",
               "status": "certain",
               "support": {
                 "monomials": [
@@ -77,7 +77,7 @@
         "id": "2",
         "ok": true,
         "result": {
-          "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
+          "root_hash": "world:sha256:f481cce16ec748aa86efb2a18417fe377d5daa108c625adb4dac46db7092053a",
           "rows": [
             {
               "atom": "adjacent(camelot, the-lake)",
@@ -87,7 +87,7 @@
               ],
               "grade": "asserted",
               "rendered": "certain  adjacent(camelot, the-lake)  (asserted)",
-              "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
+              "root_hash": "world:sha256:f481cce16ec748aa86efb2a18417fe377d5daa108c625adb4dac46db7092053a",
               "status": "certain",
               "support": {
                 "monomials": [
@@ -167,7 +167,7 @@
         "id": "3",
         "ok": true,
         "result": {
-          "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
+          "root_hash": "world:sha256:f481cce16ec748aa86efb2a18417fe377d5daa108c625adb4dac46db7092053a",
           "rows": [
             {
               "atom": "adjacent(camelot, the-lake)",
@@ -179,7 +179,7 @@
               ],
               "grade": "asserted",
               "rendered": "certain  adjacent(camelot, the-lake)  (asserted)",
-              "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
+              "root_hash": "world:sha256:f481cce16ec748aa86efb2a18417fe377d5daa108c625adb4dac46db7092053a",
               "status": "certain",
               "support": {
                 "monomials": [
@@ -238,7 +238,7 @@
         "id": "4",
         "ok": true,
         "result": {
-          "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
+          "root_hash": "world:sha256:f481cce16ec748aa86efb2a18417fe377d5daa108c625adb4dac46db7092053a",
           "rows": [
             {
               "atom": "adjacent(camelot, the-lake)",
@@ -250,7 +250,7 @@
               ],
               "grade": "asserted",
               "rendered": "certain  adjacent(camelot, the-lake)  (asserted)",
-              "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
+              "root_hash": "world:sha256:f481cce16ec748aa86efb2a18417fe377d5daa108c625adb4dac46db7092053a",
               "status": "certain",
               "support": {
                 "monomials": [
@@ -330,7 +330,7 @@
         "id": "5",
         "ok": true,
         "result": {
-          "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
+          "root_hash": "world:sha256:f481cce16ec748aa86efb2a18417fe377d5daa108c625adb4dac46db7092053a",
           "rows": [
             {
               "atom": "adjacent(camelot, the-lake)",
@@ -340,7 +340,7 @@
               ],
               "grade": "asserted",
               "rendered": "certain  adjacent(camelot, the-lake)  (asserted)",
-              "root_hash": "world:sha256:8f6cb4f9c876806ad084bf1573463e0c56acaff704b6aca299d623e57a680e31",
+              "root_hash": "world:sha256:f481cce16ec748aa86efb2a18417fe377d5daa108c625adb4dac46db7092053a",
               "status": "certain",
               "support": {
                 "monomials": [

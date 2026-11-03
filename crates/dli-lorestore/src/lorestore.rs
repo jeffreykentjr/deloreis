@@ -306,6 +306,12 @@ impl Lorestore {
             return Ok(false);
         }
         self.validate_decision_attacks_at(&new.commit)?;
+        if current
+            .as_ref()
+            .is_none_or(|reference| reference.commit != new.commit)
+        {
+            self.validate_chain_replay_at(&new.commit)?;
+        }
         self.storage.cas_ref(MAIN_REF, expected, new)
     }
 
@@ -392,6 +398,12 @@ impl Lorestore {
             return Ok(false);
         }
         self.validate_decision_attacks_at(&new.commit)?;
+        if current
+            .as_ref()
+            .is_none_or(|reference| reference.commit != new.commit)
+        {
+            self.validate_chain_replay_at(&new.commit)?;
+        }
         self.storage.cas_ref(&ref_name, expected, new)
     }
 
@@ -635,11 +647,13 @@ impl Lorestore {
             None => Vec::new(),
         };
         let mut fact_identities = std::collections::BTreeMap::new();
+        let mut candidate_objects = Vec::with_capacity(candidate_facts.len() + fact_hashes.len());
         for (index, hash) in candidate_facts.iter().enumerate() {
             let object: crate::FactObject = self
                 .read_object(hash)?
                 .ok_or_else(|| StoreError::NotFound(format!("fact object missing: {hash}")))?;
             fact_identities.insert(object.content_hash()?, index);
+            candidate_objects.push(object);
         }
         for hash in &fact_hashes {
             let object: crate::FactObject = self
@@ -648,10 +662,20 @@ impl Lorestore {
             let identity = object.content_hash()?;
             if let Some(index) = fact_identities.get(&identity) {
                 candidate_facts[*index] = hash.clone();
+                candidate_objects[*index] = object;
             } else {
                 fact_identities.insert(identity, candidate_facts.len());
                 candidate_facts.push(hash.clone());
+                candidate_objects.push(object);
             }
+        }
+        // A chain's member facts share one carried source annotation. Verify
+        // the exact candidate fold while holding the ref lock, before any
+        // commit or ref update, so no write path can strand the branch.
+        if candidate_objects.iter().any(carried_era_chain) {
+            let interner = dli_core::Interner::from_names(interner.clone());
+            let known = decisions.iter().cloned().collect();
+            crate::lower::reconstruct_pack(&candidate_objects, &interner, &known, &pack_name)?;
         }
         let mut candidate_attacks = match &expected {
             Some(parent) => self.decision_attack_hashes_from(&ContentHash(parent.clone()))?,
@@ -1000,6 +1024,25 @@ impl Lorestore {
     /// Refuse a raw commit pointer whose folded attack graph is invalid.
     fn validate_decision_attacks_at(&self, head: &ContentHash) -> Result<(), StoreError> {
         self.decision_attacks_from(head).map(drop)
+    }
+
+    /// Refuse a raw ref target whose carried era chains cannot replay.
+    fn validate_chain_replay_at(&self, head: &ContentHash) -> Result<(), StoreError> {
+        let commit = self.commit_at(head)?;
+        let objects = self
+            .fact_hashes_from(head)?
+            .iter()
+            .map(|hash| {
+                self.read_object::<crate::FactObject>(hash)?
+                    .ok_or_else(|| StoreError::NotFound(format!("fact object missing: {hash}")))
+            })
+            .collect::<Result<Vec<_>, StoreError>>()?;
+        if objects.iter().any(carried_era_chain) {
+            let interner = dli_core::Interner::from_names(commit.interner);
+            let decisions = commit.decisions.into_iter().collect();
+            crate::lower::reconstruct_pack(&objects, &interner, &decisions, &commit.pack_name)?;
+        }
+        Ok(())
     }
 
     /// Project effective standing at `head`: legacy numeric Ref assignments are
@@ -1835,6 +1878,22 @@ impl Lorestore {
             recompiles_saved: scan.recompiles_saved,
         })
     }
+}
+
+fn carried_era_chain(object: &crate::FactObject) -> bool {
+    if !object
+        .expert_body
+        .as_ref()
+        .is_some_and(|body| body.kind == crate::object::ExpertDeclKind::Entity)
+    {
+        return false;
+    }
+    let Some(body) = object.carriage_json() else {
+        return false;
+    };
+    matches!(serde_json::from_str::<dli_ast::decl::Decl>(body),
+        Ok(dli_ast::decl::Decl::Entity(entity))
+            if matches!(entity.time, Some(dli_ast::decl::TimeClause::Order(_))))
 }
 
 /// The head-replaced fields, checked against the parent commit.
