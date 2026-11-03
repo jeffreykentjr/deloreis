@@ -1076,6 +1076,7 @@ impl LoadCtx {
     /// a claim-from-nowhere (charter koan 1). Every fail path returns
     /// [`Compiled::fail_closed`] (`P⁺ = 0`), the fail-closed theorem of spec
     /// 02 §3.
+    #[allow(clippy::too_many_lines)]
     fn compile_ann(
         &mut self,
         provenance: Option<&Annotation>,
@@ -1094,7 +1095,15 @@ impl LoadCtx {
             }
             return Compiled::fail_closed();
         };
-
+        if !annotation.valid_bundle() {
+            self.findings.push(LoadFinding::MalformedProvenance {
+                decl: label.to_owned(),
+                pack: pack.to_owned(),
+                reason: "bundle needs scope#number, without tags or assumptions".to_owned(),
+                span: annotation.span,
+            });
+            return Compiled::fail_closed();
+        }
         if annotation.marker.requires_citation() && annotation.citations.is_empty() {
             self.findings.push(LoadFinding::MalformedProvenance {
                 decl: label.to_owned(),
@@ -1121,9 +1130,23 @@ impl LoadCtx {
             if annotation.condition.is_some() {
                 PosBool::truth()
             } else {
-                let key = if annotation.tags.is_empty() {
+                let key = if let Some(bundle) = &annotation.bundle {
+                    if let Some(ordinal) = annotation.bundle_ordinal() {
+                        self.bundle_counter = self.bundle_counter.max(ordinal.saturating_add(1));
+                    }
+                    bundle.clone()
+                } else if annotation.tags.is_empty() {
+                    let Some(next) = self.bundle_counter.checked_add(1) else {
+                        self.findings.push(LoadFinding::MalformedProvenance {
+                            decl: label.to_owned(),
+                            pack: pack.to_owned(),
+                            reason: "proposal bundle sequence is exhausted".to_owned(),
+                            span: annotation.span,
+                        });
+                        return Compiled::fail_closed();
+                    };
                     let key = format!("{pack}#{}", self.bundle_counter);
-                    self.bundle_counter += 1;
+                    self.bundle_counter = next;
                     key
                 } else {
                     annotation.tags.join("+")
@@ -1382,6 +1405,7 @@ pub fn example_docs() -> Vec<Document> {
                 })
                 .unwrap_or_default(),
             condition: None,
+            bundle: None,
             tags: Vec::new(),
             span: Span::synthetic(),
         }

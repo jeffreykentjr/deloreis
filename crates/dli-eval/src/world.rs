@@ -864,6 +864,9 @@ impl World {
         let Some(annotation) = annotation else {
             return Ann::supported(PosBool::FALSE);
         };
+        if !annotation.valid_bundle() {
+            return Ann::supported(PosBool::FALSE);
+        }
         let condition = annotation
             .condition
             .as_ref()
@@ -874,9 +877,17 @@ impl World {
             // proposal variable when the claim carries no condition, which would
             // otherwise leave it unratifiable.
             ProvenanceMarker::Proposed => condition.unwrap_or_else(|| {
-                let key = if annotation.tags.is_empty() {
+                let key = if let Some(bundle) = &annotation.bundle {
+                    if let Some(ordinal) = annotation.bundle_ordinal() {
+                        *proposal_seq = (*proposal_seq).max(ordinal.saturating_add(1));
+                    }
+                    bundle.clone()
+                } else if annotation.tags.is_empty() {
+                    let Some(next) = proposal_seq.checked_add(1) else {
+                        return PosBool::FALSE;
+                    };
                     let key = format!("{scope}#{proposal_seq}");
-                    *proposal_seq += 1;
+                    *proposal_seq = next;
                     key
                 } else {
                     annotation.tags.join("+")

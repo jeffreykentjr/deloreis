@@ -24,6 +24,7 @@ fn ratified(decision: &str) -> Annotation {
         marker: ProvenanceMarker::Ratified,
         citations: vec![CitationRef { id: id(decision) }],
         condition: None,
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     }

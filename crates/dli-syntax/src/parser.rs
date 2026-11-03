@@ -1162,6 +1162,7 @@ pub fn line_open_keywords() -> &'static [&'static str] {
 }
 
 /// A parsed item before options are folded into their question or fork.
+#[allow(clippy::large_enum_variant)]
 enum Item {
     Decl(Decl),
     Option(OptionClause, Span),
@@ -2774,6 +2775,7 @@ fn parse_banned(cur: &mut Cursor, span: Span, diags: &mut Vec<Diagnostic>) -> Op
             marker: ProvenanceMarker::Decided,
             citations,
             condition: None,
+            bundle: None,
             tags: Vec::new(),
             span,
         })
@@ -2953,18 +2955,35 @@ fn split_head_prov(
 fn parse_provenance(cur: &mut Cursor, diags: &mut Vec<Diagnostic>) -> Option<Annotation> {
     let marker_text = cur.peek_word_text()?;
     let marker = match marker_text {
-        "proposed" => ProvenanceMarker::Proposed,
+        "proposed" | "proposed-bundle" => ProvenanceMarker::Proposed,
         "decided" => ProvenanceMarker::Decided,
         "ratified" => ProvenanceMarker::Ratified,
         "provisional" => ProvenanceMarker::Provisional,
         _ => return None,
     };
+    let explicit_bundle = marker_text == "proposed-bundle";
     let marker_span = cur.peek().map_or(Span::synthetic(), |t| t.span);
     cur.bump();
 
     let mut citations = Vec::new();
     let mut condition = None;
     let mut tags = Vec::new();
+    let bundle = if explicit_bundle {
+        if let Some(token) = cur.peek().filter(|token| token.kind == TokenKind::Str) {
+            let value = token.text.clone();
+            cur.bump();
+            Some(value)
+        } else {
+            diags.push(Diagnostic::new(
+                DiagClass::Malformed,
+                "`proposed-bundle` needs a quoted scope#number".to_owned(),
+                marker_span,
+            ));
+            None
+        }
+    } else {
+        None
+    };
     while let Some(tok) = cur.peek() {
         if tok.kind == TokenKind::Word && is_citation(&tok.text) {
             citations.push(CitationRef { id: ident_of(tok) });
@@ -2972,7 +2991,10 @@ fn parse_provenance(cur: &mut Cursor, diags: &mut Vec<Diagnostic>) -> Option<Ann
         } else if tok.kind == TokenKind::Word && tok.text == "assumes" {
             cur.bump();
             condition = parse_condition(cur);
-        } else if tok.kind == TokenKind::Word && is_marker(&tok.text) {
+        } else if tok.kind == TokenKind::Word
+            && is_marker(&tok.text)
+            && (tok.text != "proposed-bundle" || explicit_bundle)
+        {
             // A second marker on one line is a conflict, not a tag (M2): keep
             // the first, flag the rest rather than silently demoting it.
             diags.push(Diagnostic::new(
@@ -3002,13 +3024,19 @@ fn parse_provenance(cur: &mut Cursor, diags: &mut Vec<Diagnostic>) -> Option<Ann
         ));
     }
 
-    Some(Annotation {
+    let annotation = Annotation {
         marker,
         citations,
         condition,
+        bundle,
         tags,
         span: marker_span,
-    })
+    };
+    if !annotation.valid_bundle() {
+        diags.push(Diagnostic::new(DiagClass::Malformed,
+            "a proposal bundle needs a quoted scope#number and cannot be combined with tags or assumptions".to_owned(), marker_span));
+    }
+    Some(annotation)
 }
 
 fn parse_condition(cur: &mut Cursor) -> Option<CondExpr> {
@@ -3048,7 +3076,10 @@ fn parse_condition_primary(cur: &mut Cursor) -> Option<CondExpr> {
 }
 
 fn is_marker(text: &str) -> bool {
-    matches!(text, "proposed" | "decided" | "ratified" | "provisional")
+    matches!(
+        text,
+        "proposed" | "proposed-bundle" | "decided" | "ratified" | "provisional"
+    )
 }
 
 /// Whether a token reads as a decision citation, e.g. `d-0001` or `D-0146`.

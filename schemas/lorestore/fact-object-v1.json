@@ -142,6 +142,16 @@
       "description": "The kind of expert-tier declaration a [`FactObject::expert_body`] belongs to.\n\nThe coupling audit (`dli-syntax-coupling-audit.md`) found eleven declaration\ntypes whose bodies are captured as `Vec<Clause>` (whitespace-normalized raw\ntext), re-parsed downstream at semantic-analysis time. In v1 the fact-object\nschema carries these bodies as marked strings — deterministic to hash, but\nsemantically opaque — and the `schema_version` + upcast machinery is how\nthey later deepen to typed interiors (LS-9). Each variant is tagged so the\nupcast knows which declaration type to deepen.",
       "oneOf": [
         {
+          "description": "A fact whose proposed annotation carries otherwise unrecorded citations.",
+          "type": "string",
+          "const": "fact"
+        },
+        {
+          "description": "An attribute whose proposed annotation carries otherwise unrecorded citations.",
+          "type": "string",
+          "const": "attr"
+        },
+        {
           "description": "`rule <name> [over <domain>] … { body }`",
           "type": "string",
           "const": "rule"

@@ -557,6 +557,13 @@ impl Compiler {
                 Vec::new(),
             );
         };
+        if !annotation.valid_bundle() {
+            return (
+                Ann::supported(PosBool::FALSE),
+                Provenance::Unprovenanced,
+                Vec::new(),
+            );
+        }
         if annotation.marker.requires_citation() && annotation.citations.is_empty() {
             return (
                 Ann::supported(PosBool::FALSE),
@@ -574,9 +581,21 @@ impl Compiler {
             if annotation.condition.is_some() {
                 PosBool::truth()
             } else {
-                let key = if annotation.tags.is_empty() {
+                let key = if let Some(bundle) = &annotation.bundle {
+                    if let Some(ordinal) = annotation.bundle_ordinal() {
+                        self.bundle_counter = self.bundle_counter.max(ordinal.saturating_add(1));
+                    }
+                    bundle.clone()
+                } else if annotation.tags.is_empty() {
+                    let Some(next) = self.bundle_counter.checked_add(1) else {
+                        return (
+                            Ann::supported(PosBool::FALSE),
+                            Provenance::Unprovenanced,
+                            Vec::new(),
+                        );
+                    };
                     let key = format!("{pack}#{}", self.bundle_counter);
-                    self.bundle_counter += 1;
+                    self.bundle_counter = next;
                     key
                 } else {
                     annotation.tags.join("+")

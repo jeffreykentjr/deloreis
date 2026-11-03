@@ -52,6 +52,7 @@ fn provenance(marker: ProvenanceMarker, citations: &[&str]) -> Annotation {
             })
             .collect(),
         condition: None,
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     }
@@ -116,6 +117,7 @@ fn storybook_document() -> Document {
                     marker: ProvenanceMarker::Proposed,
                     citations: Vec::new(),
                     condition: None,
+                    bundle: None,
                     tags: Vec::new(),
                     span: Span::synthetic(),
                 }),
@@ -437,6 +439,7 @@ fn a2_proposed_with_assumes_is_ratifiable() {
                 marker: ProvenanceMarker::Proposed,
                 citations: Vec::new(),
                 condition: Some(CondExpr::Hyp(Ident::synthetic("h-x"))),
+                bundle: None,
                 tags: Vec::new(),
                 span: Span::synthetic(),
             }),

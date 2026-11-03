@@ -119,6 +119,7 @@ fn ann_cond(marker: ProvenanceMarker, cites: &[&str], condition: Option<CondExpr
         marker,
         citations: cites.iter().map(|c| CitationRef { id: ident(c) }).collect(),
         condition,
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     }
@@ -925,4 +926,26 @@ fn era_chain_members_keep_source_and_upgrade_prior_mentions() {
             .unwrap();
         assert_eq!(entity.sort.as_deref(), Some("era"));
     }
+}
+
+#[test]
+fn explicit_proposal_bundle_never_overflows_the_counter() {
+    let source = "scope story\nperson wren \"Wren\" proposed-bundle \"story#4294967294\"\nperson robin \"Robin\" proposed\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics.iter().all(|d| !d.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let world = dli_world::compile(&Pack {
+        name: "story".into(),
+        documents: vec![document],
+    })
+    .unwrap();
+    assert!(
+        world
+            .model
+            .findings()
+            .iter()
+            .any(|finding| finding.message().contains("sequence is exhausted"))
+    );
 }

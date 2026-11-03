@@ -33,6 +33,7 @@ fn sample_document() -> Document {
                         id: Ident::synthetic("D-0042"),
                     }],
                     condition: None,
+                    bundle: None,
                     tags: vec![],
                     span: Span::synthetic(),
                 }),

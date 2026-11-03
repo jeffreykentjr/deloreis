@@ -27,7 +27,7 @@
       "sha256:98785b0af246820f1380969bc64423a395148aeeee338bb00e9865239e96bbe3",
       "sha256:d88fc838b185b0687d2619856def3cdcb9b44a6a97ae90256cd93887c22d860c",
       "sha256:5b78f605765a7ba9f1049fbe67d5774e2d00de4815aea3dcff64691b1434e125",
-      "sha256:987f2cfa13f6082b8a5a5a9ca3e72ce4351168424775ac3ce004970a6cefe398",
+      "sha256:c9466c2c730aaeb26ece267ae7cc155f0931c18afa1bb0174f9eef3736fbed36",
       "sha256:42d3bc9363e5f791a7d500142045906b2cba24b387488b85fda6404ec7e14a6a",
       "sha256:1933d5e5780a1640cfb9ea6004f71c27de449d83ad963f5ec4c1c0dd40f83567",
       "sha256:a6065b11866b7484036cc7e75c4935df20ff421be696054efec7c614534e11ab",
@@ -77,21 +77,21 @@
       "sha256:54d7e47235d2b2d560f79eebf362c5eb928c82ed86391afdeafbe1d6cc98c57b",
       "sha256:e3299d7a4e8e858aef4a52a932e91aff3ddcc6d07258957d7e72656cd4646dc3",
       "sha256:fedcfdab62b5e24b50f0da0f7eaa49714e7d021345cfcf2acbe7d7ad4a8fee78",
-      "sha256:5782601f921d8e4d41ab498eef25fcff2880bcb07d6fd9fa7cfe06bf0d58e885",
-      "sha256:b01d5f31dafd41fc84648b98ffb89a0818ad124567c223f9e7172ffea9e5dccf",
+      "sha256:85d296e22b260460eba9c2e6bc9410ec6a14e3303e4b1fff80db81a57406a4c5",
+      "sha256:7aabb0717aa8c71cf2b2e9566a18d86a00c8b8ba3697e36b5b137ae6a681727d",
       "sha256:bebd2a699bbc600164112d3d244f9b014faec1929f04e0273b4bebde7bdd94a7",
       "sha256:c6f40715264da9592524035442907c86bc096b98fe7256d8455f9ffa445e1807",
       "sha256:67d3cd88ebfec6e8971fd1a1733fa0f4ae6378c02d96df1a29eb621ca4d98d62",
       "sha256:7c4f82f07a078e13dd41abdcb5b91aab1b479b64ba9b31fb49f2c60a2995d947",
       "sha256:1ce735c11265864f39ba3892242fb53e81755127de52008a84a4b2c32e18fe87",
-      "sha256:068a977593bc109a81a1732a75c18a011a1a8d05fb5eb26218145108573ddf59",
+      "sha256:5cfa1e84ba30d4e54f9dc30de8c1af46e3da4a5f7e201827595d80ac8ce2b2e0",
       "sha256:90d6450e78d45a8f3cdaae631f41337aebf750171e4aa90d4e73e3e76d632fa3",
-      "sha256:e45a1c69b102e5e5b4d43a6af6a79cf53f3e4045c669538cfb45e46d182fc1c8",
+      "sha256:7ae509111b0f89c3cd2922df5918e70e51442a0ad9c9178b4b25bb7bf819790e",
       "sha256:bcd4c0117088419180983e08f85978cc36bb6eda8bb9efdc74aaae0190b63f77",
       "sha256:00581d51742e77203de3a3065fc6b861089af845338c2c35c751f58f2dba9be5",
       "sha256:0f0834bc3356f1c5c92d6b715f7d9fcb9678e9f0b6021689e670d798d955ca85",
       "sha256:857bb30e905e0b753f9ea698f482088f38ff1b14b8a609efb5a4299c5ebc8995",
-      "sha256:61953d864ca6a8ebcd7641931cde9ee345e71c7f0a74589b2fc6c05b8c6d3fb5",
+      "sha256:da294649cea86872c3cad3cad31b73a5dce38093e51e1da82d4ebea3c35f3dda",
       "sha256:2bd765e4045ccaa5e07896497ac46cab0b804779f74f3c28fb625b6e4067dbd5",
       "sha256:5470cc27898a9d1fcf023babe78e8b526293d72f90a8a563a11a7cb922467a2e",
       "sha256:0509f33c405017b67a65ec72af1a040d02633457f8518f2183234647a61f4f1c",
@@ -847,11 +847,11 @@
         "kind": "entity",
         "name": "the-battle-of-camlann",
         "body": [
-          "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-battle-of-camlann\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"arthurs-reign\"}}}}"
+          "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-battle-of-camlann\"},\"provenance\":{\"bundle\":\"camelot#0\",\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"arthurs-reign\"}}}}"
         ]
       },
       "provenance": {
-        "located_body": "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":486,\"file\":0,\"start\":465},\"text\":\"the-battle-of-camlann\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":519,\"file\":0,\"start\":511},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":510,\"file\":0,\"start\":497},\"text\":\"arthurs-reign\"}}}}"
+        "located_body": "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":486,\"file\":0,\"start\":465},\"text\":\"the-battle-of-camlann\"},\"provenance\":{\"bundle\":\"camelot#0\",\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":519,\"file\":0,\"start\":511},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":510,\"file\":0,\"start\":497},\"text\":\"arthurs-reign\"}}}}"
       }
     },
     {
@@ -2233,11 +2233,11 @@
         "kind": "dialect",
         "name": "old-speech",
         "body": [
-          "{\"Dialect\":{\"body\":{\"clauses\":[{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"basis attested \\\"Old Welsh / Brythonic\\\"\"},\"item\":{\"Basis\":{\"attested\":true,\"text\":\"Old Welsh / Brythonic\"}}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"vowels a e i o u y\"},\"item\":{\"Vowels\":[\"a\",\"e\",\"i\",\"o\",\"u\",\"y\"]}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"endings -a -oc -wen\"},\"item\":{\"Endings\":[\"a\",\"oc\",\"wen\"]}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"cluster-max 2\"},\"item\":{\"ClusterMax\":2}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"stress penultimate\"},\"item\":{\"Stress\":\"penultimate\"}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"name-kind person.given = given-proto given-deutero\"},\"item\":{\"NameKind\":{\"kind\":\"person.given\",\"patterns\":[[\"given-proto\",\"given-deutero\"]]}}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"name-part myr \\\"sea\\\" role given-proto proposed\"},\"item\":{\"NamePart\":{\"gloss\":\"sea\",\"head\":[\"role\",\"given-proto\"],\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"myr\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"name-part din \\\"fastness\\\" role given-deutero proposed\"},\"item\":{\"NamePart\":{\"gloss\":\"fastness\",\"head\":[\"role\",\"given-deutero\"],\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"din\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}}]},\"label\":\"the old speech\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"old-speech\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}"
+          "{\"Dialect\":{\"body\":{\"clauses\":[{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"basis attested \\\"Old Welsh / Brythonic\\\"\"},\"item\":{\"Basis\":{\"attested\":true,\"text\":\"Old Welsh / Brythonic\"}}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"vowels a e i o u y\"},\"item\":{\"Vowels\":[\"a\",\"e\",\"i\",\"o\",\"u\",\"y\"]}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"endings -a -oc -wen\"},\"item\":{\"Endings\":[\"a\",\"oc\",\"wen\"]}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"cluster-max 2\"},\"item\":{\"ClusterMax\":2}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"stress penultimate\"},\"item\":{\"Stress\":\"penultimate\"}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"name-kind person.given = given-proto given-deutero\"},\"item\":{\"NameKind\":{\"kind\":\"person.given\",\"patterns\":[[\"given-proto\",\"given-deutero\"]]}}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"name-part myr \\\"sea\\\" role given-proto proposed-bundle \\\"camelot#1\\\"\"},\"item\":{\"NamePart\":{\"gloss\":\"sea\",\"head\":[\"role\",\"given-proto\"],\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"myr\"},\"provenance\":{\"bundle\":\"camelot#1\",\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"name-part din \\\"fastness\\\" role given-deutero proposed-bundle \\\"camelot#2\\\"\"},\"item\":{\"NamePart\":{\"gloss\":\"fastness\",\"head\":[\"role\",\"given-deutero\"],\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"din\"},\"provenance\":{\"bundle\":\"camelot#2\",\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}}]},\"label\":\"the old speech\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"old-speech\"},\"provenance\":{\"bundle\":\"camelot#0\",\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}"
         ]
       },
       "provenance": {
-        "located_body": "{\"Dialect\":{\"body\":{\"clauses\":[{\"clause\":{\"span\":{\"end\":2284,\"file\":0,\"start\":2246},\"text\":\"basis attested \\\"Old Welsh / Brythonic\\\"\"},\"item\":{\"Basis\":{\"attested\":true,\"text\":\"Old Welsh / Brythonic\"}}},{\"clause\":{\"span\":{\"end\":2305,\"file\":0,\"start\":2287},\"text\":\"vowels a e i o u y\"},\"item\":{\"Vowels\":[\"a\",\"e\",\"i\",\"o\",\"u\",\"y\"]}},{\"clause\":{\"span\":{\"end\":2327,\"file\":0,\"start\":2308},\"text\":\"endings -a -oc -wen\"},\"item\":{\"Endings\":[\"a\",\"oc\",\"wen\"]}},{\"clause\":{\"span\":{\"end\":2343,\"file\":0,\"start\":2330},\"text\":\"cluster-max 2\"},\"item\":{\"ClusterMax\":2}},{\"clause\":{\"span\":{\"end\":2364,\"file\":0,\"start\":2346},\"text\":\"stress penultimate\"},\"item\":{\"Stress\":\"penultimate\"}},{\"clause\":{\"span\":{\"end\":2417,\"file\":0,\"start\":2367},\"text\":\"name-kind person.given = given-proto given-deutero\"},\"item\":{\"NameKind\":{\"kind\":\"person.given\",\"patterns\":[[\"given-proto\",\"given-deutero\"]]}}},{\"clause\":{\"span\":{\"end\":2465,\"file\":0,\"start\":2420},\"text\":\"name-part myr \\\"sea\\\" role given-proto proposed\"},\"item\":{\"NamePart\":{\"gloss\":\"sea\",\"head\":[\"role\",\"given-proto\"],\"name\":{\"span\":{\"end\":13,\"file\":0,\"start\":10},\"text\":\"myr\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":45,\"file\":0,\"start\":37},\"tags\":[]}}}},{\"clause\":{\"span\":{\"end\":2520,\"file\":0,\"start\":2468},\"text\":\"name-part din \\\"fastness\\\" role given-deutero proposed\"},\"item\":{\"NamePart\":{\"gloss\":\"fastness\",\"head\":[\"role\",\"given-deutero\"],\"name\":{\"span\":{\"end\":13,\"file\":0,\"start\":10},\"text\":\"din\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":52,\"file\":0,\"start\":44},\"tags\":[]}}}}]},\"label\":\"the old speech\",\"name\":{\"span\":{\"end\":2215,\"file\":0,\"start\":2205},\"text\":\"old-speech\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":2241,\"file\":0,\"start\":2233},\"tags\":[]}}}"
+        "located_body": "{\"Dialect\":{\"body\":{\"clauses\":[{\"clause\":{\"span\":{\"end\":2284,\"file\":0,\"start\":2246},\"text\":\"basis attested \\\"Old Welsh / Brythonic\\\"\"},\"item\":{\"Basis\":{\"attested\":true,\"text\":\"Old Welsh / Brythonic\"}}},{\"clause\":{\"span\":{\"end\":2305,\"file\":0,\"start\":2287},\"text\":\"vowels a e i o u y\"},\"item\":{\"Vowels\":[\"a\",\"e\",\"i\",\"o\",\"u\",\"y\"]}},{\"clause\":{\"span\":{\"end\":2327,\"file\":0,\"start\":2308},\"text\":\"endings -a -oc -wen\"},\"item\":{\"Endings\":[\"a\",\"oc\",\"wen\"]}},{\"clause\":{\"span\":{\"end\":2343,\"file\":0,\"start\":2330},\"text\":\"cluster-max 2\"},\"item\":{\"ClusterMax\":2}},{\"clause\":{\"span\":{\"end\":2364,\"file\":0,\"start\":2346},\"text\":\"stress penultimate\"},\"item\":{\"Stress\":\"penultimate\"}},{\"clause\":{\"span\":{\"end\":2417,\"file\":0,\"start\":2367},\"text\":\"name-kind person.given = given-proto given-deutero\"},\"item\":{\"NameKind\":{\"kind\":\"person.given\",\"patterns\":[[\"given-proto\",\"given-deutero\"]]}}},{\"clause\":{\"span\":{\"end\":2465,\"file\":0,\"start\":2420},\"text\":\"name-part myr \\\"sea\\\" role given-proto proposed-bundle \\\"camelot#1\\\"\"},\"item\":{\"NamePart\":{\"gloss\":\"sea\",\"head\":[\"role\",\"given-proto\"],\"name\":{\"span\":{\"end\":13,\"file\":0,\"start\":10},\"text\":\"myr\"},\"provenance\":{\"bundle\":\"camelot#1\",\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":45,\"file\":0,\"start\":37},\"tags\":[]}}}},{\"clause\":{\"span\":{\"end\":2520,\"file\":0,\"start\":2468},\"text\":\"name-part din \\\"fastness\\\" role given-deutero proposed-bundle \\\"camelot#2\\\"\"},\"item\":{\"NamePart\":{\"gloss\":\"fastness\",\"head\":[\"role\",\"given-deutero\"],\"name\":{\"span\":{\"end\":13,\"file\":0,\"start\":10},\"text\":\"din\"},\"provenance\":{\"bundle\":\"camelot#2\",\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":52,\"file\":0,\"start\":44},\"tags\":[]}}}}]},\"label\":\"the old speech\",\"name\":{\"span\":{\"end\":2215,\"file\":0,\"start\":2205},\"text\":\"old-speech\"},\"provenance\":{\"bundle\":\"camelot#0\",\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":2241,\"file\":0,\"start\":2233},\"tags\":[]}}}"
       }
     },
     {
@@ -2264,11 +2264,11 @@
         "kind": "name",
         "name": "myrdin",
         "body": [
-          "{\"Name\":{\"body\":{\"clauses\":[{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"= given-proto myr + given-deutero din\"},\"item\":{\"Composition\":[{\"morpheme\":\"myr\",\"role\":\"given-proto\"},{\"morpheme\":\"din\",\"role\":\"given-deutero\"}]}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"bearer the-enchanter proposed\"},\"item\":{\"Bearer\":{\"entity\":\"the-enchanter\",\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}}]},\"head\":[\"person.given\",\"in\",\"old-speech\"],\"label\":\"Myrdin\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"myrdin\"},\"provenance\":null}}"
+          "{\"Name\":{\"body\":{\"clauses\":[{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"= given-proto myr + given-deutero din\"},\"item\":{\"Composition\":[{\"morpheme\":\"myr\",\"role\":\"given-proto\"},{\"morpheme\":\"din\",\"role\":\"given-deutero\"}]}},{\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"bearer the-enchanter proposed-bundle \\\"camelot#3\\\"\"},\"item\":{\"Bearer\":{\"entity\":\"the-enchanter\",\"provenance\":{\"bundle\":\"camelot#3\",\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}}]},\"head\":[\"person.given\",\"in\",\"old-speech\"],\"label\":\"Myrdin\",\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"myrdin\"},\"provenance\":null}}"
         ]
       },
       "provenance": {
-        "located_body": "{\"Name\":{\"body\":{\"clauses\":[{\"clause\":{\"span\":{\"end\":2610,\"file\":0,\"start\":2573},\"text\":\"= given-proto myr + given-deutero din\"},\"item\":{\"Composition\":[{\"morpheme\":\"myr\",\"role\":\"given-proto\"},{\"morpheme\":\"din\",\"role\":\"given-deutero\"}]}},{\"clause\":{\"span\":{\"end\":2642,\"file\":0,\"start\":2613},\"text\":\"bearer the-enchanter proposed\"},\"item\":{\"Bearer\":{\"entity\":\"the-enchanter\",\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":23,\"file\":0,\"start\":15},\"tags\":[]}}}}]},\"head\":[\"person.given\",\"in\",\"old-speech\"],\"label\":\"Myrdin\",\"name\":{\"span\":{\"end\":2534,\"file\":0,\"start\":2528},\"text\":\"myrdin\"},\"provenance\":null}}"
+        "located_body": "{\"Name\":{\"body\":{\"clauses\":[{\"clause\":{\"span\":{\"end\":2610,\"file\":0,\"start\":2573},\"text\":\"= given-proto myr + given-deutero din\"},\"item\":{\"Composition\":[{\"morpheme\":\"myr\",\"role\":\"given-proto\"},{\"morpheme\":\"din\",\"role\":\"given-deutero\"}]}},{\"clause\":{\"span\":{\"end\":2642,\"file\":0,\"start\":2613},\"text\":\"bearer the-enchanter proposed-bundle \\\"camelot#3\\\"\"},\"item\":{\"Bearer\":{\"entity\":\"the-enchanter\",\"provenance\":{\"bundle\":\"camelot#3\",\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":23,\"file\":0,\"start\":15},\"tags\":[]}}}}]},\"head\":[\"person.given\",\"in\",\"old-speech\"],\"label\":\"Myrdin\",\"name\":{\"span\":{\"end\":2534,\"file\":0,\"start\":2528},\"text\":\"myrdin\"},\"provenance\":null}}"
       }
     },
     {
@@ -2450,11 +2450,11 @@
         "kind": "entity",
         "name": "the-speaking-day",
         "body": [
-          "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-speaking-day\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"arthurs-reign\"}}}}"
+          "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-speaking-day\"},\"provenance\":{\"bundle\":\"camelot#2\",\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"arthurs-reign\"}}}}"
         ]
       },
       "provenance": {
-        "located_body": "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":3196,\"file\":0,\"start\":3180},\"text\":\"the-speaking-day\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":3227,\"file\":0,\"start\":3219},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":3218,\"file\":0,\"start\":3205},\"text\":\"arthurs-reign\"}}}}"
+        "located_body": "{\"Entity\":{\"kind\":\"Event\",\"label\":null,\"name\":{\"span\":{\"end\":3196,\"file\":0,\"start\":3180},\"text\":\"the-speaking-day\"},\"provenance\":{\"bundle\":\"camelot#2\",\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":3227,\"file\":0,\"start\":3219},\"tags\":[]},\"slots\":[],\"time\":{\"During\":{\"span\":{\"end\":3218,\"file\":0,\"start\":3205},\"text\":\"arthurs-reign\"}}}}"
       }
     },
     {
@@ -2506,11 +2506,11 @@
         "kind": "state",
         "name": "knows.caster.myrdin",
         "body": [
-          "{\"State\":{\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"knows.caster.myrdin\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"time\":{\"Since\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-speaking-day\"}},\"value\":{\"Sym\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"true\"}}}}"
+          "{\"State\":{\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"knows.caster.myrdin\"},\"provenance\":{\"bundle\":\"camelot#3\",\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]},\"time\":{\"Since\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"the-speaking-day\"}},\"value\":{\"Sym\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"true\"}}}}"
         ]
       },
       "provenance": {
-        "located_body": "{\"State\":{\"name\":{\"span\":{\"end\":3253,\"file\":0,\"start\":3234},\"text\":\"knows.caster.myrdin\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":3292,\"file\":0,\"start\":3284},\"tags\":[]},\"time\":{\"Since\":{\"span\":{\"end\":3283,\"file\":0,\"start\":3267},\"text\":\"the-speaking-day\"}},\"value\":{\"Sym\":{\"span\":{\"end\":3260,\"file\":0,\"start\":3256},\"text\":\"true\"}}}}"
+        "located_body": "{\"State\":{\"name\":{\"span\":{\"end\":3253,\"file\":0,\"start\":3234},\"text\":\"knows.caster.myrdin\"},\"provenance\":{\"bundle\":\"camelot#3\",\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":3292,\"file\":0,\"start\":3284},\"tags\":[]},\"time\":{\"Since\":{\"span\":{\"end\":3283,\"file\":0,\"start\":3267},\"text\":\"the-speaking-day\"}},\"value\":{\"Sym\":{\"span\":{\"end\":3260,\"file\":0,\"start\":3256},\"text\":\"true\"}}}}"
       }
     },
     {
@@ -2656,11 +2656,11 @@
         "kind": "rule",
         "name": "show-the-price",
         "body": [
-          "{\"Rule\":{\"domain\":\"season\",\"head\":[],\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"show-the-price\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}"
+          "{\"Rule\":{\"domain\":\"season\",\"head\":[],\"name\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"show-the-price\"},\"provenance\":{\"bundle\":\"camelot#4\",\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":0,\"file\":0,\"start\":0},\"tags\":[]}}}"
         ]
       },
       "provenance": {
-        "located_body": "{\"Rule\":{\"domain\":\"season\",\"head\":[],\"name\":{\"span\":{\"end\":5151,\"file\":0,\"start\":5137},\"text\":\"show-the-price\"},\"provenance\":{\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":5172,\"file\":0,\"start\":5164},\"tags\":[]}}}"
+        "located_body": "{\"Rule\":{\"domain\":\"season\",\"head\":[],\"name\":{\"span\":{\"end\":5151,\"file\":0,\"start\":5137},\"text\":\"show-the-price\"},\"provenance\":{\"bundle\":\"camelot#4\",\"citations\":[],\"condition\":null,\"marker\":\"Proposed\",\"span\":{\"end\":5172,\"file\":0,\"start\":5164},\"tags\":[]}}}"
       }
     },
     {

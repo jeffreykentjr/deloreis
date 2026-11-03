@@ -76,9 +76,39 @@ pub struct Annotation {
     /// Optional hypothesis condition under which the claim is asserted
     /// (`assumes <hyp>`).
     pub condition: Option<CondExpr>,
+    /// An explicit anonymous proposal bundle identity, for faithful replay of
+    /// a proposal originally authored in another scope or position.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bundle: Option<String>,
     /// Further provenance tokens carried verbatim — an agent id, a session tag,
     /// a scene cue. Retained so nothing on the line is dropped (koan 4).
     pub tags: Vec<String>,
     /// Where the annotation appears in source.
     pub span: Span,
+}
+
+impl Annotation {
+    /// The ordinal named by an explicit positional bundle, when present.
+    #[must_use]
+    pub fn bundle_ordinal(&self) -> Option<u32> {
+        self.bundle.as_deref()?.rsplit_once('#')?.1.parse().ok()
+    }
+
+    /// Whether an explicitly named proposal bundle is well formed and
+    /// unambiguous with ordinary provenance tags or conditions.
+    #[must_use]
+    pub fn valid_bundle(&self) -> bool {
+        let Some(bundle) = &self.bundle else {
+            return true;
+        };
+        self.marker == ProvenanceMarker::Proposed
+            && self.tags.is_empty()
+            && self.condition.is_none()
+            && bundle.rsplit_once('#').is_some_and(|(_, number)| {
+                !number.is_empty()
+                    && number.bytes().all(|byte| byte.is_ascii_digit())
+                    && number.parse::<u32>().is_ok_and(|value| value < u32::MAX)
+            })
+            && !bundle.chars().any(char::is_control)
+    }
 }

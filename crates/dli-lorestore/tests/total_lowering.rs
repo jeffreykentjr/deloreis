@@ -339,6 +339,7 @@ fn lower_decl_parity_on_gated_and_malformed_shapes() {
         marker,
         citations: Vec::new(),
         condition,
+        bundle: None,
         tags: tags.into_iter().map(str::to_owned).collect(),
         span: Span::synthetic(),
     };

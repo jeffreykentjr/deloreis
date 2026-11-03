@@ -47,7 +47,7 @@ fn a_metadata_revision_updates_the_carried_entity_standing() {
 }
 
 #[test]
-fn a_distinct_adjacent_support_is_not_mistaken_for_the_carried_atom() {
+fn a_distinct_adjacent_support_does_not_replace_the_missing_carried_atom() {
     let (mut objects, mut interner, decisions) = fixture();
     let d2 = interner.intern("d-2");
     let index = objects
@@ -58,20 +58,8 @@ fn a_distinct_adjacent_support_is_not_mistaken_for_the_carried_atom() {
     alternative.support = PosBool::pos(d2);
     alternative.provenance.as_mut().unwrap().marker = Some(ProvenanceMarker::Ratified);
     objects.insert(index, alternative);
-    let restored = reconstruct_pack(&objects, &interner, &decisions, "story").unwrap();
-    let world = compile(&restored).unwrap();
-    let supports: BTreeSet<_> = world
-        .model
-        .atoms()
-        .iter()
-        .map(|atom| render_polynomial(&atom.ann.support, world.model.interner()))
-        .collect();
-    assert_eq!(
-        supports,
-        ["{+d-1}".to_owned(), "{+d-2}".to_owned()]
-            .into_iter()
-            .collect()
-    );
+    let error = reconstruct_pack(&objects, &interner, &decisions, "story").unwrap_err();
+    assert!(error.to_string().contains("absent"), "{error}");
 }
 
 #[test]

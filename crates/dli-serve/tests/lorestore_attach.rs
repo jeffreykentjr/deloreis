@@ -26,6 +26,7 @@ fn base_pack() -> Pack {
         marker: ProvenanceMarker::Proposed,
         citations: Vec::new(),
         condition: None,
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     };

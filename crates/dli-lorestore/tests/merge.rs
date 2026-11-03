@@ -518,6 +518,7 @@ fn ratified() -> Annotation {
             id: Ident::synthetic(DECISION),
         }],
         condition: None,
+        bundle: None,
         tags: Vec::new(),
         span: Span::synthetic(),
     }

@@ -60,6 +60,10 @@ impl CondPair {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ExpertDeclKind {
+    /// A fact whose proposed annotation carries otherwise unrecorded citations.
+    Fact,
+    /// An attribute whose proposed annotation carries otherwise unrecorded citations.
+    Attr,
     /// `rule <name> [over <domain>] … { body }`
     Rule,
     /// `fork <question> { body }`

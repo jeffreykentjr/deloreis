@@ -366,6 +366,7 @@ mod tests {
             marker: ProvenanceMarker::Decided,
             citations: vec![CitationRef { id: id(cite) }],
             condition: None,
+            bundle: None,
             tags: Vec::new(),
             span: Span::synthetic(),
         }
@@ -503,6 +504,7 @@ mod tests {
                 marker: ProvenanceMarker::Proposed,
                 citations: Vec::new(),
                 condition: None,
+                bundle: None,
                 tags: Vec::new(),
                 span: Span::synthetic(),
             }),

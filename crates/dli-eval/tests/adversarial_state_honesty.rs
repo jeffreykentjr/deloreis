@@ -44,6 +44,7 @@ fn eval_inert_state_is_a_finding_not_a_silent_drop() {
                 marker: ProvenanceMarker::Ratified,
                 citations: vec![CitationRef { id: id("D-1") }],
                 condition: None,
+                bundle: None,
                 tags: Vec::new(),
                 span: Span::synthetic(),
             }),

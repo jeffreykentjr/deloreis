@@ -46,6 +46,10 @@ elsewhere in this suite:
   (*claims come from somewhere*) enforced at the grammar rather than by a lint.
   This also applies to provenance nested in `name` and `dialect` bodies;
   missing citations there produce the same error on the enclosing source line.
+- **Proposal bundles replay by identity.** `proposed-bundle "scope#number"`
+  names an existing anonymous proposal hypothesis. The renderer uses this form
+  when reconstructing positional proposals; it cannot be combined with
+  provenance tags or `assumes` (DL-0113).
 - **Agent tools lower to fact objects.** A client may request rendering, but
   structured diff rows and fact objects are the review and storage surface.
 - **The reference card and the schema are the same object at two altitudes.**

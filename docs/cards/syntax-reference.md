@@ -36,6 +36,7 @@ silently dropped (DL-0029 as relocated by DL-0041).
 
 ```text
 <claim>   proposed [origin-token]
+<claim>   proposed-bundle "scope#number"
 <claim>   decided d-NNNN [d-NNNN…]
 <claim>   ratified d-NNNN
 <claim>   provisional d-NNNN
@@ -48,6 +49,10 @@ silently dropped (DL-0029 as relocated by DL-0041).
   `d-ref` is a diagnostic and fails closed.
 - One marker per line; extras diagnose (`conflicting-markers`).
 - `assumes` conjoins a hypothesis/option condition onto the claim's support.
+- `proposed-bundle "scope#number"` preserves an anonymous proposal's exact
+  identity on text replay; the scope may be empty for scope-less source. It cannot
+  be combined with origin tokens,
+  or `assumes` (DL-0113).
 
 ## 3. Keyword inventory by family
 

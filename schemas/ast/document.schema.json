@@ -31,6 +31,13 @@
       "description": "Provenance attached to a lore-bearing declaration.",
       "type": "object",
       "properties": {
+        "bundle": {
+          "description": "An explicit anonymous proposal bundle identity, for faithful replay of\na proposal originally authored in another scope or position.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "citations": {
           "description": "Supporting citations.",
           "type": "array",

@@ -229,3 +229,39 @@ historical query or export, rather than guessing at its support.
 
 **Rationale.** A historical artifact needs the values and provenance that hold
 at its stated point, with enough information to reproduce it after reopening.
+
+## DL-0113 — Preserve proposal bundle identities in text
+
+*Date: 2026-11-03*
+
+**Attribution:** machine.
+
+**Ruling.** A proposed claim may carry an explicit bundle identity in the
+form `proposed-bundle "scope#number"`. It denotes the same hypothesis as the
+corresponding anonymous positional proposal. The scope may be empty for a
+scope-less source. The form cannot be combined with provenance tags or an
+`assumes` condition. Its ordinal advances
+the anonymous proposal counter so later proposals cannot reuse an earlier id.
+Newly stored carried declarations record their positional proposal identities;
+reconstruction uses the form to preserve support across scopes or numbering gaps;
+if the source declaration cannot be matched unambiguously to its stored support,
+reconstruction refuses instead of guessing. Language declarations use their
+own counter, recorded independently on whole-pack import. Older atomless or
+language declarations without a recorded identity are refused when they cannot
+be matched safely; callers can reimport the original source with explicit
+origins. Fact objects remain canonical.
+
+Proposed facts, attributes and bare entities with citations also retain their
+source declaration in carriage, because their proposal support polynomial does
+not encode those citations. Carriage is content-addressed separately from the
+fact and preserves each authored citation through replay.
+An older fact object without that carriage cannot recover citations it never
+recorded; recovering those citations requires the original source.
+Carried facts and entities must have their corresponding stored fact objects;
+an unrelated support cannot stand in for a missing one. The existing legacy
+exception for era-chain tail members remains in force.
+
+**Rationale.** Re-minting proposal identities while replaying a store can attach
+a fictional claim to the wrong support, and dropping a `#` in rendered text can
+silently lose that support. An explicit, parseable identity makes replay and text
+round-tripping preserve the original hypotheses.
