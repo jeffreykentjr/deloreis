@@ -628,15 +628,7 @@ These excerpts come from the checked MCP driver.
     },
     {
       "arguments": {
-        "at": "sha256:eefe8af183b3872bf5d0eb312c2435d308fb22d24613ea8ffc9efd5780aac52e",
-        "document": "world",
-        "format": "objects"
-      },
-      "tool": "dli.corpus.export"
-    },
-    {
-      "arguments": {
-        "claim_id": "sha256:7f89546e7fa223a09c586f6ea4614dc9d5471f520ef4ca30893435db595be672",
+        "claim_id": "sha256:e86996be1770124deabb04ac7b574fd8a1971973bbb062aca94705388db21fd3",
         "decision": "d-0005",
         "defeated_decision": "d-0004",
         "workspace": "ws-2"
@@ -774,6 +766,53 @@ These excerpts come from the checked MCP driver.
   "calls": [
     {
       "arguments": {
+        "body": [
+          {
+            "atom": {
+              "args": [
+                {
+                  "Sym": "wren"
+                },
+                {
+                  "Sym": "stayed"
+                }
+              ],
+              "pred": "journey"
+            },
+            "negated": true
+          }
+        ],
+        "head": {
+          "args": [
+            {
+              "Sym": "wren"
+            },
+            {
+              "Sym": "thornfield"
+            }
+          ],
+          "pred": "away"
+        },
+        "name": "away-if-not-stayed",
+        "provenance": {
+          "decisions": [
+            "d-0001"
+          ],
+          "kind": "cited",
+          "state": "ratified"
+        },
+        "workspace": "ws-2"
+      },
+      "tool": "author.add_rule"
+    },
+    {
+      "arguments": {
+        "workspace": "ws-2"
+      },
+      "tool": "author.materialize"
+    },
+    {
+      "arguments": {
         "action": "create",
         "from": "main",
         "name": "never-left",
@@ -790,11 +829,21 @@ These excerpts come from the checked MCP driver.
     },
     {
       "arguments": {
+        "decision": "d-0006",
+        "workspace": "ws-4"
+      },
+      "tool": "author.record_decision"
+    },
+    {
+      "arguments": {
         "entity": "wren",
         "key": "journey",
         "provenance": {
-          "kind": "proposed",
-          "origin": "what-if"
+          "decisions": [
+            "d-0006"
+          ],
+          "kind": "cited",
+          "state": "ratified"
         },
         "value": "stayed",
         "workspace": "ws-4"
@@ -847,6 +896,23 @@ These excerpts come from the checked MCP driver.
         "workspace": "ws-4"
       },
       "tool": "author.diff"
+    },
+    {
+      "arguments": {
+        "goal_atom": {
+          "args": [
+            {
+              "Sym": "wren"
+            },
+            {
+              "Sym": "thornfield"
+            }
+          ],
+          "pred": "away"
+        },
+        "workspace": "ws-2"
+      },
+      "tool": "author.query"
     }
   ],
   "result": [
@@ -856,29 +922,53 @@ These excerpts come from the checked MCP driver.
         "status": "possible",
         "support": [
           [
-            "+h.what-if"
+            "+d-0001"
           ]
         ]
       },
-      "atom": "journey(wren, stayed)",
-      "introduced": true,
-      "rendered": "journey(wren, stayed): absent -> possible (asserted)",
+      "atom": "away(wren, thornfield)",
+      "before": {
+        "grade": "asserted",
+        "status": "certain",
+        "support": [
+          [
+            "+d-0001"
+          ]
+        ]
+      },
+      "introduced": false,
+      "rendered": "away(wren, thornfield): certain (asserted) -> possible (asserted)",
       "retracted": false
     },
     {
       "after": {
         "grade": "asserted",
-        "status": "possible",
+        "status": "certain",
+        "support": [
+          [
+            "+d-0006"
+          ]
+        ]
+      },
+      "atom": "journey(wren, stayed)",
+      "introduced": true,
+      "rendered": "journey(wren, stayed): absent -> certain (asserted)",
+      "retracted": false
+    },
+    {
+      "after": {
+        "grade": "asserted",
+        "status": "certain",
         "support": [
           [
             "+d-0001",
-            "+h.what-if"
+            "+d-0006"
           ]
         ]
       },
       "atom": "welcome(wren, thornfield)",
       "introduced": true,
-      "rendered": "welcome(wren, thornfield): absent -> possible (asserted)",
+      "rendered": "welcome(wren, thornfield): absent -> certain (asserted)",
       "retracted": false
     }
   ]

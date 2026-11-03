@@ -82,26 +82,53 @@ Query `death(miller, drowned)` with `layer: all` to get its claim ID. Then call
 {"workspace":"WORKSPACE","claim_id":"CLAIM_ID","decision":"d-0004","defeated_decision":"d-0003"}
 ```
 
-Add the poisoned account under `d-0004` and materialize it. The transcript
-then defeats that retcon under `d-0005`; the drowning claim becomes certain
-again, and the rival account becomes possible.
+Add the poisoned account under `d-0004` and materialize it. Query
+`death(miller, poisoned)` to get the new claim ID, then call `author.defeat`
+again:
 
-Create a branch with `author.branch`:
+```json
+{"workspace":"WORKSPACE","claim_id":"RETCON_CLAIM_ID","decision":"d-0005","defeated_decision":"d-0004"}
+```
+
+The drowning claim becomes certain again, and the rival account becomes
+possible.
+
+On main, call `author.add_rule` to say Wren is away from Thornfield if she has
+not stayed:
+
+```json
+{"workspace":"WORKSPACE","name":"away-if-not-stayed","head":{"pred":"away","args":[{"Sym":"wren"},{"Sym":"thornfield"}]},"body":[{"atom":{"pred":"journey","args":[{"Sym":"wren"},{"Sym":"stayed"}]},"negated":true}],"provenance":{"kind":"cited","decisions":["d-0001"],"state":"ratified"}}
+```
+
+Materialize the rule, then create a branch with `author.branch`:
 
 ```json
 {"workspace":"WORKSPACE","action":"create","from":"main","name":"never-left"}
 ```
 
 Open it using `author.open` with `{"scope":"world","branch":"never-left"}`.
-On the returned workspace, stage the alternative with `author.add_fact`:
+On the returned workspace, record decision `d-0006` with
+`author.record_decision`:
 
 ```json
-{"workspace":"BRANCH_WORKSPACE","entity":"wren","key":"journey","value":"stayed","provenance":{"kind":"proposed","origin":"what-if"}}
+{"workspace":"BRANCH_WORKSPACE","decision":"d-0006"}
 ```
 
-The transcript adds a rule on the branch, then calls `author.diff` with
-`{"workspace":"BRANCH_WORKSPACE"}` to see the claim and its consequences
-without changing main.
+Then stage the alternative with `author.add_fact`:
+
+```json
+{"workspace":"BRANCH_WORKSPACE","entity":"wren","key":"journey","value":"stayed","provenance":{"kind":"cited","decisions":["d-0006"],"state":"ratified"}}
+```
+
+Add the welcome rule with `author.add_rule`:
+
+```json
+{"workspace":"BRANCH_WORKSPACE","name":"welcome-if-stayed","head":{"pred":"welcome","args":[{"Sym":"wren"},{"Sym":"thornfield"}]},"body":[{"atom":{"pred":"journey","args":[{"Sym":"wren"},{"Sym":"stayed"}]},"negated":false}],"provenance":{"kind":"cited","decisions":["d-0001"],"state":"ratified"}}
+```
+
+Call `author.diff` with `{"workspace":"BRANCH_WORKSPACE"}`. The diff shows
+the welcome becoming certain and the away claim changing from certain to
+possible. Main still reports the away claim as certain.
 
 Finally, restart the server, open the main world, and call `author.query`:
 
