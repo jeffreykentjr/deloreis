@@ -185,8 +185,7 @@ evaluator.
 ## A.4 Wire surface
 
 `author.declare_inertial { workspace, pred, provenance }` at contract **1.8.0**;
-additive, floor-gated (`has_inertia = at_or_above(1,8,0)`), every pre-1.8.0 wire
-byte-identical. Guarded for control-chars / killed-tokens and citation integrity
+originally added at a version floor with earlier wires unchanged. Guarded for control-chars / killed-tokens and citation integrity
 like every other declaration. The verdict is reachable wire-only:
 `author.declare_inertial` → `author.add_state` (assert values at points) →
 `author.check` (findings) → `author.materialize`.
