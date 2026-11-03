@@ -912,6 +912,11 @@ fn fluent_contradictions(
     world: &CompiledWorld,
     canon: &BTreeMap<String, String>,
 ) -> Vec<WorldFinding> {
+    if world.model.fluents.is_empty() {
+        return Vec::new();
+    }
+    let source_spans = temporal_fact_sources(world);
+    let inertial_predicates = effective_inertial_predicates(world);
     let mut by_canon: BTreeMap<(String, String), Vec<&(String, String)>> = BTreeMap::new();
     for raw_slot in world.model.fluents.keys() {
         by_canon
@@ -942,7 +947,6 @@ fn fluent_contradictions(
         // (only subjects are), so `slot.0` keys the map directly. The
         // declaration's own `Ann` decides whether capping is active (DL-0081);
         // `None` for every non-inertial slot keeps `state_at` verbatim.
-        let inertial_predicates = effective_inertial_predicates(world);
         let inertial = inertial_predicates.get(&slot.0);
         if let Some((witness, values)) = fluent_clash(world, &scratch, inertial) {
             let finding = WorldFinding::error(
@@ -979,29 +983,39 @@ fn fluent_contradictions(
                 .into_iter()
                 .filter(|(_, holding)| holding.projection() == Projection::HoldsCertainly)
                 .filter_map(|(index, _)| source_facts.get(index).copied().flatten())
-                .find_map(|fact_index| {
-                    world
-                        .model
-                        .temporal_atom_facts
-                        .iter()
-                        .find_map(|(atom_index, &mapped)| {
-                            (mapped == fact_index).then_some(*atom_index)
-                        })
-                        .and_then(|index| world.model.atoms().get(index))
-                        .map(|atom| atom.span)
-                        .filter(|span| span.end > span.start)
-                });
+                .find_map(|fact_index| source_spans.get(&fact_index).copied());
             let finding = if let Some(span) = source {
                 finding.with_span(span)
             } else {
                 finding
             };
             out.push(finding);
-        } else if let Some(finding) = fluent_order_gap(world, canon, &slot, &scratch, inertial) {
+        } else if let Some(finding) = fluent_order_gap(
+            world,
+            canon,
+            &slot,
+            &scratch,
+            &source_facts,
+            &source_spans,
+            inertial,
+        ) {
             out.push(finding);
         }
     }
     out
+}
+
+/// Authored sources indexed by exact temporal fact, when the loader retained them.
+fn temporal_fact_sources(world: &CompiledWorld) -> BTreeMap<usize, dli_ast::span::Span> {
+    world
+        .model
+        .temporal_atom_facts
+        .iter()
+        .filter_map(|(atom_index, &fact_index)| {
+            let span = world.model.atoms().get(*atom_index)?.span;
+            (span.end > span.start).then_some((fact_index, span))
+        })
+        .collect()
 }
 
 /// The distinct values that hold certainly at a single point of a fluent's
@@ -1088,19 +1102,22 @@ fn fluent_order_gap(
     canon: &BTreeMap<String, String>,
     slot: &(String, String),
     timeline: &FluentTimeline<String>,
+    source_facts: &[Option<usize>],
+    source_spans: &BTreeMap<usize, dli_ast::span::Span>,
     inertial: Option<&Ann>,
 ) -> Option<WorldFinding> {
     let chronology = world.model.chronology_with_era_membership();
     let chronology = &chronology;
     let valuation = &world.model.world.valuation;
     let theory = &world.model.world.theory;
-    let certain: Vec<&dli_time::fluent::Span<String>> = timeline
+    let certain: Vec<(usize, &dli_time::fluent::Span<String>)> = timeline
         .spans
         .iter()
-        .filter(|span| span.ann.status(valuation, theory) == Status::Certain)
+        .enumerate()
+        .filter(|(_, span)| span.ann.status(valuation, theory) == Status::Certain)
         .collect();
-    for (i, a) in certain.iter().enumerate() {
-        for b in certain.iter().skip(i + 1) {
+    for (i, (a_index, a)) in certain.iter().enumerate() {
+        for (b_index, b) in certain.iter().skip(i + 1) {
             if a.value == b.value || provably_disjoint(a, b, chronology) {
                 continue;
             }
@@ -1137,8 +1154,7 @@ fn fluent_order_gap(
                     serde_json::json!({ "kind": "declare-order", "candidates": candidate_names }),
                 );
             }
-            return Some(
-                WorldFinding::warn(
+            let finding = WorldFinding::warn(
                     "continuity.fluent-order-undeclared",
                     format!(
                         "the fluent {}.{} holds distinct values [{}] whose order is undeclared; a before-fact between {} would settle it",
@@ -1149,8 +1165,16 @@ fn fluent_order_gap(
                     ),
                 )
                 .with_citations(slot_citations(world, canon, slot))
-                .with_data(data),
-            );
+                .with_data(data);
+            let source = [*a_index, *b_index]
+                .into_iter()
+                .filter_map(|index| source_facts.get(index).copied().flatten())
+                .find_map(|index| source_spans.get(&index).copied());
+            return Some(if let Some(span) = source {
+                finding.with_span(span)
+            } else {
+                finding
+            });
         }
     }
     None
@@ -1856,6 +1880,11 @@ fn inertia_unanchored(
     world: &CompiledWorld,
     canon: &BTreeMap<String, String>,
 ) -> Vec<WorldFinding> {
+    let inertial_predicates = effective_inertial_predicates(world);
+    if inertial_predicates.is_empty() || world.model.fluents.is_empty() {
+        return Vec::new();
+    }
+    let source_spans = temporal_fact_sources(world);
     let mut by_canon: BTreeMap<(String, String), Vec<&(String, String)>> = BTreeMap::new();
     for raw_slot in world.model.fluents.keys() {
         by_canon
@@ -1865,7 +1894,7 @@ fn inertia_unanchored(
     }
     let mut out = Vec::new();
     for (slot, members) in by_canon {
-        if !effective_inertial_predicates(world).contains_key(&slot.0) {
+        if !inertial_predicates.contains_key(&slot.0) {
             continue;
         }
         let mut values: Vec<String> = members
@@ -1879,8 +1908,7 @@ fn inertia_unanchored(
         }
         values.sort();
         values.dedup();
-        out.push(
-            WorldFinding::warn(
+        let finding = WorldFinding::warn(
                 "continuity.inertia-unanchored",
                 format!(
                     "the inertial fluent {}.{} carries value(s) [{}] with no `since` anchor, so no persistence interval can be derived; give each a `since` point",
@@ -1889,8 +1917,26 @@ fn inertia_unanchored(
                     values.join(", ")
                 ),
             )
-            .with_citations(slot_citations(world, canon, &slot)),
-        );
+            .with_citations(slot_citations(world, canon, &slot));
+        let source = members.iter().find_map(|member| {
+            let timeline = &world.model.fluents[*member];
+            let indices = world.model.fluent_fact_indices.get(*member)?;
+            if !world.model.temporal_sources_complete || indices.len() != timeline.spans.len() {
+                return None;
+            }
+            timeline
+                .spans
+                .iter()
+                .enumerate()
+                .filter(|(_, span)| span.since.is_none())
+                .filter_map(|(index, _)| indices.get(index))
+                .find_map(|fact_index| source_spans.get(fact_index).copied())
+        });
+        out.push(if let Some(span) = source {
+            finding.with_span(span)
+        } else {
+            finding
+        });
     }
     out
 }
@@ -1964,11 +2010,17 @@ fn fd_violations(world: &CompiledWorld, canon: &BTreeMap<String, String>) -> Vec
 /// Warn when an authored proposal could conflict with another live value of a
 /// declared-functional slot. This is not a verdict that either account is canon.
 fn pending_conflicts(world: &CompiledWorld, canon: &BTreeMap<String, String>) -> Vec<WorldFinding> {
+    #[derive(Default)]
+    struct PendingSlot {
+        values: Vec<String>,
+        proposed: bool,
+        source: Option<dli_ast::span::Span>,
+    }
     let functional = effective_functional_predicates(world);
     if functional.is_empty() {
         return Vec::new();
     }
-    let mut slots: BTreeMap<(String, String), (Vec<String>, bool)> = BTreeMap::new();
+    let mut slots: BTreeMap<(String, String), PendingSlot> = BTreeMap::new();
     for atom in world.model.atoms() {
         let status = atom_status(world, atom);
         if status == Status::Dead {
@@ -1983,9 +2035,13 @@ fn pending_conflicts(world: &CompiledWorld, canon: &BTreeMap<String, String>) ->
         }
         let entry = slots.entry(slot).or_default();
         entry
-            .0
+            .values
             .push(dli_core::alias::canon(canon, &value).to_owned());
-        entry.1 |= atom.kind == Provenance::Proposed && status == Status::Possible;
+        let proposed = atom.kind == Provenance::Proposed && status == Status::Possible;
+        entry.proposed |= proposed;
+        if proposed && entry.source.is_none() && atom.span.end > atom.span.start {
+            entry.source = Some(atom.span);
+        }
     }
     let certain = fd_violations_over(
         certain_binary_slots(world, canon).filter(|(pred, subject, _)| {
@@ -1996,19 +2052,27 @@ fn pending_conflicts(world: &CompiledWorld, canon: &BTreeMap<String, String>) ->
     .into_iter()
     .map(|v| (v.pred, v.subject))
     .collect::<BTreeSet<_>>();
+    let sources: BTreeMap<_, _> = slots
+        .iter()
+        .filter_map(|(slot, pending)| pending.source.map(|span| (slot.clone(), span)))
+        .collect();
     let candidates = slots
         .into_iter()
-        .filter(|(slot, (_, proposed))| *proposed && !certain.contains(slot))
-        .flat_map(|((pred, subject), (values, _))| {
-            values
+        .filter(|(slot, pending)| pending.proposed && !certain.contains(slot))
+        .flat_map(|((pred, subject), pending)| {
+            pending
+                .values
                 .into_iter()
                 .map(move |value| (pred.clone(), subject.clone(), value))
         });
     fd_violations_over(candidates, &functional).into_iter().map(|violation| {
-        WorldFinding::warn("continuity.pending-conflict", format!(
+        let finding = WorldFinding::warn("continuity.pending-conflict", format!(
             "proposed values for functional '{}' on {} may conflict: [{}]; decide which account should hold",
             violation.pred, violation.subject, violation.values.join(", ")
-        )).with_data(fd_violation_data(world, &violation))
+        )).with_data(fd_violation_data(world, &violation));
+        let slot = (violation.pred.clone(), violation.subject.clone());
+        let source = sources.get(&slot).copied();
+        if let Some(span) = source { finding.with_span(span) } else { finding }
     }).collect()
 }
 

@@ -1533,6 +1533,51 @@ fn semantic_findings_name_the_source_file_and_offer_repairs() {
 }
 
 #[test]
+fn continuity_warnings_identify_contributing_sources_and_repairs() {
+    let dir = tmp("continuity-warning-sources");
+    let cases = [
+        (
+            "drafts",
+            "scope storybook\nfunctional home proposed\nfact wren home ashby proposed a\nfact wren home thornfield proposed b\n",
+            "continuity.pending-conflict",
+            &[3, 4][..],
+            "review the proposed values",
+        ),
+        (
+            "order",
+            "scope storybook\nratify d-1\nevent first ratified d-1\nevent second ratified d-1\ninertial home ratified d-1\nstate wren.home = ashby since first ratified d-1\nstate wren.home = thornfield since second ratified d-1\n",
+            "continuity.fluent-order-undeclared",
+            &[6, 7][..],
+            "declare an ordering",
+        ),
+        (
+            "unanchored",
+            "scope storybook\nratify d-1\nevent first ratified d-1\ninertial home ratified d-1\nstate wren.home = ashby since first ratified d-1\nstate wren.home = ashby ratified d-1\n",
+            "continuity.inertia-unanchored",
+            &[6][..],
+            "give the state a since event",
+        ),
+    ];
+    for (name, source, code, valid_lines, help) in cases {
+        let path = dir.join(format!("{name}.dli"));
+        fs::write(&path, source).unwrap();
+        let output = bin().arg("check").arg(&path).output().unwrap();
+        let text = stdout(&output);
+        let line = text
+            .lines()
+            .find(|line| line.contains(code))
+            .unwrap_or_else(|| panic!("{name}: {text}"));
+        assert!(
+            valid_lines
+                .iter()
+                .any(|number| line.contains(&format!("{}:{number}:", path.display()))),
+            "{name}: {text}"
+        );
+        assert!(text.contains(help), "{name}: {text}");
+    }
+}
+
+#[test]
 fn semantic_columns_ignore_the_utf8_bom() {
     let dir = tmp("semantic-bom-location");
     let corpus = dir.join("world.dli");

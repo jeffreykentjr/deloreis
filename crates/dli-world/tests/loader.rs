@@ -96,6 +96,183 @@ fn functional_violation_uses_a_real_source_for_equivalent_values() {
     assert_eq!(line, 5);
 }
 
+#[test]
+fn unanchored_fluent_location_uses_its_exact_source_or_none() {
+    let source = "scope storybook\nratify d-1\nevent first ratified d-1\ninertial home ratified d-1\nstate wren.home = ashby since first ratified d-1\nstate wren.home = ashby ratified d-1\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let mut world = dli_world::compile(&Pack {
+        name: "storybook".to_owned(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let warning = |world: &dli_world::check::CompiledWorld| {
+        dli_world::check::run(world)
+            .into_iter()
+            .find(|finding| finding.code == "continuity.inertia-unanchored")
+            .unwrap()
+    };
+    let span = warning(&world).span.unwrap();
+    let line = source[..span.start as usize]
+        .bytes()
+        .filter(|&byte| byte == b'\n')
+        .count()
+        + 1;
+    assert_eq!(
+        line, 6,
+        "must point to the unanchored declaration, not the earlier same-value state"
+    );
+    world.model.temporal_sources_complete = false;
+    assert_eq!(
+        warning(&world).span,
+        None,
+        "do not guess when source mappings are incomplete"
+    );
+}
+
+#[test]
+fn unordered_fluent_location_uses_a_contributing_state_or_none() {
+    let source = "scope storybook\nratify d-1\nevent first ratified d-1\nevent second ratified d-1\ninertial home ratified d-1\nstate wren.home = ashby since first ratified d-1\nstate wren.home = thornfield since second ratified d-1\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let mut world = dli_world::compile(&Pack {
+        name: "storybook".to_owned(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let warning = |world: &dli_world::check::CompiledWorld| {
+        dli_world::check::run(world)
+            .into_iter()
+            .find(|finding| finding.code == "continuity.fluent-order-undeclared")
+            .unwrap()
+    };
+    let span = warning(&world).span.unwrap();
+    let line = source[..span.start as usize]
+        .bytes()
+        .filter(|&byte| byte == b'\n')
+        .count()
+        + 1;
+    assert!(
+        [6, 7].contains(&line),
+        "must point to one of the unordered states, got {line}"
+    );
+    world.model.temporal_sources_complete = false;
+    assert_eq!(
+        warning(&world).span,
+        None,
+        "do not guess when source mappings are incomplete"
+    );
+}
+
+#[test]
+fn unordered_fluent_location_survives_aliasing_and_missing_source_entries() {
+    let source = "scope storybook\nratify d-1\nevent first ratified d-1\nevent second ratified d-1\ninertial home ratified d-1\nsame-as wren = robin ratified d-1\nstate wren.home = ashby since first ratified d-1\nstate robin.home = thornfield since second ratified d-1\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let mut world = dli_world::compile(&Pack {
+        name: "storybook".to_owned(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let warning = |world: &dli_world::check::CompiledWorld| {
+        dli_world::check::run(world)
+            .into_iter()
+            .find(|finding| finding.code == "continuity.fluent-order-undeclared")
+            .unwrap()
+    };
+    let first_state = world
+        .model
+        .atoms
+        .iter()
+        .position(|atom| {
+            atom.atom.pred.text == "home"
+                && atom
+                    .atom
+                    .args
+                    .first()
+                    .is_some_and(|arg| matches!(arg, Term::Sym(id) if id.text == "wren"))
+        })
+        .unwrap();
+    world.model.temporal_atom_facts.remove(&first_state);
+    let span = warning(&world).span.unwrap();
+    let line = source[..span.start as usize]
+        .bytes()
+        .filter(|&byte| byte == b'\n')
+        .count()
+        + 1;
+    assert_eq!(
+        line, 8,
+        "must locate the other contributing state across the identity merge"
+    );
+    world.model.temporal_atom_facts.clear();
+    assert_eq!(
+        warning(&world).span,
+        None,
+        "do not guess when both source entries are missing"
+    );
+}
+
+#[test]
+fn draft_conflict_location_skips_synthetic_contributors() {
+    let source = "scope storybook\nfunctional home proposed\nfact wren home ashby proposed a\nfact wren home thornfield proposed b\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.class.is_error()),
+        "{diagnostics:?}"
+    );
+    let mut world = dli_world::compile(&Pack {
+        name: "storybook".to_owned(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let first = world
+        .model
+        .atoms
+        .iter_mut()
+        .find(|atom| atom.atom.pred.text == "home")
+        .unwrap();
+    first.span = Span::synthetic();
+    let warning = dli_world::check::run(&world)
+        .into_iter()
+        .find(|finding| finding.code == "continuity.pending-conflict")
+        .unwrap();
+    let span = warning.span.unwrap();
+    let line = source[..span.start as usize]
+        .bytes()
+        .filter(|&byte| byte == b'\n')
+        .count()
+        + 1;
+    assert_eq!(line, 4, "must locate the other contributing draft");
+    for atom in &mut world.model.atoms {
+        atom.span = Span::synthetic();
+    }
+    let warning = dli_world::check::run(&world)
+        .into_iter()
+        .find(|finding| finding.code == "continuity.pending-conflict")
+        .unwrap();
+    assert_eq!(
+        warning.span, None,
+        "synthetic sources must remain unlocated"
+    );
+}
+
 /// Build a typed rule body from block-clause texts, exactly as the front end
 /// structures a captured `rule` body (LS-9): each datalog clause is pre-parsed,
 /// non-datalog clauses keep their text with a `None` datalog.
