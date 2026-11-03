@@ -1692,12 +1692,6 @@ fn document_store(sessions: &Sessions, document: &str) -> Result<dli_lorestore::
 
 fn handle_corpus_import(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: CorpusImportParams = params(request)?;
-    if !p.attacks.is_empty() && !crate::has_conditional_defeat(&request.dli) {
-        return Err((
-            ErrorCode::SchemaViolation,
-            "conditional decision attacks require contract 1.13.0".to_owned(),
-        ));
-    }
     if !p.attacks.is_empty() && p.objects.is_none() {
         return Err((
             ErrorCode::SchemaViolation,
@@ -1763,7 +1757,7 @@ fn handle_corpus_import(request: &Request, sessions: &mut Sessions) -> Result<Re
                 &p.decisions,
                 &p.attacks,
                 &p.document,
-                crate::validates_claim_ids(&request.dli),
+                true,
                 &request.dli,
             )?
         }
@@ -2107,14 +2101,6 @@ fn import_dli_documents(
 
 fn handle_corpus_export(request: &Request, sessions: &mut Sessions) -> Result<Response, Fault> {
     let p: CorpusExportParams = params(request)?;
-    if matches!(p.format, CorpusExportFormat::Canon) && !crate::has_canon_export(&request.dli) {
-        // The released 1.3.0 decoder did not know the closed `canon` enum
-        // member; preserve that schema refusal on older negotiated versions.
-        return Err((
-            ErrorCode::SchemaViolation,
-            "params do not satisfy the operation schema: unknown variant `canon`, expected `objects` or `rendered`".to_owned(),
-        ));
-    }
     let store = document_store(sessions, &p.document)?;
 
     let head = match &p.at {
@@ -2137,13 +2123,9 @@ fn handle_corpus_export(request: &Request, sessions: &mut Sessions) -> Result<Re
     let live_hashes = store
         .fact_hashes_from(&head)
         .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
-    let attack_objects = if crate::has_conditional_defeat(&request.dli) {
-        store
-            .decision_attacks_from(&head)
-            .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?
-    } else {
-        Vec::new()
-    };
+    let attack_objects = store
+        .decision_attacks_from(&head)
+        .map_err(|e| (ErrorCode::EvidenceCorrupt, e.to_string()))?;
     let mut seen = std::collections::BTreeSet::new();
     let mut hashes = Vec::new();
     for attack in &attack_objects {
@@ -2175,14 +2157,7 @@ fn handle_corpus_export(request: &Request, sessions: &mut Sessions) -> Result<Re
         // `canon` projects the folded state into the per-domain normalized maps
         // that `parity.json` carries — the store-read equivalent of
         // `compile_lore_dli.py`'s `products()` normalizers (LS-7).
-        CorpusExportFormat::Canon => (
-            Vec::new(),
-            Some(canon_export(
-                &store,
-                &head,
-                crate::has_conditional_defeat(&request.dli),
-            )?),
-        ),
+        CorpusExportFormat::Canon => (Vec::new(), Some(canon_export(&store, &head, true)?)),
     };
 
     // The name table those objects' support polynomials index into. Exported

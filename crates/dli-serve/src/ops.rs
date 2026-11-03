@@ -479,20 +479,10 @@ impl Op {
         )
     }
 
-    /// Whether this operation accepts digest/idempotency fences on the
-    /// negotiated wire. Most post-open workspace mutations have always done
-    /// so; materialize joined when it became a mutation at 0.6 and branch/merge
-    /// joined at 1.7. The 0.5.1 materialize refusal remains frozen.
+    /// Whether the current contract accepts fences for this operation.
     #[must_use]
-    pub fn accepts_author_fences(self, dli: &str) -> bool {
-        if !self.is_post_open_author_mutation() {
-            return false;
-        }
-        match self {
-            Op::AuthorMaterialize => crate::has_materialize_fences(dli),
-            Op::AuthorBranch | Op::AuthorMerge => crate::has_branch_writes(dli),
-            _ => true,
-        }
+    pub fn accepts_author_fences(self, _dli: &str) -> bool {
+        self.is_post_open_author_mutation()
     }
 
     /// A one-line, role-bearing description of what the op does and when to reach
@@ -696,21 +686,6 @@ mod tests {
                 assert_eq!(op.introduced_in(), "0.6.1", "{op:?}");
             }
         }
-    }
-
-    #[test]
-    fn materialize_fences_follow_the_0_6_mutation_floor() {
-        for version in crate::ACCEPTED_CONTRACT_VERSIONS {
-            assert_eq!(
-                Op::AuthorMaterialize.accepts_author_fences(version),
-                crate::has_materialize_fences(version),
-                "materialize fence support follows its negotiated floor at {version}"
-            );
-        }
-        assert!(!Op::AuthorMaterialize.accepts_author_fences("0.5.1"));
-        assert!(Op::AuthorMaterialize.accepts_author_fences("0.6.0"));
-        assert!(Op::AuthorMaterialize.accepts_author_fences("1.12.0"));
-        assert!(Op::AuthorMaterialize.accepts_author_fences("1.13.0"));
     }
 
     #[test]

@@ -289,9 +289,7 @@ pub fn dispatch(
     {
         return refuse_field(request, field, successor);
     }
-    // Fence support is negotiated per operation. Materialize joins at its 0.6
-    // mutation floor and branch/merge at 1.7; 0.5.1 materialize retains its
-    // released read classification and schema-violation bytes.
+    // Fences are accepted on post-open authoring mutations.
     let fences_ok = request.op.accepts_author_fences(&request.dli);
     if !fences_ok {
         if request.expected_digest.is_some() {
