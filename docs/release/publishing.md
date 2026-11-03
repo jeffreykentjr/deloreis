@@ -38,13 +38,15 @@ When a candidate is ready:
 5. Verify the two archives, their SHA-256 files and attestations. Test the Linux
    archive in a clean environment. Preserve the approved macOS RC archive and
    its attestation when carrying it into the stable release.
-6. When the release is ready, tag the same checked commit `vVERSION`, create
-   the stable release, and publish it. The `Publish crates` workflow verifies
-   that release and publishes the crates using the `CARGO_REGISTRY_TOKEN`
-   Actions secret. Prereleases do not start crate publication.
-7. Confirm `cargo install deloreis --locked` in a clean environment and check
-   that the stable release contains the Linux x86-64 archive and the approved
-   macOS ARM archive, with checksums and attestations.
+6. When the release is ready, tag the same checked commit `vVERSION` and
+   create its stable release as a draft. Run the Linux workflow for the stable
+   tag. Copy the approved RC's macOS ARM archive and checksum to that draft
+   without modifying them; verify that the RC and stable tags name the same
+   commit and that the copied archive's attestation still verifies.
+7. Check both archives and their checksums, then publish the stable release.
+   The `Publish crates` workflow verifies it and publishes the crates using the
+   `CARGO_REGISTRY_TOKEN` Actions secret. Prereleases do not start publication.
+8. Confirm `cargo install deloreis --locked` in a clean environment.
 
 For a partial crate publication, rerun `Publish crates` with the published tag
 and full commit SHA. It skips a published version only if the registry checksum

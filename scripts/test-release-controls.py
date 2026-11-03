@@ -54,6 +54,33 @@ class ReleaseControls(unittest.TestCase):
         self.assertNotIn("push:", workflow)
         self.assertNotIn("pull_request:", workflow)
 
+    def test_environment_requires_owner_and_disallows_bypass(self):
+        protected = {
+            "name": "macos-rc", "can_admins_bypass": False,
+            "protection_rules": [{"type": "required_reviewers", "reviewers": [
+                {"type": "User", "reviewer": {"id": 2244907}}
+            ]}],
+        }
+        control.validate_macos_environment(protected, 2244907)
+        for broken in [
+            dict(protected, can_admins_bypass=True),
+            dict(protected, protection_rules=[]),
+            dict(protected, name="other"),
+            dict(protected, can_admins_bypass=None),
+        ]:
+            with self.assertRaises(ValueError):
+                control.validate_macos_environment(broken, 2244907)
+
+    def test_only_a_published_stable_release_can_publish_crates(self):
+        release = {"tagName": "v0.1.0", "isDraft": False,
+                   "isPrerelease": False, "publishedAt": "2026-11-03T12:00:00Z"}
+        control.validate_published_release("v0.1.0", release)
+        for broken in [dict(release, isPrerelease=True), dict(release, isDraft=True),
+                       dict(release, publishedAt=None), dict(release, tagName="v0.1.1"),
+                       dict(release, isPrerelease=None)]:
+            with self.assertRaises(ValueError):
+                control.validate_published_release("v0.1.0", broken)
+
 
 if __name__ == "__main__":
     unittest.main()
