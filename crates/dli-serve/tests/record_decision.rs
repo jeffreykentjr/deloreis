@@ -439,9 +439,11 @@ fn materialize_rank_and_control(store: &mut Store, ws: &str) -> String {
         .to_owned();
 
     record_decision(store, ws, "d-independent");
-    assert!(
-        add_fact_cited(store, ws, "title", "commander", "d-independent").is_empty(),
-        "the independent control is clean"
+    let findings = add_fact_cited(store, ws, "title", "commander", "d-independent");
+    assert_eq!(
+        findings,
+        ["render.provenance-unrepresentable"],
+        "the independent claim has only a text-rendering warning"
     );
     result(dispatch(
         &req(

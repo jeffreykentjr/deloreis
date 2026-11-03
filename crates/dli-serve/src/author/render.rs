@@ -69,6 +69,22 @@ fn format(_document: &Document) -> Option<String> {
     None
 }
 
+/// Check that a declaration's provenance survives the available text renderer.
+#[cfg(feature = "syntax")]
+pub fn validate_provenance(decls: &[Decl]) -> Result<(), String> {
+    let document = Document {
+        scope: None,
+        decls: decls.to_vec(),
+    };
+    dli_syntax::format::format_document_checked(&document).map(|_| ())
+}
+
+/// A build without a renderer does not claim to render provenance.
+#[cfg(not(feature = "syntax"))]
+pub fn validate_provenance(_decls: &[Decl]) -> Result<(), String> {
+    Ok(())
+}
+
 /// Whether this build can render staged declarations as canonical `.dli`.
 ///
 /// `false` on a default build, where the fact objects and the structured diff

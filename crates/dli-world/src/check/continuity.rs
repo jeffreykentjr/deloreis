@@ -2032,6 +2032,7 @@ fn derived_fd_violations(
         !fluent_class_member(world, canon, &(pred.clone(), subject.clone()))
     });
 
+    let source_spans = certain_slot_source_spans(world, canon);
     fd_violations_over(derived, &functional_predicates)
         .into_iter()
         .filter(|violation| {
@@ -2039,7 +2040,7 @@ fn derived_fd_violations(
         })
         .map(|violation| {
             let slot = (violation.pred.clone(), violation.subject.clone());
-            WorldFinding::error(
+            let finding = WorldFinding::error(
                 "continuity.derived-fd-violation",
                 format!(
                     "the evaluated world derives a functional-dependency break on '{}': {} carries {} distinct certain values [{}] once rules fire",
@@ -2050,7 +2051,16 @@ fn derived_fd_violations(
                 ),
             )
             .with_citations(derived_slot_citations(world, canon, &slot))
-            .with_data(fd_violation_data(world, &violation))
+            .with_data(fd_violation_data(world, &violation));
+            // An authored value in the conflicting slot is a real witness.
+            // A derived-only break may have no such source, so do not guess
+            // which of several rules produced it.
+            let span = source_spans.get(&slot).and_then(|sources| {
+                violation.values.iter().find_map(|value| {
+                    sources.get(&dli_core::fd::fd_value_key(value)).copied()
+                })
+            });
+            if let Some(span) = span { finding.with_span(span) } else { finding }
         })
         .collect()
 }

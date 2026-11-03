@@ -2183,11 +2183,12 @@ fn render_export(
     let pack = store
         .reconstruct_at(head)
         .map_err(|e| (ErrorCode::Internal, e.to_string()))?;
-    Ok(pack
-        .documents
-        .iter()
-        .map(dli_syntax::format_document)
-        .collect())
+    pack.documents.iter().map(|document| {
+        dli_syntax::format::format_document_checked(document).map_err(|error| (
+            ErrorCode::SchemaViolation,
+            format!("cannot export this corpus faithfully as text: {error}; export objects instead"),
+        ))
+    }).collect()
 }
 
 #[cfg(not(feature = "syntax"))]

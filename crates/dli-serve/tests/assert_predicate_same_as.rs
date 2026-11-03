@@ -156,9 +156,20 @@ fn wire_only_predicate_identity_reaches_fd_check_and_has_no_dli_rendering() {
         .iter()
         .find(|row| row["kind"] == "predicate-same-as")
         .expect("predicate identity structured row");
+    assert!(row.get("rendered").is_none_or(Value::is_null));
+    assert!(row["key"].as_str().is_some());
+    let empty_discard = dispatch(
+        &req(
+            "1.12.0",
+            "discard-empty",
+            Op::AuthorDiscard,
+            json!({"workspace": workspace, "decl": ""}),
+        ),
+        &mut store,
+    );
     assert!(
-        row.get("rendered")
-            .is_none_or(|rendered| { rendered.is_null() || rendered == "" })
+        !empty_discard.ok,
+        "an absent rendered line must not be a discard key"
     );
 
     let checked = check(&mut store, &workspace);

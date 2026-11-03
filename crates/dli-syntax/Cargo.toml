@@ -12,6 +12,7 @@ publish = false
 dli-ast.workspace = true
 miette.workspace = true
 thiserror.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
