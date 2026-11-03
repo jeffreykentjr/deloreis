@@ -4354,8 +4354,7 @@ fn conflict_to_wire(conflict: &Conflict) -> DiffConflict {
 }
 
 /// A `dli-world` [`WorldFinding`] on the wire as the contract [`Finding`].
-/// `data` rides across only when `carries_data` (WS-2, `≥1.7.0` —
-/// [`crate::has_finding_data`]).
+/// `data` rides across when `carries_data` is set.
 fn world_finding_to_wire(finding: &WorldFinding, carries_data: bool) -> Finding {
     Finding {
         severity: match finding.severity {

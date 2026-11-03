@@ -47,16 +47,11 @@ const KILLED_OPS: &[(&str, &str)] = &[
     ("dli.payload-submit", "contract 2.0.0"),
 ];
 
-/// Retired stored marker spellings and their typed successor. The AST keeps
-/// `Decided` readable for one compatibility cycle, while contract 1.5 refuses
-/// a newly imported occurrence through the same killed-form vocabulary used by
-/// retired operations and fields.
+/// Retired marker spellings and their typed successor. The AST still reads
+/// `Decided` in historical data; the current wire refuses new imports of it.
 const KILLED_MARKERS: &[(&str, &str)] = &[("decided", "provisional")];
 
-pub(crate) fn killed_marker_successor(dli: &str, marker: &str) -> Option<&'static str> {
-    if !crate::has_standing_tools(dli) {
-        return None;
-    }
+pub(crate) fn killed_marker_successor(_dli: &str, marker: &str) -> Option<&'static str> {
     KILLED_MARKERS
         .iter()
         .find(|(retired, _)| *retired == marker)
@@ -607,13 +602,12 @@ mod tests {
     }
 
     #[test]
-    fn decided_marker_is_killed_only_on_contract_1_5() {
-        assert_eq!(killed_marker_successor("1.4.0", "decided"), None);
+    fn retired_decided_marker_names_its_successor() {
         assert_eq!(
-            killed_marker_successor("1.5.0", "decided"),
+            killed_marker_successor("2.0.0", "decided"),
             Some("provisional")
         );
-        assert_eq!(killed_marker_successor("1.5.0", "ratified"), None);
+        assert_eq!(killed_marker_successor("2.0.0", "ratified"), None);
     }
 
     /// The refusal names the successor FIELD, and the wire it was made on.

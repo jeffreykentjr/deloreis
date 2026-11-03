@@ -6,6 +6,34 @@ use dli_serve::serve::respond;
 use dli_serve::session::Sessions;
 use serde_json::json;
 
+#[cfg(feature = "syntax")]
+#[test]
+fn batch_check_keeps_structured_continuity_details() {
+    let source = "scope storybook\nratify d-1\nfunctional home ratified d-1\nfact wren home shore ratified d-1\nfact wren home hill ratified d-1\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    let world = dli_world::compile(&dli_world::pack::Pack {
+        name: "storybook".to_owned(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let mut sessions = Sessions::new();
+    sessions.scope("camelot").unwrap().world = world;
+    let mut store = Store::default();
+    let frame =
+        json!({"dli":"2.0.0", "id":"check", "op":"dli.check", "params":{"document":"camelot"}});
+    let response = respond(&frame.to_string(), &mut sessions, &mut store).unwrap();
+    let result = response.result.unwrap();
+    let finding = result["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["code"] == "continuity.fd-violation")
+        .unwrap();
+    assert_eq!(finding["data"]["pred"], "home");
+    assert_eq!(finding["data"]["subject"], "wren");
+}
+
 #[test]
 fn retired_versions_and_operations_name_the_successor() {
     let mut sessions = Sessions::new();

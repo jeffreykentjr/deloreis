@@ -411,7 +411,7 @@ pub(super) struct WorkspaceReport {
 
 /// Compile and check one workspace without mutating it. `carries_data` gates
 /// whether a raised [`WorldFinding`]'s structured payload rides across as
-/// `Finding.data` (WS-2, `≥1.7.0` only — [`crate::has_finding_data`]).
+/// `Finding.data`.
 pub(super) fn workspace_report(
     store: &Store,
     ws: &Workspace,
@@ -1117,7 +1117,7 @@ fn parse_goal(text: &str) -> Result<AtomExpr, ErrorBody> {
 /// Map a kernel [`WorldFinding`] onto the wire [`Finding`] (the same mapping the
 /// batch `dli.check` handler uses; the read surface carries no repair for a
 /// world-internal finding). `data` rides across only when `carries_data`
-/// (WS-2, `≥1.7.0` — [`crate::has_finding_data`]).
+/// (WS-2).
 fn world_finding(finding: &WorldFinding, carries_data: bool) -> Finding {
     Finding {
         severity: match finding.severity {
