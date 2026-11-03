@@ -509,19 +509,17 @@ impl World {
                 //   compilation (`dli_world::Loader::process_kind` /
                 //   `process_rule`, the latter via `World::define_rule`);
                 //   this direct document lowering has no equivalent pass.
-                // - Dialect/Word/NamePart/Name/Term/Banned/Practice/Proof/
-                //   Principle are language- and ledger-layer forms the full
-                //   pipeline compiles (`dli-world::Loader` for language
-                //   forms, `dli-ledger` for practice/proof/principle), not
-                //   this lowering.
+                // - Dialect/Word/NamePart/Name/Term/Banned are compiled by
+                //   the language layer; Practice/Proof are read by the ledger.
+                //   Principle declarations are carried without a checker.
                 // - `ratify` mints no atom either; it is consumed by the
                 //   `known_decisions` pre-pass above, not this per-decl
                 //   match.
                 // - `attest` carries no atom here either, but it is NOT
                 //   inert: `author.add_attest` (contract 1.3.0) is a live,
-                //   materializable wire capability, and the ledger's
-                //   attestation-sweep machinery reads it downstream of the
-                //   store. `load.inert-declaration` is error-severity and
+                //   materializable wire capability; the declaration is
+                //   carried through the store. `load.inert-declaration` is
+                //   error-severity and
                 //   blocks `author.materialize` (verified: flagging Attest
                 //   breaks the shipped `add_attest` -> materialize flow), so
                 //   it stays a plain no-op here.

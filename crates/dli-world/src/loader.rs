@@ -340,15 +340,13 @@ impl LoadCtx {
             //   `declared_decisions` (dli-world::lib.rs), which turns a
             //   corpus's `ratify` decls into the authoritative decision set
             //   a citation must land in.
-            // - Practice/Proof/Principle are read by dli-ledger
-            //   (practice.rs, ledger_check.rs), not the world model:
-            //   resource-tracked practices, casting proofs, and craft
-            //   principles lower to no ground atom here.
+            // - Practice/Proof are read by dli-ledger, not the world model.
+            //   Principle declarations are carried without a checker; none
+            //   of these forms lower to a ground atom here.
             // - `attest` carries no atom here either, but it is NOT inert:
             //   `author.add_attest` (contract 1.3.0) is a live, materializable
-            //   wire capability, and the ledger's attestation-sweep machinery
-            //   (`dli.attest.missing` / `dli.attestation-sweep`) reads it
-            //   downstream of the store, not through this per-decl dispatch.
+            //   wire capability; the declaration is carried through the
+            //   store, not evaluated by this per-decl dispatch.
             //   `load.inert-declaration` is error-severity and blocks
             //   `author.materialize` (verified: flagging Attest here breaks
             //   the shipped `add_attest` -> materialize flow), so it stays a

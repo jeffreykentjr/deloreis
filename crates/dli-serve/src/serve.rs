@@ -145,11 +145,6 @@ struct KilledField {
 /// So the version gate is not a lock over an inert table; it is the hinge
 /// between two live behaviours, and neither leaks onto the other's wire.
 ///
-/// **A registration is per-op, but a params *type* can be shared.** `Claim` is
-/// carried by both `dli.payload-submit` and `dli.check-draft`, so both are
-/// registered: one entry would retire the field on one wire and silently
-/// un-require it on the other, which is precisely the hole
-/// `tests/ls8_zero_x_parity.rs` exists to catch.
 const KILLED_FIELDS: &[KilledField] = &[
     KilledField {
         op: "dli.query",

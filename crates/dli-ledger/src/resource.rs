@@ -42,8 +42,7 @@ pub use dli_ast::practice::{GradeDirection, ResourceKind};
 // positive amount adds units (acquire, reveal, release into the account), a
 // negative amount removes them (spend, wear). The interpretation of the running
 // total is what the resource's `ResourceKind` fixes. (This note stays out of the
-// doc comment: the one-line description is embedded verbatim in the committed
-// `check-draft` contract schema, and must not drift.)
+// doc comment: the one-line schema description is checked for stability.)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Delta {
     /// The resource affected.

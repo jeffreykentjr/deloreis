@@ -904,7 +904,7 @@ pub enum ExportEmission {
     StaticWiki(StaticWikiExport),
 }
 
-// -- dli.attestation-sweep ---------------------------------------------------
+// -- Attestation types ------------------------------------------------------
 
 impl AttestationAnswer {
     /// The canonical wire and storage token.

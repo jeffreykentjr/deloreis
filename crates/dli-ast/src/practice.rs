@@ -10,7 +10,7 @@
 //! `resource`, `rule`, `condition`, `error`, `effect`, `cost`); the single
 //! producer of the typed structure is `dli_syntax::structure_practice_body`,
 //! which lives behind the front end. Downstream crates (`dli-ledger`,
-//! `dli-sim`, `dli-world`) are readers.
+//! `dli-world`) are readers.
 //!
 //! Retaining the normalized clause text alongside the typed [`PracticeDef`] on
 //! [`PracticeBody`] keeps the canonical surface exact: the formatter renders the
