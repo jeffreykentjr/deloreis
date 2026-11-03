@@ -371,3 +371,18 @@ orphaned objects. Garbage collection requires a separate decision.
 
 **Rationale.** The reset's summary omitted these still-used rules even though
 implementation and documentation continue to rely on them.
+
+## DL-0120 — Avoid guessing from ambiguous state values
+
+*Date: 2026-11-03*
+
+**Attribution:** machine.
+
+**Ruling.** Qualify DL-0118: an undotted state's value is not diagnosed as an
+entity reference merely because the same predicate has held a declared entity.
+A synthetic valueless dotted state is also excluded from this shared warning
+when lowering has lost the distinction from an undotted value; its authoring
+validation continues to check the reference separately.
+
+**Rationale.** Predicate positions do not declare types, so a concept that
+happens to resemble an entity is not evidence of a misspelling.
