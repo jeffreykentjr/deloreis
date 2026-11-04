@@ -5,6 +5,10 @@ verdict: "How to prepare release candidates and publish De Lore Is."
 
 # Publishing a release
 
+The release is on hold until the understanding work tracked in #235 is
+complete. Do not tag an RC, publish a release, or run the macOS workflow before
+then. The owner must approve an RC before the macOS workflow starts.
+
 The workspace version in `Cargo.toml` is the release version. The `deloreis`
 command and its `dli-*` dependencies are published together. The wire contract
 has its own version.

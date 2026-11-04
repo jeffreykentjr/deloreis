@@ -9,8 +9,7 @@ verdict: "A self-contained public-domain mythology example for the fiction-focus
 > **Worldbook.** This chapter tours the fiction tools through a
 > mythology example. Where [`examples/camelot.dli`](../../../examples/camelot.dli) is
 > one teaching file, this world is a *directory of packs* — the shape a real
-> world takes — under [`examples/norse/`](../../../examples/norse/). It uses a
-> different mythos from the original Hollow example.
+> world takes — under [`examples/norse/`](../../../examples/norse/).
 
 The Norse example is three `.dli` packs, each pack a self-contained
 scope that `deloreis check` passes clean, and together one corpus a proof checks

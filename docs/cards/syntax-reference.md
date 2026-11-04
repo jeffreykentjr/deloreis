@@ -107,14 +107,10 @@ on the provenance of the claim being gated, for example
 
 `practice <id> [marker] { … }` — interior keywords, one per line:
 `use`, `kind`, `role` (`role <id> : <kind> requires <conds>`), `resource`
-(`resource <id> : linear conserved | affine bounded <n> | graded monotone
-<dir>`), `rule` (`… :- <clauses>`), `condition`, `error` (`error <id> refines
-L1–L7 <discriminant> [where …]`), `effect`, `cost`.
+(`resource <id> : linear conserved | affine bounded <n> | graded monotone <dir>`), `rule` (`… :- <clauses>`), `condition`, `error` (`error <id> refines L1–L7 <discriminant> [where …]`), `effect`, `cost`.
 
 `proof <id> speaker <who> in <practice> { … }` — interior:
-`premise <id> <atom> cited d-NNNN [cue "…"]`, `step <id> instantiate <rule>
-with <bindings>`, `spend <premise>`, `close <atom> expect
-holds|fails-at <error>`.
+`premise <id> <atom> cited d-NNNN [cue "…"]`, `step <id> instantiate <rule> with <bindings>`, `spend <premise>`, `close <atom> expect holds|fails-at <error>`.
 
 ### Language layer
 

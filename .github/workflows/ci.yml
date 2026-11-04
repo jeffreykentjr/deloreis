@@ -63,6 +63,12 @@ jobs:
           tool: mdbook
       - run: cargo run -p xtask --locked -- docs-oracle
       - run: cargo run -p xtask --locked -- book
+      - name: Save the book preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: book-${{ github.sha }}
+          path: out/book
+          if-no-files-found: error
 
   deny:
     runs-on: ubuntu-latest

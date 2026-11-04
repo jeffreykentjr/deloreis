@@ -32,6 +32,20 @@ pub fn run_book(root: &Path) -> Result<()> {
     if !status.success() {
         bail!("book: mdbook build failed (exit {:?})", status.code());
     }
+    for script in [
+        "build-holmes-wiki.py",
+        "check-book-links.py",
+        "test-book-site.py",
+    ] {
+        let status = Command::new("python3")
+            .arg(root.join("scripts").join(script))
+            .arg(&dest)
+            .status()
+            .with_context(|| format!("running {script}"))?;
+        if !status.success() {
+            bail!("book: {script} failed (exit {:?})", status.code());
+        }
+    }
     println!("book: built {}", dest.display());
     Ok(())
 }
