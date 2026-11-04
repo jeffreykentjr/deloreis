@@ -101,7 +101,7 @@
       "sha256:62d8f4fe90c3bae08af9c45cdb8d6ad039b68c85a59e90ae2e7cea127d672793",
       "sha256:7100cc7a635b97d2b625199ee7359ab660ff7ec07582322dca573d6ce330c341",
       "sha256:75bc6c8f83912b84f987e0569657542952c0297f7152b5e27c12876eeb5ea532",
-      "sha256:00b8b46f6f62508f2552383ad14fc3b2a0782a9eb10480e7c95d852dd6f08956"
+      "sha256:735c8ed9b9856313d8e8b4b42d416437fd92d6e513bd6b3a6c38d53fdc1048ec"
     ],
     "lineage": [],
     "evidence": [],
@@ -2948,11 +2948,11 @@
         "kind": "ratify",
         "name": "d-0011",
         "body": [
-          "{\"Ratify\":{\"body\":{\"clauses\":[{\"assignment\":{\"hyp\":\"h-merlin-foresaw\",\"value\":true},\"clause\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"h-merlin-foresaw := true\"}}]},\"decision\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0011\"}}}"
+          "{\"Ratify\":{\"decision\":{\"span\":{\"end\":0,\"file\":0,\"start\":0},\"text\":\"d-0011\"}}}"
         ]
       },
       "provenance": {
-        "located_body": "{\"Ratify\":{\"body\":{\"clauses\":[{\"assignment\":{\"hyp\":\"h-merlin-foresaw\",\"value\":true},\"clause\":{\"span\":{\"end\":5777,\"file\":0,\"start\":5753},\"text\":\"h-merlin-foresaw := true\"}}]},\"decision\":{\"span\":{\"end\":5748,\"file\":0,\"start\":5742},\"text\":\"d-0011\"}}}"
+        "located_body": "{\"Ratify\":{\"decision\":{\"span\":{\"end\":5748,\"file\":0,\"start\":5742},\"text\":\"d-0011\"}}}"
       }
     }
   ]

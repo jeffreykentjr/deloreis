@@ -3009,8 +3009,23 @@ fn parse_provenance(cur: &mut Cursor, diags: &mut Vec<Diagnostic>) -> Option<Ann
             citations.push(CitationRef { id: ident_of(tok) });
             cur.bump();
         } else if tok.kind == TokenKind::Word && tok.text == "assumes" {
+            let span = tok.span;
             cur.bump();
+            if condition.is_some() {
+                diags.push(Diagnostic::new(
+                    DiagClass::Malformed,
+                    "use one `assumes` condition; join hypotheses with `and` or `or`",
+                    span,
+                ));
+            }
             condition = parse_condition(cur);
+            if condition.is_none() || matches!(cur.peek_word_text(), Some("and" | "or")) {
+                diags.push(Diagnostic::new(
+                    DiagClass::Malformed,
+                    "`assumes` needs a complete condition, for example `assumes h-name`; parentheses and mixed `and`/`or` are not supported here",
+                    span,
+                ));
+            }
         } else if tok.kind == TokenKind::Word
             && is_marker(&tok.text)
             && (tok.text != "proposed-bundle" || explicit_bundle)
@@ -3066,9 +3081,7 @@ fn parse_condition(cur: &mut Cursor) -> Option<CondExpr> {
             let mut parts = vec![primary];
             while cur.peek_word_text() == Some("and") {
                 cur.bump();
-                if let Some(next) = parse_condition_primary(cur) {
-                    parts.push(next);
-                }
+                parts.push(parse_condition_primary(cur)?);
             }
             Some(CondExpr::And(parts))
         }
@@ -3076,9 +3089,7 @@ fn parse_condition(cur: &mut Cursor) -> Option<CondExpr> {
             let mut parts = vec![primary];
             while cur.peek_word_text() == Some("or") {
                 cur.bump();
-                if let Some(next) = parse_condition_primary(cur) {
-                    parts.push(next);
-                }
+                parts.push(parse_condition_primary(cur)?);
             }
             Some(CondExpr::Or(parts))
         }
@@ -3090,6 +3101,12 @@ fn parse_condition_primary(cur: &mut Cursor) -> Option<CondExpr> {
     if cur.peek_word_text() == Some("not") {
         cur.bump();
         return parse_condition_primary(cur).map(|inner| CondExpr::Not(Box::new(inner)));
+    }
+    if cur
+        .peek_word_text()
+        .is_some_and(|word| matches!(word, "and" | "or" | "assumes") || is_marker(word))
+    {
+        return None;
     }
     let hyp = cur.eat_ident()?;
     Some(CondExpr::Hyp(hyp))

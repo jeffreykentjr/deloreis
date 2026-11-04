@@ -6,10 +6,21 @@ Every graded finding carries a stable, dotted `family.item` code (charter koan 9
 
 These finding codes are **disjoint** from the wire error-code registry (the `ErrorCode` values in `error-codes.md`, per the dli-worker contract §3.2 / §9). The distinction is load-bearing: a wire error code says the *call* failed — it was malformed (`schema`), refused by principle (`refused`), or hit a server defect (`internal`); a finding code is a graded *domain* observation about the lore itself. A well-formed call over inconsistent lore returns findings, not an error. No code appears in both sets.
 
-**94 dotted codes** across **11 families**, plus **4 `proof.resource-violation` sub-codes**. A `family.item` code names its check battery in the family and the specific violation in the item. Two codes can share a stem across families — the naming vet's `name.register-fit` (a kernel error) and the authoring seam's `name.unvetted` (an authoring warn) are different findings from different surfaces.
+**96 dotted codes** across **12 families**, plus **4 `proof.resource-violation` sub-codes**. A `family.item` code names its check battery in the family and the specific violation in the item. Two codes can share a stem across families — the naming vet's `name.register-fit` (a kernel error) and the authoring seam's `name.unvetted` (an authoring warn) are different findings from different surfaces.
 
 
 > Severity belongs to the emitting check. Some findings include structured repair data; others explain the next step in their message. Error-severity findings block `author.materialize`, while warnings do not.
+
+## Ratify blocks
+
+- **Emitted by:** World check and corpus import
+- **Owner:** `dli-world :: lib.rs`
+- **Severity:** Errors identify a ruling that cannot safely affect a world claim or decision.
+
+| Code | Severity | Repair | Meaning |
+|---|---|---|---|
+| `ratify.world-hypothesis-unsupported` | error | — | a ratify assignment cannot settle a world claim that assumes the hypothesis. |
+| `ratify.decision-as-hypothesis` | error | — | a ratify assignment names a decision rather than a hypothesis. |
 
 ## Entity references
 

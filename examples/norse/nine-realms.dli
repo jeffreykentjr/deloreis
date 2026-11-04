@@ -73,6 +73,4 @@ question who-holds-the-reborn-world "Who holds the world after the fire?"
 holds(baldr, after-ragnarok) proposed assumes baldr-returned and h-return
 hypothesis h-seer-foresaw "the seeress foresaw the doom from the first, and sang it before it came"
 event the-first-prophecy  during the-binding-age proposed assumes h-seer-foresaw
-ratify d-0014 {
-  h-seer-foresaw := true
-}
+ratify d-0014

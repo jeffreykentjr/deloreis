@@ -1826,12 +1826,19 @@ fn handle_corpus_import(request: &Request, sessions: &mut Sessions) -> Result<Re
         .fact_hashes_from(&root)
         .map_err(|e| (ErrorCode::Internal, e.to_string()))?
         .len();
+    // A corpus import can preserve incomplete evidence. Surface unsupported
+    // world rulings immediately rather than reporting a clean import.
+    let imported = store.reconstruct_at(&root).map_err(corpus_commit_fault)?;
+    let findings = dli_world::unsupported_world_hypothesis_rulings(&imported)
+        .into_iter()
+        .map(|finding| world_finding(&WorldFinding::error(finding.code, finding.message)))
+        .collect();
     Ok(ok_response(
         request,
         &CorpusImportResult {
             root_hash: root.as_str().to_owned(),
             imported_count: count,
-            findings: Vec::new(),
+            findings,
         },
     ))
 }

@@ -424,3 +424,171 @@ fn exported_hollow_text_imports_to_the_same_first_ruling() {
         String::from_utf8_lossy(&check.stdout)
     );
 }
+
+#[test]
+fn unsupported_world_hypothesis_is_reported_by_mcp_import_and_check() {
+    let project = tempfile::tempdir().unwrap();
+    let init = Command::new(env!("CARGO_BIN_EXE_deloreis"))
+        .arg("init")
+        .arg(project.path().join("world"))
+        .output()
+        .unwrap();
+    assert!(init.status.success());
+    let mut server = Server::start(&project.path().join("world"));
+    let text = "scope story\nhypothesis h-x\nfact wren home den proposed assumes h-x\nratify d-1 { h-x := true }\n";
+    let imported = server.ok(
+        "dli.corpus.import",
+        json!({"document":"world","mode":"append","dli_documents":[{"id":"story","text":text}]}),
+    );
+    assert!(
+        imported["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["code"] == "ratify.world-hypothesis-unsupported"),
+        "{imported}"
+    );
+    let objects = server.ok(
+        "dli.corpus.export",
+        json!({"document":"world","format":"objects"}),
+    );
+    let other_root = project.path().join("second-world");
+    assert!(
+        Command::new(env!("CARGO_BIN_EXE_deloreis"))
+            .arg("init")
+            .arg(&other_root)
+            .output()
+            .unwrap()
+            .status
+            .success()
+    );
+    let mut other = Server::start(&other_root);
+    let copied = other.ok("dli.corpus.import", json!({"document":"world","mode":"append","objects":objects["objects"],"interner":objects["interner"],"decisions":objects["decisions"]}));
+    assert!(
+        copied["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["code"] == "ratify.world-hypothesis-unsupported"),
+        "{copied}"
+    );
+    let checked = server.ok("dli.check", json!({"document":"world"}));
+    assert_eq!(checked["ok"], false, "{checked}");
+    assert!(
+        checked["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["code"] == "ratify.world-hypothesis-unsupported"),
+        "{checked}"
+    );
+    let workspace = server.ok("author.open", json!({"scope":"world"}))["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    server.ok("author.add_entity", json!({"workspace":workspace,"kind":"person","id":"wren","name":"Wren","provenance":{"kind":"proposed","origin":"test"}}));
+    let result = server.call("author.materialize", json!({"workspace":workspace}));
+    assert_eq!(result["ok"], false, "{result}");
+}
+
+#[test]
+fn unsupported_world_ruling_is_reported_when_imported_in_a_later_document() {
+    let project = tempfile::tempdir().unwrap();
+    let root = project.path().join("world");
+    assert!(
+        Command::new(env!("CARGO_BIN_EXE_deloreis"))
+            .arg("init")
+            .arg(&root)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let mut server = Server::start(&root);
+    let first = server.ok("dli.corpus.import", json!({"document":"world","mode":"append","dli_documents":[{"id":"first","text":"scope story\nhypothesis h-x\nfact wren home den proposed assumes h-x\n"}]}));
+    assert!(first["findings"].as_array().unwrap().is_empty(), "{first}");
+    let next = server.ok("dli.corpus.import", json!({"document":"world","mode":"append","dli_documents":[{"id":"second","text":"scope story\nhypothesis h-x\nratify d-1 { h-x := true }\n"}]}));
+    assert!(
+        next["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["code"] == "ratify.world-hypothesis-unsupported"),
+        "{next}"
+    );
+}
+
+#[test]
+fn unsupported_conflicting_rulings_do_not_change_independent_defeat_and_restoration() {
+    let project = tempfile::tempdir().unwrap();
+    let root = project.path().join("world");
+    assert!(
+        Command::new(env!("CARGO_BIN_EXE_deloreis"))
+            .arg("init")
+            .arg(&root)
+            .output()
+            .unwrap()
+            .status
+            .success()
+    );
+    let mut server = Server::start(&root);
+    let text = "scope story\nratify d-0001\nratify d-0004\nperson wren \"Wren\" ratified d-0001\nfact wren home den ratified d-0001\nfact wren role guide ratified d-0004\nhypothesis h-x\nfact wren hat red proposed assumes h-x\nratify d-0002 { h-x := true }\nratify d-0003 { h-x := false }\n";
+    let imported = server.ok(
+        "dli.corpus.import",
+        json!({"document":"world","mode":"append","dli_documents":[{"id":"story","text":text}]}),
+    );
+    assert_eq!(
+        imported["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["code"] == "ratify.world-hypothesis-unsupported")
+            .count(),
+        2,
+        "{imported}"
+    );
+    let ws = server.ok("author.open", json!({"scope":"world"}))["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let home = server.ok(
+        "author.query",
+        json!({"workspace":ws,"goal_atom":atom("home","wren","den")}),
+    );
+    let role = server.ok(
+        "author.query",
+        json!({"workspace":ws,"goal_atom":atom("role","wren","guide")}),
+    );
+    assert_eq!(home["rows"][0]["status"], "certain");
+    let home_id = home["rows"][0]["claim_ids"][0].as_str().unwrap();
+    let role_id = role["rows"][0]["claim_ids"][0].as_str().unwrap();
+    server.ok(
+        "author.defeat",
+        json!({"workspace":ws,"claim_id":home_id,"decision":"d-0004","defeated_decision":"d-0001"}),
+    );
+    let after = server.ok(
+        "author.query",
+        json!({"workspace":ws,"goal_atom":atom("home","wren","den")}),
+    );
+    assert!(after["rows"].as_array().unwrap().is_empty(), "{after}");
+    server.ok(
+        "author.defeat",
+        json!({"workspace":ws,"claim_id":role_id,"decision":"d-0005","defeated_decision":"d-0004"}),
+    );
+    let restored = server.ok(
+        "author.query",
+        json!({"workspace":ws,"goal_atom":atom("home","wren","den")}),
+    );
+    assert_eq!(restored["rows"][0]["status"], "certain");
+    let checked = server.ok("dli.check", json!({"document":"world"}));
+    assert_eq!(checked["ok"], false);
+    assert_eq!(
+        checked["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["code"] == "ratify.world-hypothesis-unsupported")
+            .count(),
+        2,
+        "{checked}"
+    );
+}

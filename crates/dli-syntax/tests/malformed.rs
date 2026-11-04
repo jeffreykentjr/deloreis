@@ -501,3 +501,29 @@ fn ratify_assignment_preserves_compact_names_and_boolean_values() {
         assert_eq!(assignment.value, expected_value);
     }
 }
+
+#[test]
+fn unreadable_assumption_is_an_error_not_a_tag() {
+    for source in [
+        "scope story\nfact wren home den proposed assumes\n",
+        "scope story\nfact wren home den proposed assumes (h-x and h-y)\n",
+        "scope story\nfact wren home den proposed assumes h-x and (h-y)\n",
+        "scope story\nfact wren home den proposed assumes h-x and\n",
+        "scope story\nfact wren home den proposed assumes h-x and h-y or h-z\n",
+        "scope story\nfact wren home den proposed assumes h-x assumes h-y\n",
+        "scope story\nfact wren home den proposed assumes h-x and assumes h-y\n",
+        "scope story\nfact wren home den proposed assumes h-x and or h-y\n",
+    ] {
+        let diagnostics = parse_document(source).1;
+        assert!(
+            diagnostics
+                .iter()
+                .any(|d| d.class.is_error() && d.message.contains("assumes")),
+            "{diagnostics:?}"
+        );
+        assert!(
+            format_source(source).is_err(),
+            "formatter must not discard {source:?}"
+        );
+    }
+}
