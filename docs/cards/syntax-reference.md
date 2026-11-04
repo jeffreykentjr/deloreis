@@ -20,7 +20,7 @@ successor.
 | Scope header | `scope <name>` | First line of a file; names the scope. |
 | Comment | `# …` | Whole-line only. |
 | Record | one declaration per line | Flat; order-insensitive between records. |
-| Continuation | leading indent under a header line | Groups child lines (entity slots, question options, rule bodies) into one record. **A dedent ends the group — the parser is indent-tolerant and the formatter owns layout** (autoformat guarantee, DL-0016; spec/01 §2). Tab counts as one column. |
+| Continuation | leading indent under a header line | Groups child lines (entity slots, question options, rule bodies) into one record. **A dedent ends the group — the parser is indent-tolerant and the formatter owns layout**. Tab counts as one column. |
 | Expert block | `keyword … { … }` … `}` | Brace-delimited interiors for `practice`, `proof`, `dialect`, `ratify`. Braces inside string labels are plain text. |
 
 ## 2. Provenance (trails every claim-bearing line)
@@ -43,7 +43,7 @@ successor.
 - `proposed-bundle "scope#number"` preserves an anonymous proposal's exact
   identity on text replay; the scope may be empty for scope-less source. It cannot
   be combined with origin tokens,
-  or `assumes` (DL-0113).
+  or `assumes`.
 
 ## 3. Keyword inventory by family
 

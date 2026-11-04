@@ -58,6 +58,9 @@ pub(crate) struct ShowArgs {
     /// An era or event to place the cursor at.
     #[arg(long, value_name = "POINT")]
     pub(crate) at: Option<String>,
+    /// Render the chronology as Markdown for a book or wiki.
+    #[arg(long)]
+    pub(crate) markdown: bool,
 }
 
 /// Arguments for `timeline knows`.
@@ -150,9 +153,13 @@ fn run_show(args: &ShowArgs) -> CmdResult {
 
     match world.chronology.topological_layers(&points) {
         Ok(layers) => {
-            for (rank, layer) in layers.iter().enumerate() {
-                let names: Vec<String> = layer.iter().map(|p| point_name(&world, *p)).collect();
-                outln!("layer {rank}: {}", names.join(", "));
+            if args.markdown {
+                render_markdown_order(&world, &points);
+            } else {
+                for (rank, layer) in layers.iter().enumerate() {
+                    let names: Vec<String> = layer.iter().map(|p| point_name(&world, *p)).collect();
+                    outln!("layer {rank}: {}", names.join(", "));
+                }
             }
         }
         Err(blame) => {
@@ -184,13 +191,80 @@ fn run_show(args: &ShowArgs) -> CmdResult {
                 TemporalVerdict::Unordered => {}
             }
         }
-        outln!(
-            "at {at}: after [{}], before [{}]",
-            before.join(", "),
-            after.join(", ")
-        );
+        if args.markdown {
+            let before = before
+                .iter()
+                .map(|name| markdown_code(name))
+                .collect::<Vec<_>>();
+            let after = after
+                .iter()
+                .map(|name| markdown_code(name))
+                .collect::<Vec<_>>();
+            outln!(
+                "\nAt {}: after [{}]; before [{}].",
+                markdown_code(at),
+                before.join(", "),
+                after.join(", ")
+            );
+        } else {
+            outln!(
+                "at {at}: after [{}], before [{}]",
+                before.join(", "),
+                after.join(", ")
+            );
+        }
     }
     Ok(EXIT_CLEAN)
+}
+
+fn render_markdown_order(world: &World, points: &[TimePoint]) {
+    outln!("# Chronology\n");
+    outln!("These are the known orderings. Pairs not listed are unordered.\n");
+    let mut names = points
+        .iter()
+        .map(|point| point_name(world, *point))
+        .collect::<Vec<_>>();
+    names.sort();
+    outln!(
+        "Points: {}\n",
+        names
+            .iter()
+            .map(|name| markdown_code(name))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    let mut pairs = Vec::new();
+    for &first in points {
+        for &second in points {
+            if first != second
+                && world.chronology.precedes(first, second) == TemporalVerdict::Before
+            {
+                pairs.push((point_name(world, first), point_name(world, second)));
+            }
+        }
+    }
+    pairs.sort();
+    if pairs.is_empty() {
+        outln!("No orderings are recorded.");
+    }
+    for (before, after) in pairs {
+        outln!(
+            "- {} before {}",
+            markdown_code(&before),
+            markdown_code(&after)
+        );
+    }
+}
+
+fn markdown_code(text: &str) -> String {
+    format!(
+        "`{}`",
+        text.replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+            .replace('`', "&#96;")
+            .replace(['\r', '\n'], " ")
+    )
 }
 
 fn run_order(args: &CorpusArgs) -> CmdResult {

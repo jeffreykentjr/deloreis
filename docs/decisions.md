@@ -405,3 +405,27 @@ updated timeline fixtures, which must replay and pass schema validation.
 **Rationale.** A known event in an earlier era must not make a later-era query
 indeterminate, and the checker must detect contradictory chronology using the
 same ordering as reads.
+
+## DL-0122 — Understanding before release
+
+*Date: 2026-11-04*
+
+**Attribution:** human.
+
+**Ruling.** The owner directed:
+
+> something beyond a one off blog post has to be our target. we shouldnt write
+> the blog post now,but we need to be sure weve got a path to people really
+> understanding this work and putting it to use.
+
+> were doing everyhing up to the release first. and note that another agent will
+> do the actual mesite work. it just has to file the resources for it to piick up
+
+The owner's picks are: flagship, "Sherlock Holmes canon"; home, "DLI Pages +
+mesite page"; timing, "Hold the release too". Hold the release candidate,
+release publication, and macOS build until the understanding work is complete.
+The DLI repository supplies resources for a separate mesite agent; it does not
+write or publish the mesite post.
+
+**Rationale.** A release needs an example and guidance that help people learn
+the tool and use it on their own fiction.

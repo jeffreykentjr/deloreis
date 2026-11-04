@@ -16,6 +16,17 @@ library callers may explicitly supply a fork valuation. Every artifact carries
 a manifest with the source anchor, selected layer, valuation fingerprint, and
 profile hash.
 These fields make an export traceable and reproducible from its inputs.
+The built-in `wiki/static` profile follows that default. To include source
+claims that are possible or dead, explicitly select `wiki/all-standing` with
+`--profile-name` or `profile_name`. Its pages label each source claim's own
+evaluated support and include provenance markers and decision IDs when the
+profile carries provenance. A reader needs a source index to associate those
+IDs with story titles; the export does not invent source descriptions.
+This is a broader disclosure than a canon-only export; review it before sharing.
+Keep-stamp visibility restrictions still apply. The manifest labels this view
+`all`, and other targets keep their usual certain-only behavior.
+This profile refuses `as_of`: temporal projection would otherwise make a
+future claim appear dead, which is not the same as defeating its support.
 The optional story-time cutoff (`--as-of` in the CLI, `as_of` on the wire)
 projects state claims through the fluent timeline before selection. The manifest
 records the cutoff and binds it in the profile hash. A timeline that cannot be

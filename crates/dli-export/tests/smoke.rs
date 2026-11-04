@@ -720,6 +720,110 @@ fn static_wiki_strips_provenance_and_groups_predicates() {
 }
 
 #[test]
+fn all_standing_wiki_is_explicit_and_respects_visibility() {
+    let world = camelot();
+    let default = export(ExportTarget::StaticWiki, &world, &anchored_opts()).unwrap();
+    let default_json = serde_json::to_string(&default.artifact).unwrap();
+    assert!(!default_json.contains("kept-at"));
+
+    let opts = ExportOpts {
+        profile_name: Some("wiki/all-standing".to_owned()),
+        ..anchored_opts()
+    };
+    let all = export(ExportTarget::StaticWiki, &world, &opts).unwrap();
+    assert_eq!(all.manifest.layer, "all");
+    let json = serde_json::to_string(&all.artifact).unwrap();
+    assert!(json.contains("kept-at"));
+    assert!(json.contains("possible"));
+    assert!(json.contains("certain"));
+    assert!(json.contains("D-0001"));
+
+    let hidden = export(
+        ExportTarget::StaticWiki,
+        &world,
+        &ExportOpts {
+            keep_stamps: vec![KeepStamp {
+                scope: vec!["kept-at".to_owned()],
+                visibility: Visibility::Removed,
+            }],
+            ..opts
+        },
+    )
+    .unwrap();
+    assert!(
+        !serde_json::to_string(&hidden.artifact)
+            .unwrap()
+            .contains("kept-at")
+    );
+    let at_time = export(
+        ExportTarget::StaticWiki,
+        &world,
+        &ExportOpts {
+            profile_name: Some("wiki/all-standing".to_owned()),
+            as_of: Some("any-point".to_owned()),
+            ..anchored_opts()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        at_time,
+        ExportError::UnsupportedOption {
+            target: ExportTarget::StaticWiki,
+            option: "as_of"
+        }
+    );
+}
+
+#[test]
+fn all_standing_wiki_labels_individual_source_support() {
+    use dli_core::ann::Theory;
+    use dli_core::atom::Atom;
+    use dli_core::posbool::PosBool;
+    use dli_core::valuation::Valuation;
+
+    let certain = loaded_fact("note", &["certain"]);
+    let mut possible = loaded_fact("note", &["possible"]);
+    possible.ann = Ann::supported(PosBool::pos(Atom(42)));
+    possible.kind = Provenance::Provisional;
+    possible.citations = vec!["d-0002".to_owned()];
+    let mut dead = loaded_fact("note", &["dead"]);
+    dead.ann = Ann::supported(PosBool::FALSE);
+    let spec = Registry::builtin()
+        .resolve("wiki/all-standing")
+        .unwrap()
+        .clone();
+    let wiki = dli_export::static_wiki::compile_all(
+        &spec,
+        "all",
+        &[&dead, &possible, &certain],
+        &Valuation::default(),
+        &Theory::default(),
+    )
+    .unwrap();
+    let page = &wiki.pages[1].content;
+    assert!(page.contains("`note(certain)` — **certain**"));
+    assert!(
+        page.contains(
+            "`note(possible)` — **possible** (provenance: provisional) (decisions: d-0002)"
+        )
+    );
+    assert!(page.contains("`note(dead)` — **dead**"));
+    assert!(page.contains("[Back to index](index.md)"));
+    let mut stripped = spec;
+    stripped.carries_provenance = ProvenanceMode::Stripped;
+    let wiki = dli_export::static_wiki::compile_all(
+        &stripped,
+        "all",
+        &[&possible],
+        &Valuation::default(),
+        &Theory::default(),
+    )
+    .unwrap();
+    assert!(!wiki.pages[1].content.contains("provenance:"));
+    assert!(!wiki.pages[1].content.contains("d-0002"));
+}
+
+#[test]
 fn static_wiki_paths_cannot_escape_the_bundle() {
     let atom = loaded_fact("../notes", &["alpha"]);
     let spec = ProfileSpec {
@@ -733,6 +837,11 @@ fn static_wiki_paths_cannot_escape_the_bundle() {
     let wiki = dli_export::static_wiki::compile(&spec, "certain", &[&atom]).unwrap();
 
     assert_eq!(wiki.pages[1].path, "predicate-%2E%2E%2Fnotes.md");
+    assert!(
+        wiki.pages[0]
+            .content
+            .contains("predicate-%252E%252E%252Fnotes.md")
+    );
     assert!(wiki.pages.iter().all(|page| !page.path.contains('/')));
 }
 

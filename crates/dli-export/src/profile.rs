@@ -176,6 +176,7 @@ impl Registry {
                 neutral_profile(ExportTarget::ContextPack, "context-pack/default"),
                 neutral_profile(ExportTarget::Articy, "video/articy"),
                 neutral_profile(ExportTarget::Csv, "tabular/csv"),
+                neutral_profile(ExportTarget::StaticWiki, "wiki/all-standing"),
                 neutral_profile(ExportTarget::StaticWiki, "wiki/static"),
             ],
         }
@@ -717,15 +718,27 @@ pub fn export_with(
         });
     }
     let spec = registry.resolve_for(target, opts.profile_name.as_deref())?;
+    let all_standing = target == ExportTarget::StaticWiki && spec.name == "wiki/all-standing";
+    if all_standing && opts.as_of.is_some() {
+        return Err(ExportError::UnsupportedOption {
+            target,
+            option: "as_of",
+        });
+    }
 
-    let (layer, valuation) = layer_valuation(world, opts);
+    let (mut layer, valuation) = layer_valuation(world, opts);
     let temporal_world = opts
         .as_of
         .as_deref()
         .map(|at| project_export_world(world, &valuation, at))
         .transpose()?;
     let world = temporal_world.as_ref().unwrap_or(world);
-    let certain = certain_atoms_under(world, &valuation);
+    let certain = if all_standing {
+        "all".clone_into(&mut layer);
+        world.model().atoms().iter().collect()
+    } else {
+        certain_atoms_under(world, &valuation)
+    };
     let visible = apply_keep_stamps(certain, &opts.keep_stamps);
     let selected = select_atoms(spec, visible.clone());
     if let Some(predicate) = spec.renders.keys().find(|predicate| {
@@ -755,7 +768,18 @@ pub fn export_with(
         ExportTarget::Articy => ExportArtifact::Articy(articy::compile(spec, &layer, &visible)?),
         ExportTarget::Csv => ExportArtifact::Csv(csv::compile(spec, &layer, &selected)?),
         ExportTarget::StaticWiki => {
-            ExportArtifact::StaticWiki(static_wiki::compile(spec, &layer, &selected)?)
+            let wiki = if all_standing {
+                static_wiki::compile_all(
+                    spec,
+                    &layer,
+                    &selected,
+                    &valuation,
+                    &world.model().world.theory,
+                )?
+            } else {
+                static_wiki::compile(spec, &layer, &selected)?
+            };
+            ExportArtifact::StaticWiki(wiki)
         }
     };
 

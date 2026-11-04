@@ -254,8 +254,7 @@ fn render_grammar_keywords() -> String {
     let _ = write!(
         out,
         "De Lore Is reserves **{count}** keywords: the words a declaration line may \
-         open with. This set is the surface-v1 vocabulary (`decisions.md` DL-0016, \
-         the does-what-it-says pass). A line that opens with anything else is a \
+         open with. A line that opens with anything else is a \
          relation fact of the form `pred(args)` or a diagnostic. Retired spellings \
          (for example `fluent`→`state`, `wheel`→`cycle`, the proof block \
          `ledger`→`proof`, `sort`→`kind`) are **killed forms**: the parser refuses \

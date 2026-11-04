@@ -6,9 +6,11 @@ use std::fmt::Write as _;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use dli_world::model::LoadedAtom;
+use dli_core::ann::{Status, Theory};
+use dli_core::valuation::Valuation;
+use dli_world::model::{LoadedAtom, Provenance};
 
-use crate::profile::{ExportError, ProfileSpec};
+use crate::profile::{ExportError, ProfileSpec, ProvenanceMode};
 use crate::projection::{self, ProjectionRow};
 
 /// One materializable Markdown page.
@@ -33,6 +35,8 @@ pub struct StaticWikiExport {
     pub pages: Vec<WikiPage>,
 }
 
+type SourceRow = (ProjectionRow, &'static str, Option<&'static str>);
+
 /// Compile selected certain-layer atoms into a static Markdown wiki bundle.
 pub fn compile(
     spec: &ProfileSpec,
@@ -52,11 +56,108 @@ pub fn compile(
     let mut pages = Vec::with_capacity(by_predicate.len() + 1);
     for (predicate, predicate_rows) in by_predicate {
         let path = format!("predicate-{}.md", path_component(predicate));
-        let _ = writeln!(index, "- [{}]({path})", escape_markdown(predicate));
+        let _ = writeln!(
+            index,
+            "- [{}]({})",
+            escape_markdown(predicate),
+            link_path(&path)
+        );
         pages.push(WikiPage {
             path,
             title: predicate.to_owned(),
             content: render_page(predicate, &predicate_rows),
+        });
+    }
+    pages.insert(
+        0,
+        WikiPage {
+            path: "index.md".to_owned(),
+            title: "Lore index".to_owned(),
+            content: index,
+        },
+    );
+    Ok(StaticWikiExport {
+        profile: spec.qualified(),
+        layer: layer.to_owned(),
+        pages,
+    })
+}
+
+/// Compile an explicitly requested source-claim view, including unresolved claims.
+/// Each status describes the individual source's support, not an aggregate canon verdict.
+pub fn compile_all(
+    spec: &ProfileSpec,
+    layer: &str,
+    atoms: &[&LoadedAtom],
+    valuation: &Valuation,
+    theory: &Theory,
+) -> Result<StaticWikiExport, ExportError> {
+    let mut groups: BTreeMap<String, Vec<SourceRow>> = BTreeMap::new();
+    for atom in atoms {
+        let status = match atom.ann.status(valuation, theory) {
+            Status::Certain => "certain",
+            Status::Possible => "possible",
+            Status::Dead => "dead",
+        };
+        let provenance = if spec.carries_provenance == ProvenanceMode::DevMetadata {
+            Some(match atom.kind {
+                Provenance::Proposed => "proposed",
+                Provenance::Decided => "decided",
+                Provenance::Ratified => "ratified",
+                Provenance::Provisional => "provisional",
+                Provenance::Unprovenanced => "unprovenanced",
+            })
+        } else {
+            None
+        };
+        for row in projection::rows(spec, &[*atom])? {
+            groups
+                .entry(row.predicate.clone())
+                .or_default()
+                .push((row, status, provenance));
+        }
+    }
+    let mut index = String::from(
+        "# Lore index\n\nThis view includes source claims with certain, possible, or dead support.\n\n",
+    );
+    let mut pages = Vec::with_capacity(groups.len() + 1);
+    for (predicate, mut rows) in groups {
+        rows.sort_by(|a, b| {
+            (&a.0.id, &a.0.claim, &a.0.cited, a.1, a.2)
+                .cmp(&(&b.0.id, &b.0.claim, &b.0.cited, b.1, b.2))
+        });
+        rows.dedup();
+        let path = format!("predicate-{}.md", path_component(&predicate));
+        let _ = writeln!(
+            index,
+            "- [{}]({})",
+            escape_markdown(&predicate),
+            link_path(&path)
+        );
+        let mut content = format!(
+            "# {}\n\n[Back to index](index.md)\n\n",
+            escape_markdown(&predicate)
+        );
+        for (row, status, provenance) in rows {
+            let _ = write!(content, "- `{}` — **{status}**", code_text(&row.claim));
+            if let Some(provenance) = provenance {
+                let _ = write!(content, " (provenance: {provenance})");
+            }
+            if !row.cited.is_empty() {
+                let citations = row
+                    .cited
+                    .iter()
+                    .map(|citation| escape_markdown(citation))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let _ = write!(content, " (decisions: {citations})");
+            }
+            content.push('\n');
+        }
+        pages.push(WikiPage {
+            path,
+            title: predicate,
+            content,
         });
     }
     pages.insert(
@@ -138,4 +239,10 @@ fn path_component(text: &str) -> String {
         }
     }
     encoded
+}
+
+// Paths contain literal percent-encoded bytes as a safe filename. Escape the
+// percent signs in links so URL decoding reaches that literal filename.
+fn link_path(path: &str) -> String {
+    path.replace('%', "%25")
 }
