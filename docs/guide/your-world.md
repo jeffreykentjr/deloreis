@@ -57,3 +57,28 @@ interpret your own notes, but review its proposed claims against your sources.
 When you need to change an accepted account, record the new ruling and inspect
 its effect before committing. Use a branch to explore a possibility separately.
 The [modelling guide](modelling.md) covers constraints, time, and decisions.
+
+## Make a wiki
+
+With your world in `world.dli`, export its accepted claims as linked Markdown:
+
+```sh
+deloreis export --profile static-wiki --corpus world.dli > wiki.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+pages = json.loads(Path("wiki.json").read_text())["artifact"]["pages"]
+out = Path("wiki")
+out.mkdir(exist_ok=True)
+for page in pages:
+    name = page["path"]
+    if Path(name).name != name or not name.endswith(".md"):
+        raise ValueError(f"unexpected wiki page path: {name}")
+    (out / name).write_text(page["content"], encoding="utf-8")
+PY
+```
+
+Open `wiki/index.md` in a Markdown viewer, or publish the pages with a
+Markdown site generator. The default export includes certain claims; the
+Holmes book also shows an all-standing view for unresolved and revised claims.

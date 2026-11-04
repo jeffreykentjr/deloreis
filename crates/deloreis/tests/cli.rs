@@ -615,7 +615,7 @@ fn timeline_markdown_reports_only_known_orderings() {
     assert_eq!(markdown.status.code(), Some(0), "{}", stdout(&markdown));
     assert!(stdout(&markdown).contains("# Chronology"));
     assert!(stdout(&markdown).contains("At `the-binding-of-fenrir`:"));
-    assert!(stdout(&markdown).contains("Pairs not listed are unordered"));
+    assert!(stdout(&markdown).contains("without a connecting path are unordered"));
     assert!(!stdout(&markdown).contains("`fimbulwinter-falls` before `the-binding-of-fenrir`"));
     assert!(!stdout(&markdown).contains("`the-binding-of-fenrir` before `fimbulwinter-falls`"));
 }
@@ -2807,4 +2807,24 @@ fn review_modelling_guide_state_change_checks_clean() {
         stderr(&output)
     );
     assert!(stdout(&output).contains("clean"), "{}", stdout(&output));
+}
+
+#[test]
+fn review_timeline_shows_nearest_order_without_inventing_one() {
+    let dir = tmp("review-timeline-reduction");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope story\nratify d-1\nevent a ratified d-1\nevent b ratified d-1\nevent c ratified d-1\nevent unrelated ratified d-1\nbefore a -> b ratified d-1\nbefore b -> c ratified d-1\n").unwrap();
+    let output = bin()
+        .args(["timeline", "show", "--corpus"])
+        .arg(&corpus)
+        .arg("--markdown")
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{}", stdout(&output));
+    let text = stdout(&output);
+    assert!(text.contains("`a` → `b`"), "{text}");
+    assert!(text.contains("`b` → `c`"), "{text}");
+    assert!(!text.contains("`a` → `c`"), "{text}");
+    assert!(!text.contains("`unrelated` →"), "{text}");
+    assert!(!text.contains("→ `unrelated`"), "{text}");
 }

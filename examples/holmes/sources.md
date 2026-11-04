@@ -11,7 +11,7 @@ identified separately in the casebook.
 | `d-0002` | [*The Sign of the Four*](https://www.gutenberg.org/files/2097/2097-h/2097-h.htm) | Watson is “nursing my wounded leg” and says a Jezail bullet went through it. The text does not establish that this is the same wound as the one at Maiwand. |
 | `d-0003` | [*The Man with the Twisted Lip*](https://www.gutenberg.org/files/1661/1661-h/1661-h.htm#chap06) | Watson's wife offers to send “James” to bed in a conversation in which Watson is present. The text does not explicitly say James is his legal first name. |
 | `d-0004` | [*The Final Problem*](https://www.gutenberg.org/files/834/834-h/834-h.htm#chap12) | Watson concludes that Holmes and Moriarty died at Reichenbach. |
-| `d-0005` | [*The Empty House*](https://www.gutenberg.org/files/108/108-h/108-h) | Holmes returns and says of the chasm, “I never was in it.” |
+| `d-0005` | [*The Empty House*](https://www.gutenberg.org/files/108/108-h/108-h.htm#chap01) | Holmes returns and says of the chasm, “I never was in it.” |
 | `d-0006` | Editorial modelling choice | Records the era ordering, the single-first-name constraint, and the example rule relating a name used by a spouse to a first name. |
 | `d-0007` | [*A Scandal in Bohemia*](https://www.gutenberg.org/files/1661/1661-h/1661-h.htm#chap01) | Dates Watson’s married visit to Holmes to 20 March 1888. |
 | `d-0008` | Editorial ruling based on *The Final Problem* | Accept Watson’s conclusion that Holmes died, as an initial ruling. |
@@ -29,7 +29,7 @@ the passages. Likewise, Watson's earlier conclusion about Reichenbach is an
 account later revised, not evidence that Holmes actually died and returned to
 life.
 
-For chronology, [*A Scandal in Bohemia*](https://www.gutenberg.org/files/1661/1661-h/1661-h.htm#chap01) places Watson married by 20 March 1888. *The Sign of the Four* describes his courtship of Mary Morstan and Mary dates an advertisement to 4 May 1882, about six years earlier. Treating that approximation as requiring a date after March 1888 is an inference, not an explicit date in the story; the casebook must name it rather than present a cycle as a direct textual fact.
+For chronology, [*A Scandal in Bohemia*](https://www.gutenberg.org/files/1661/1661-h/1661-h.htm#chap01) places Watson married by 20 March 1888. [*The Sign of the Four*](https://www.gutenberg.org/files/2097/2097-h/2097-h.htm#chap03) describes a September evening when Watson is with Mary Morstan. She dates an advertisement to 4 May 1882, about six years before her visit; her father disappeared in December 1878, nearly ten years before the visit; and she has received six yearly pearls. Together these point toward September 1888, but the visit's year and the identification of Watson's wife are still interpretive choices.
 
 In *The Sign of the Four*, the wound and Holmes's monographs appear in
 [chapter 1](https://www.gutenberg.org/files/2097/2097-h/2097-h.htm#chap01);

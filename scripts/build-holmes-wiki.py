@@ -61,7 +61,7 @@ for item in pages[1:]:
             raise ValueError(f"unrecognized wiki row: {line!r}")
         if not line.startswith("- `"):
             continue
-        match = re.fullmatch(r"- `(.+?)` — \*\*(certain|possible|dead)\*\*(.*)", line)
+        match = re.fullmatch(r"- `(.+?)` — \*\*(canon|unconfirmed|overturned)\*\*(.*)", line)
         if not match:
             raise ValueError(f"unrecognized wiki row: {line!r}")
         claim, status, metadata = match.groups()
@@ -101,7 +101,7 @@ for identifier, label in sorted(entities.items(), key=lambda item: item[1].casef
         continue
     filename = "subject-" + quote(identifier, safe="-_") + ".html"
     subject_entries.append((label, filename))
-    body = f"<h1>{html.escape(label)}</h1><p>Recorded claims about {html.escape(label)}. Possible claims remain open; dead support is retained for inspection.</p><ul>" + "\n".join(rows_by_subject[identifier]) + "</ul>"
+    body = f"<h1>{html.escape(label)}</h1><p>Recorded claims about {html.escape(label)}. Unconfirmed claims remain open; overturned claims are kept for inspection.</p><ul>" + "\n".join(rows_by_subject[identifier]) + "</ul>"
     (out / filename).write_text(page(label, body), encoding="utf-8")
 
 def index_list(entries):

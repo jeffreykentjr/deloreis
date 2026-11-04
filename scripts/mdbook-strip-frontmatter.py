@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Strip repository status frontmatter after mdBook expands includes."""
 import json
+import re
 import sys
 
 if len(sys.argv) > 1 and sys.argv[1] == "supports":
@@ -60,8 +61,8 @@ def visit(items):
         }
         for source, target in links.items():
             content = content.replace("(" + source + ")", "(" + target + ")")
+            content = re.sub(r"\(" + re.escape(source) + r"(?=#[^)]*\))", "(" + target, content)
         if chapter.get("path") == "holmes-sources.md":
-            import re
             content = re.sub(r"\| `(d-[0-9]+)` \|", r'| <a id="decision-\1"></a>`\1` |', content)
         chapter["content"] = content
         visit(chapter.get("sub_items", []))

@@ -34,6 +34,8 @@ fact arthur home avalon decided d-0001
 ```
 
 Here `d-0001` names the decision supporting the declarations and facts.
+See [Concepts](docs/concepts.md#sources-and-rulings) for how `decided`,
+`ratified`, and `proposed` relate.
 
 Then run:
 
@@ -46,6 +48,10 @@ De Lore Is that Arthur can have only one home. Without that rule, the two
 statements aren't automatically a conflict. The command exits with status 1
 because it found a problem.
 
+To find matching homes, run `deloreis query 'home($person, camelot)' --corpus story.dli`.
+`$person` is a variable; the quotes keep your shell from expanding
+it. The query warns while the corpus still has errors.
+
 ## Work with a world
 
 Create a project with `deloreis init my-story`. To work with it through an MCP
@@ -57,9 +63,7 @@ In a project, De Lore Is keeps the decisions behind your claims, including
 claims you later revise. You can keep accounts unresolved, inspect why
 something is considered canon, and explore changes on a separate branch. The
 project keeps the order in which claims and rulings were added; it does not
-model what each character knew at a particular point in the story. `timeline knows`
-reads character or audience knowledge supplied in an episode file along production
-order; it does not infer what characters knew from the lore store.
+infer what each character knew at a particular point in the story.
 
 - [Holmes casebook](docs/casebook/01-watson-name.md) — follow a sourced example
   through conflicts, revisions, and alternatives.

@@ -219,7 +219,9 @@ fn run_show(args: &ShowArgs) -> CmdResult {
 
 fn render_markdown_order(world: &World, points: &[TimePoint]) {
     outln!("# Chronology\n");
-    outln!("These are the known orderings. Pairs not listed are unordered.\n");
+    outln!(
+        "These are the nearest known orderings. Follow the arrows for later points; points without a connecting path are unordered.\n"
+    );
     let mut names = points
         .iter()
         .map(|point| point_name(world, *point))
@@ -238,6 +240,12 @@ fn render_markdown_order(world: &World, points: &[TimePoint]) {
         for &second in points {
             if first != second
                 && world.chronology.precedes(first, second) == TemporalVerdict::Before
+                && !points.iter().any(|&middle| {
+                    middle != first
+                        && middle != second
+                        && world.chronology.precedes(first, middle) == TemporalVerdict::Before
+                        && world.chronology.precedes(middle, second) == TemporalVerdict::Before
+                })
             {
                 pairs.push((point_name(world, first), point_name(world, second)));
             }
@@ -248,11 +256,7 @@ fn render_markdown_order(world: &World, points: &[TimePoint]) {
         outln!("No orderings are recorded.");
     }
     for (before, after) in pairs {
-        outln!(
-            "- {} before {}",
-            markdown_code(&before),
-            markdown_code(&after)
-        );
+        outln!("- {} → {}", markdown_code(&before), markdown_code(&after));
     }
 }
 

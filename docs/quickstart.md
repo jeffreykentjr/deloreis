@@ -92,6 +92,6 @@ The blocks show tool arguments, not shell commands.
 
 The [Holmes casebook](casebook/01-watson-name.md) continues with contested
 accounts, a retcon, a what-if branch, and replay. See the
-[concepts](concepts.md) and [agent guide](../SKILL.md) for what the terms and
+[concepts](concepts.md#sources-and-rulings) and [agent guide](../SKILL.md) for what the terms and
 other tools mean. To follow the casebook's branch and rule calls, start the MCP
 server with `--tools all`.

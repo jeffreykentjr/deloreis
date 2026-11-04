@@ -163,7 +163,7 @@ facts = [
     ("isa-whitney", "wife", "kate-whitney", "d-0003"),
     ("isa-whitney", "addiction", "opium", "d-0003"),
     ("elias-whitney", "brother", "isa-whitney", "d-0003"),
-    ("elias-whitney", "occupation", "college-principal", "d-0003"),
+    ("elias-whitney", "former-occupation", "college-principal", "d-0003"),
     ("kate-whitney", "sought-help-from", "watson", "d-0003"),
     ("kate-whitney", "school-friend-of", "watson-wife", "d-0003"),
     ("watson", "sought", "isa-whitney", "d-0003"),
@@ -347,7 +347,7 @@ with tempfile.TemporaryDirectory(prefix="dli-holmes-") as temp:
         checked_corpus = subprocess.run([binary, "check", str(corpus)], text=True, capture_output=True)
         if checked_corpus.returncode != 0 or checked_corpus.stdout != "checked 1 document(s): clean\n":
             raise RuntimeError(f"corpus check failed: {checked_corpus.stdout} {checked_corpus.stderr}")
-        if "`mary-case` before `scandal`" in timeline or "`scandal` before `mary-case`" in timeline:
+        if "`mary-case` → `scandal`" in timeline or "`scandal` → `mary-case`" in timeline:
             raise RuntimeError("the dates of Mary’s case and the scandal were incorrectly ordered")
         def query(predicate, value):
             atom = {"pred": predicate, "args": [{"Sym": "watson"}, {"Sym": value}]}
@@ -360,6 +360,17 @@ with tempfile.TemporaryDirectory(prefix="dli-holmes-") as temp:
         if any(rows[0]["status"] != "possible" for rows in wound.values()):
             raise RuntimeError(f"unexpected wound results: {wound}")
         wound_calls = history[wound_start:]
+        # Stage both interpretations rather than committing a contradictory world.
+        chronology_start = len(history)
+        call("author.add_before", {"workspace": workspace, "earlier": "mary-case", "later": "scandal", "provenance": cited("d-0002")}, allow_findings=True)
+        call("author.add_before", {"workspace": workspace, "earlier": "scandal", "later": "mary-case", "provenance": {"kind": "cited", "decisions": ["d-0002", "d-0006", "d-0007"], "state": "ratified"}}, allow_findings=True)
+        chronology_check = call("author.check", {"workspace": workspace}, allow_findings=True)
+        chronology_findings = [f for f in chronology_check["findings"] if f["code"] == "continuity.chronology-cycle"]
+        if len(chronology_findings) != 1 or not {"d-0002", "d-0007"}.issubset(set(chronology_findings[0]["citations"])):
+            raise RuntimeError(f"unexpected chronology conflict: {chronology_check}")
+        timeline_calls.extend(history[chronology_start:])
+        call("author.discard", {"workspace": workspace})
+        workspace = call("author.open", {"scope": "world"})["workspace"]
         name_start = len(history)
         staged_name = call("author.add_fact", {"workspace": workspace, "entity": "watson", "key": "first-name", "value": "james", "provenance": cited("d-0003")}, allow_findings=True)
         checked = call("author.check", {"workspace": workspace}, allow_findings=True)
@@ -372,7 +383,8 @@ with tempfile.TemporaryDirectory(prefix="dli-holmes-") as temp:
         def atom(pred, subject, value):
             return {"pred": pred, "args": [{"Sym": subject}, {"Sym": value}]}
         rule_start = len(history)
-        rule = call("author.add_rule", {"workspace": workspace, "name": "wife-name-is-first-name", "head": atom("first-name", "watson", "james"), "body": [{"atom": atom("name-used-by-wife", "watson", "james"), "negated": False}], "provenance": cited("d-0006")}, allow_findings=True)
+        variables = [{"Var": "person"}, {"Var": "name"}]
+        rule = call("author.add_rule", {"workspace": workspace, "name": "wife-name-is-first-name", "head": {"pred": "first-name", "args": variables}, "body": [{"atom": {"pred": "name-used-by-wife", "args": variables}, "negated": False}], "provenance": cited("d-0006")}, allow_findings=True)
         rule_checked = call("author.check", {"workspace": workspace}, allow_findings=True)
         rule_conflicts = [finding for finding in rule_checked["findings"] if finding["code"] == "continuity.derived-fd-violation"]
         if len(rule_conflicts) != 1 or not {"d-0001", "d-0003", "d-0006"}.issubset(set(rule_conflicts[0]["citations"])):
@@ -411,11 +423,11 @@ with tempfile.TemporaryDirectory(prefix="dli-holmes-") as temp:
         if "h.study-in-scarlet" not in wound_page["content"] or "h.sign-of-four" not in wound_page["content"]:
             raise RuntimeError(f"wiki omitted wound support labels: {wound_page}")
         outcome_page = next(page for page in wiki_pages if page["title"] == "reichenbach-outcome")
-        if "`reichenbach-outcome(holmes, died)` — **dead**" not in outcome_page["content"] or "`reichenbach-outcome(holmes, survived)` — **certain**" not in outcome_page["content"]:
+        if "`reichenbach-outcome(holmes, died)` — **overturned**" not in outcome_page["content"] or "`reichenbach-outcome(holmes, survived)` — **canon**" not in outcome_page["content"]:
             raise RuntimeError(f"wiki misstated a retcon account: {outcome_page}")
         if not all(decision in outcome_page["content"] for decision in ("d-0004", "d-0005", "d-0008", "d-0009")):
             raise RuntimeError(f"wiki omitted retcon sources: {outcome_page}")
-        print(json.dumps({"decisions": decisions, "rendered": result["rendered"], "timeline": timeline, "wound_accounts": wound, "wound_why": wound_why, "name_staged": staged_name["rendered"], "name_conflict": conflicts[0], "rule_rendered": rule["rendered"], "rule_conflict": rule_conflicts[0], "calls": {"name": name_calls, "wounds": wound_calls, "timeline": timeline_calls, "rule": rule_calls, "return": retcon_calls, "branch": branch_calls}, "wiki": wiki, "retcon": {"before": before, "after": after, "old_after": old_after, "why_old": why_old, "branch": branch_death, "death_rendered": death_added["rendered"], "survived_rendered": survived_added["rendered"]}}, indent=2))
+        print(json.dumps({"decisions": decisions, "rendered": result["rendered"], "timeline": timeline, "chronology_conflict": chronology_findings[0], "wound_accounts": wound, "wound_why": wound_why, "name_staged": staged_name["rendered"], "name_conflict": conflicts[0], "rule_rendered": rule["rendered"], "rule_conflict": rule_conflicts[0], "calls": {"name": name_calls, "wounds": wound_calls, "timeline": timeline_calls, "rule": rule_calls, "return": retcon_calls, "branch": branch_calls}, "wiki": wiki, "retcon": {"before": before, "after": after, "old_after": old_after, "why_old": why_old, "branch": branch_death, "death_rendered": death_added["rendered"], "survived_rendered": survived_added["rendered"]}}, indent=2))
     finally:
         server.terminate()
         server.wait()

@@ -39,6 +39,12 @@ such authoring metadata; it is different from the claim's evaluated status.
 Neither the word ratified nor a citation by itself promises that a claim will
 remain certain after later decisions.
 
+In text, `decided d-0001` and `ratified d-0001` both refer to a recorded
+decision; the latter also records ratified provenance. `proposed` leaves the
+claim open instead. The result depends on the current rulings, not on the word
+alone. In a wiki, **canon** means certain under those rulings, **unconfirmed**
+means possible, and **overturned** means the recorded support no longer holds.
+
 The evaluated statuses describe what follows under the current rulings:
 
 - **Certain:** supported as an accepted answer under those rulings.
@@ -61,6 +67,16 @@ main unless you explicitly adopt them. The **certain layer** contains claims
 that are certain under the chosen decisions; other layers can show unresolved
 claims too. An **as-of** query asks what holds at a chosen story-time point,
 provided the relevant events are ordered.
+
+The CLI calls an alternative a **fork**; MCP calls it a **branch**. A **pack**
+is a group of source documents loaded together. In an explanation, an
+**antichain** is the set of distinct, minimal combinations of support. A
+**functional dependency** is the one-value rule described above. The query
+grade **asserted** means a claim was taken as given without a verifying
+procedure; it does not say whether the claim cites a ruling. A **shadow layer**
+contains possible claims that are not certain. **Inertial** states persist
+until a later value replaces them. **Saturated** means the rule engine has
+finished deriving everything it can from the supplied facts and rules.
 
 Name suggestions are warnings: they can help spot a misspelled subject but do
 not catch every missing declaration. The engine records the attribution and

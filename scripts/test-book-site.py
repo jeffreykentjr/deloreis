@@ -12,7 +12,7 @@ for expected in ("h.study-in-scarlet", "h.sign-of-four", "decision-d-0001", "dec
     if expected not in watson:
         raise SystemExit(f"Watson's wiki page is missing {expected}")
 outcome = (site / "wiki/predicate-reichenbach-outcome.html").read_text(encoding="utf-8")
-for expected in ("<strong>dead</strong>", "<strong>certain</strong>", "decision-d-0008", "decision-d-0009"):
+for expected in ("<strong>overturned</strong>", "<strong>canon</strong>", "decision-d-0008", "decision-d-0009"):
     if expected not in outcome:
         raise SystemExit(f"the retcon wiki page is missing {expected}")
 with tempfile.TemporaryDirectory(prefix="dli-link-test-") as temp:

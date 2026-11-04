@@ -734,8 +734,8 @@ fn all_standing_wiki_is_explicit_and_respects_visibility() {
     assert_eq!(all.manifest.layer, "all");
     let json = serde_json::to_string(&all.artifact).unwrap();
     assert!(json.contains("kept-at"));
-    assert!(json.contains("possible"));
-    assert!(json.contains("certain"));
+    assert!(json.contains("unconfirmed"));
+    assert!(json.contains("canon"));
     assert!(json.contains("D-0001"));
 
     let hidden = export(
@@ -801,13 +801,11 @@ fn all_standing_wiki_labels_individual_source_support() {
     )
     .unwrap();
     let page = &wiki.pages[1].content;
-    assert!(page.contains("`note(certain)` — **certain**"));
-    assert!(
-        page.contains(
-            "`note(possible)` — **possible** (provenance: provisional) (decisions: d-0002)"
-        )
-    );
-    assert!(page.contains("`note(dead)` — **dead**"));
+    assert!(page.contains("`note(certain)` — **canon**"));
+    assert!(page.contains(
+        "`note(possible)` — **unconfirmed** (provenance: provisional) (decisions: d-0002)"
+    ));
+    assert!(page.contains("`note(dead)` — **overturned**"));
     assert!(page.contains("[Back to index](index.md)"));
     let mut stripped = spec;
     stripped.carries_provenance = ProvenanceMode::Stripped;
