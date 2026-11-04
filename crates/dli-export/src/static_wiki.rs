@@ -113,9 +113,9 @@ pub fn compile_all_with_names(
     let mut groups: BTreeMap<String, Vec<SourceRow>> = BTreeMap::new();
     for atom in atoms {
         let status = match atom.ann.status(valuation, theory) {
-            Status::Certain => "certain",
-            Status::Possible => "possible",
-            Status::Dead => "dead",
+            Status::Certain => "canon",
+            Status::Possible => "unconfirmed",
+            Status::Dead => "overturned",
         };
         let provenance = if spec.carries_provenance == ProvenanceMode::DevMetadata {
             Some(match atom.kind {
@@ -143,7 +143,7 @@ pub fn compile_all_with_names(
         }
     }
     let mut index = String::from(
-        "# Lore index\n\nThis view includes source claims with certain, possible, or dead support.\n\n",
+        "# Lore index\n\nThis view includes canon, unconfirmed, and overturned source claims.\n\n",
     );
     let mut pages = Vec::with_capacity(groups.len() + 1);
     for (predicate, mut rows) in groups {

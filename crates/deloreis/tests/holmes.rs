@@ -123,3 +123,22 @@ fn notes_demo_commits_and_reads_the_sample_claims() {
     );
     check_or_bless(&example.join("notes-demo.txt"), &output.stdout);
 }
+
+#[test]
+fn first_chapter_command_runs_against_a_fresh_project() {
+    let example = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/holmes");
+    let output = Command::new("python3")
+        .arg(example.join("try_casebook.py"))
+        .arg("name")
+        .arg(env!("CARGO_BIN_EXE_deloreis"))
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(text.contains("continuity.fd-violation"));
+    assert!(text.contains("d-0001") && text.contains("d-0003"));
+}

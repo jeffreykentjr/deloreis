@@ -1,6 +1,6 @@
 # The return from Reichenbach
 
-At the end of [*The Final Problem*](https://www.gutenberg.org/files/834/834-h/834-h.htm), Watson concludes that Holmes died at Reichenbach. In [*The Empty House*](https://www.gutenberg.org/files/108/108-h/108-h), Holmes returns and explains that he escaped. We can revise the earlier ruling while keeping its history.
+At the end of [*The Final Problem*](https://www.gutenberg.org/files/834/834-h/834-h.htm), Watson concludes that Holmes died at Reichenbach. In [*The Empty House*](https://www.gutenberg.org/files/108/108-h/108-h.htm#chap01), Holmes returns and explains that he escaped. We can revise the earlier ruling while keeping its history.
 
 First, our editorial decision `d-0008` accepts Watson's conclusion, supported
 by source `d-0004`. The authoring tool renders the claim as:
@@ -31,15 +31,33 @@ reichenbach-outcome(holmes, survived): certain
 When we ask why the old claim no longer holds, the explanation says:
 
 ```text
-status: dead
+status: overturned
 support: d-0004, d-0008
 d-0009 defeats d-0008
 ```
 
-Here `dead` describes the old claim's support under the new rulings. The claim
+The old claim is overturned under the new rulings. The claim
 and the earlier decision are still available to explain what changed. This is
 a model of a revised account: the later story does not say Holmes died and
 came back to life.
+
+In the calls below, `claim_id` identifies the recorded claim to revise. A
+`{"Sym": "holmes"}` value is the wire format for the symbol `holmes`.
+
+## Run it yourself
+
+From the repository root, with `deloreis` installed, run:
+
+```sh
+python3 examples/holmes/try_casebook.py return
+```
+
+This replays the casebook in a temporary project and prints:
+
+```text
+earlier claim: overturned
+supporting decisions: d-0004, d-0008
+```
 
 <details>
 <summary>The calls</summary>
@@ -49,14 +67,14 @@ came back to life.
   {
     "tool": "author.record_decision",
     "arguments": {
-      "workspace": "ws-3",
+      "workspace": "ws-4",
       "decision": "d-0008"
     }
   },
   {
     "tool": "author.add_fact",
     "arguments": {
-      "workspace": "ws-3",
+      "workspace": "ws-4",
       "entity": "holmes",
       "key": "reichenbach-outcome",
       "value": "died",
@@ -73,13 +91,13 @@ came back to life.
   {
     "tool": "author.materialize",
     "arguments": {
-      "workspace": "ws-3"
+      "workspace": "ws-4"
     }
   },
   {
     "tool": "author.query",
     "arguments": {
-      "workspace": "ws-3",
+      "workspace": "ws-4",
       "goal_atom": {
         "pred": "reichenbach-outcome",
         "args": [
@@ -97,7 +115,7 @@ came back to life.
   {
     "tool": "author.branch",
     "arguments": {
-      "workspace": "ws-3",
+      "workspace": "ws-4",
       "action": "create",
       "name": "holmes-stayed-dead",
       "from": "main"
@@ -106,7 +124,7 @@ came back to life.
   {
     "tool": "author.defeat",
     "arguments": {
-      "workspace": "ws-3",
+      "workspace": "ws-4",
       "claim_id": "sha256:970cd2741b4bfe5631c5514e3fe8a8b0906ea68905cba85d9d12baf2316fabbe",
       "decision": "d-0009",
       "defeated_decision": "d-0008"
@@ -115,7 +133,7 @@ came back to life.
   {
     "tool": "author.add_fact",
     "arguments": {
-      "workspace": "ws-3",
+      "workspace": "ws-4",
       "entity": "holmes",
       "key": "reichenbach-outcome",
       "value": "survived",
@@ -132,13 +150,13 @@ came back to life.
   {
     "tool": "author.materialize",
     "arguments": {
-      "workspace": "ws-3"
+      "workspace": "ws-4"
     }
   },
   {
     "tool": "author.query",
     "arguments": {
-      "workspace": "ws-3",
+      "workspace": "ws-4",
       "goal_atom": {
         "pred": "reichenbach-outcome",
         "args": [
@@ -156,7 +174,7 @@ came back to life.
   {
     "tool": "author.query",
     "arguments": {
-      "workspace": "ws-3",
+      "workspace": "ws-4",
       "goal_atom": {
         "pred": "reichenbach-outcome",
         "args": [
@@ -174,7 +192,7 @@ came back to life.
   {
     "tool": "author.why",
     "arguments": {
-      "workspace": "ws-3",
+      "workspace": "ws-4",
       "goal_atom": {
         "pred": "reichenbach-outcome",
         "args": [
@@ -198,7 +216,7 @@ came back to life.
   {
     "tool": "author.query",
     "arguments": {
-      "workspace": "ws-4",
+      "workspace": "ws-5",
       "goal_atom": {
         "pred": "reichenbach-outcome",
         "args": [

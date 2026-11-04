@@ -20,7 +20,7 @@ use crate::cmd::{self, CmdResult, EXIT_CLEAN, EXIT_FINDINGS};
 pub(crate) enum LayerArg {
     /// Only assertable (certain) rows.
     Certain,
-    /// The shadow layer and the certain layer together.
+    /// Certain and unresolved claims together.
     Possible,
     /// No standing floor.
     All,
@@ -59,16 +59,16 @@ pub(crate) struct QueryArgs {
     /// The standing floor for the returned rows.
     #[arg(long, value_enum, default_value_t = LayerArg::All)]
     pub(crate) layer: LayerArg,
-    /// Project fluents at this era or event and omit rows anchored later.
+    /// Show states at this era or event, omitting later changes.
     #[arg(long = "as-of", value_name = "POINT")]
     pub(crate) as_of: Option<String>,
-    /// Evaluate under a stored fork's valuation overlay (read from `--workspace`).
+    /// Use the assumptions from a stored fork (read from `--workspace`).
     #[arg(long, value_name = "FORK")]
     pub(crate) fork: Option<String>,
     /// The workspace directory holding the fork store (used with `--fork`).
     #[arg(short = 'w', long, value_name = "DIR", default_value = ".")]
     pub(crate) workspace: PathBuf,
-    /// Attach the support antichain (`--why`) to every row.
+    /// Explain which decisions and assumptions support each row.
     #[arg(long)]
     pub(crate) why: bool,
     /// Emit a machine-readable generated view. Currently defined for the

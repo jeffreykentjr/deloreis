@@ -2,6 +2,8 @@
 """Render casebook chapters from the captured authoring and timeline results."""
 import json
 import sys
+sys.dont_write_bytecode = True
+from try_casebook import block
 
 result = json.load(sys.stdin)
 chapter = sys.argv[1]
@@ -38,9 +40,26 @@ a ruling later.
 ''', end="")
 elif chapter == "timeline":
     model = "\n".join(line for line in result["rendered"] if line.startswith(("era ", "event ", "before ")))
+    conflict = result["chronology_conflict"]
     print('''# Putting cases in order
 
-[*A Scandal in Bohemia*](https://www.gutenberg.org/files/1661/1661-h/1661-h.htm#chap01) places Watson's married visit to Holmes on 20 March 1888. In [*The Sign of the Four*](https://www.gutenberg.org/files/2097/2097-h/2097-h.htm), Mary Morstan describes an advertisement from May 1882 as about six years earlier. Reading that approximation as a precise date can put her meeting with Watson after the March visit. The story does not give us a precise date for that meeting, so we leave the two events unordered.
+[*A Scandal in Bohemia*](https://www.gutenberg.org/files/1661/1661-h/1661-h.htm#chap01) places Watson's married visit to Holmes on 20 March 1888. [*The Sign of the Four*](https://www.gutenberg.org/files/2097/2097-h/2097-h.htm#chap03) puts his meeting with Mary Morstan on a September evening. Three clues point toward 1888: an advertisement of 4 May 1882 was about six years before her visit, her father's disappearance in December 1878 was nearly ten years earlier, and she has received six yearly pearls.
+
+Those clues make September 1888 a strong interpretation, though the story
+does not give the year outright. If Watson's wife in the earlier story is Mary,
+he is married to her before he meets her. We record both interpretations as
+ordering claims: Mary meets Watson before the married visit, and the March
+visit comes before their September meeting. The latter is our dating ruling,
+not a date printed in the story. De Lore Is reports:
+
+```text
+''' + conflict["code"] + ''': ''' + conflict["message"] + '''
+supporting decisions: ''' + ", ".join(conflict["citations"]) + '''
+```
+
+The conflicting claims are staged for the check and not committed. If a writer
+does not accept the 1888 interpretation or the identification of Watson's wife,
+the two events can remain unordered instead.
 
 The model puts both events in the 1880s, the Reichenbach encounter in 1891,
 and Holmes's return in 1894. We record the order of those eras under an
@@ -53,12 +72,11 @@ The relevant model lines are:
 ''' + model + '''
 ```
 
-The actual Markdown timeline is:
+The committed model's Markdown timeline is:
 
-''' + result["timeline"] + '''
-Each line states a known ordering. A pair missing from the list is unordered,
-not necessarily simultaneous. A writer can add a more specific order if the
-story calls for one.
+''' + result["timeline"].replace("# Chronology", "## Known order", 1) + '''
+Follow the arrows to see the known order. Points with no connecting path are
+unordered, not necessarily simultaneous.
 ''', end="")
 elif chapter == "return":
     retcon = result["retcon"]
@@ -68,7 +86,7 @@ elif chapter == "return":
     defeat = why["blocking_defeats"][0]
     print(f'''# The return from Reichenbach
 
-At the end of [*The Final Problem*](https://www.gutenberg.org/files/834/834-h/834-h.htm), Watson concludes that Holmes died at Reichenbach. In [*The Empty House*](https://www.gutenberg.org/files/108/108-h/108-h), Holmes returns and explains that he escaped. We can revise the earlier ruling while keeping its history.
+At the end of [*The Final Problem*](https://www.gutenberg.org/files/834/834-h/834-h.htm), Watson concludes that Holmes died at Reichenbach. In [*The Empty House*](https://www.gutenberg.org/files/108/108-h/108-h.htm#chap01), Holmes returns and explains that he escaped. We can revise the earlier ruling while keeping its history.
 
 First, our editorial decision `d-0008` accepts Watson's conclusion, supported
 by source `d-0004`. The authoring tool renders the claim as:
@@ -99,15 +117,18 @@ The new query returns:
 When we ask why the old claim no longer holds, the explanation says:
 
 ```text
-status: {why["why_not"]["status"]}
+status: overturned
 support: {", ".join(why["supporting_decisions"])}
 {defeat["defeating_decision"]} defeats {defeat["defeated_decision"]}
 ```
 
-Here `dead` describes the old claim's support under the new rulings. The claim
+The old claim is overturned under the new rulings. The claim
 and the earlier decision are still available to explain what changed. This is
 a model of a revised account: the later story does not say Holmes died and
 came back to life.
+
+In the calls below, `claim_id` identifies the recorded claim to revise. A
+`{{"Sym": "holmes"}}` value is the wire format for the symbol `holmes`.
 ''', end="")
 elif chapter == "branch":
     row = result["retcon"]["branch"][0]
@@ -144,7 +165,7 @@ elif chapter == "rule":
 The `author.add_rule` call below needs the MCP server's `--tools all` profile.
 
 Suppose we interpret the name James used by Watson's wife as referring to
-Watson, while the first chapter records John as his first name. Those two notes
+Watson, while the part I title names John as his first name. Those two notes
 can coexist. Now imagine a rule saying the name she uses must be his first name.
 This is a deliberately questionable rule: a person might use a nickname.
 
@@ -152,6 +173,13 @@ The authoring tool renders that rule as:
 
 ```dli
 {rule}
+```
+
+The variables `$person` and `$name` stand for a person and a name. The rule
+uses this recorded fact:
+
+```dli
+watson.name-used-by-wife = james ratified d-0003
 ```
 
 The check follows the rule and reports:
@@ -169,4 +197,5 @@ might be to change the rule rather than change either source.
 else:
     raise SystemExit(f"unknown chapter: {chapter}")
 
+print(block(result, chapter), end="")
 print("\n<details>\n<summary>The calls</summary>\n\n```json\n" + json.dumps(result["calls"][chapter], indent=2, ensure_ascii=False) + "\n```\n\n</details>")
