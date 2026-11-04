@@ -89,10 +89,16 @@ The drowning claim becomes certain again, and the rival account becomes
 possible.
 
 On main, call `author.add_rule` to say Wren is away from Thornfield if she has
-not stayed:
+not stayed. First record a separate decision, `d-0006`, for this rule:
 
 ```json
-{"workspace":"WORKSPACE","name":"away-if-not-stayed","head":{"pred":"away","args":[{"Sym":"wren"},{"Sym":"thornfield"}]},"body":[{"atom":{"pred":"journey","args":[{"Sym":"wren"},{"Sym":"stayed"}]},"negated":true}],"provenance":{"kind":"cited","decisions":["d-0001"],"state":"ratified"}}
+{"workspace":"WORKSPACE","decision":"d-0006"}
+```
+
+Then add the rule:
+
+```json
+{"workspace":"WORKSPACE","name":"away-if-not-stayed","head":{"pred":"away","args":[{"Sym":"wren"},{"Sym":"thornfield"}]},"body":[{"atom":{"pred":"journey","args":[{"Sym":"wren"},{"Sym":"stayed"}]},"negated":true}],"provenance":{"kind":"cited","decisions":["d-0006"],"state":"ratified"}}
 ```
 
 Materialize the rule, then create a branch with `author.branch`:
@@ -102,28 +108,29 @@ Materialize the rule, then create a branch with `author.branch`:
 ```
 
 Open it using `author.open` with `{"scope":"world","branch":"never-left"}`.
-On the returned workspace, record decision `d-0006` with
+On the returned workspace, record decision `d-0007` with
 `author.record_decision`:
 
 ```json
-{"workspace":"BRANCH_WORKSPACE","decision":"d-0006"}
+{"workspace":"BRANCH_WORKSPACE","decision":"d-0007"}
 ```
 
 Then stage the alternative with `author.add_fact`:
 
 ```json
-{"workspace":"BRANCH_WORKSPACE","entity":"wren","key":"journey","value":"stayed","provenance":{"kind":"cited","decisions":["d-0006"],"state":"ratified"}}
+{"workspace":"BRANCH_WORKSPACE","entity":"wren","key":"journey","value":"stayed","provenance":{"kind":"cited","decisions":["d-0007"],"state":"ratified"}}
 ```
 
 Add the welcome rule with `author.add_rule`:
 
 ```json
-{"workspace":"BRANCH_WORKSPACE","name":"welcome-if-stayed","head":{"pred":"welcome","args":[{"Sym":"wren"},{"Sym":"thornfield"}]},"body":[{"atom":{"pred":"journey","args":[{"Sym":"wren"},{"Sym":"stayed"}]},"negated":false}],"provenance":{"kind":"cited","decisions":["d-0001"],"state":"ratified"}}
+{"workspace":"BRANCH_WORKSPACE","name":"welcome-if-stayed","head":{"pred":"welcome","args":[{"Sym":"wren"},{"Sym":"thornfield"}]},"body":[{"atom":{"pred":"journey","args":[{"Sym":"wren"},{"Sym":"stayed"}]},"negated":false}],"provenance":{"kind":"cited","decisions":["d-0007"],"state":"ratified"}}
 ```
 
 Call `author.diff` with `{"workspace":"BRANCH_WORKSPACE"}`. The diff shows
 the welcome becoming certain and the away claim changing from certain to
-possible. Main still reports the away claim as certain.
+possible. Possible means that this branch no longer establishes away as certain;
+it does not assert the opposite. Main still reports the away claim as certain.
 
 Finally, restart the server, open the main world, and call `author.query`:
 

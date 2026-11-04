@@ -51,7 +51,7 @@ functional ruler-of                ratified d-0146
 Undeclared, the checker infers single-valuedness from precedent — a predicate
 that carries one value everywhere it appears is read as functional — which cannot
 judge a predicate's *first* use. Whether a relation admits one value or many is a
-ruling about the world (koan 3), so the author makes it. The declaration lowers
+ruling about the world, so the author makes it. The declaration lowers
 to no atom; it is carried, with its provenance, on the stored declaration.
 
 ## Inertial predicates — persistence declared
@@ -82,7 +82,7 @@ the derived `until` and the certain defeater that caps it, when one applies.
 ## Cycles — cyclic time that refuses rank
 
 A `cycle` is a cyclic kind: it has `succ`, `pred`, `across`, and `distance`, but
-**no first, no largest, no `<`** (charter koan 8). Asking for the "greatest"
+**no first, no largest, no `<`**. Asking for the "greatest"
 season is a type error, not a silent tie-break.
 
 ```dli
@@ -95,7 +95,7 @@ cycle moon(29)                                         decided d-0009
 ## Forks — exploring an undecided world
 
 A `fork` supposes an answer and explores its consequences over an unchanged
-store; nothing a fork does changes canon (koan 2). Its arms are `option`s, like
+store; nothing a fork does changes canon. Its arms are `option`s, like
 a question's.
 
 ```dli
@@ -155,7 +155,7 @@ assumption*, and the assumption never gets dropped from the record.
 
 A `practice` is a magic system: kinds, roles, resources, rules, conditions,
 errors, and costs. Its interior is a **typed structure** in the stored fact
-object, checked by its lane; nothing is dropped (koan 4). This is how it reads
+object, checked by its lane; nothing is dropped. This is how it reads
 once rendered — a shallow braced block, never a deep tree:
 
 ```dli

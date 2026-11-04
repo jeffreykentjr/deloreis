@@ -604,6 +604,23 @@ fn fork_management_commands_round_trip_and_alias_preflight() {
 }
 
 #[test]
+fn timeline_markdown_reports_only_known_orderings() {
+    let chronology = repo().join("examples/norse");
+    let markdown = bin()
+        .args(["timeline", "show", "--corpus"])
+        .arg(&chronology)
+        .args(["--markdown", "--at", "the-binding-of-fenrir"])
+        .output()
+        .unwrap();
+    assert_eq!(markdown.status.code(), Some(0), "{}", stdout(&markdown));
+    assert!(stdout(&markdown).contains("# Chronology"));
+    assert!(stdout(&markdown).contains("At `the-binding-of-fenrir`:"));
+    assert!(stdout(&markdown).contains("Pairs not listed are unordered"));
+    assert!(!stdout(&markdown).contains("`fimbulwinter-falls` before `the-binding-of-fenrir`"));
+    assert!(!stdout(&markdown).contains("`the-binding-of-fenrir` before `fimbulwinter-falls`"));
+}
+
+#[test]
 fn every_timeline_read_returns_its_documented_shape() {
     let chronology = repo().join("examples/norse");
     let episodes = repo().join("crates/dli-world/tests/data/episodes.yaml");

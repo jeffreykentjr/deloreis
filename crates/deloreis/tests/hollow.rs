@@ -237,6 +237,7 @@ fn hollow_walkthrough_is_replayable_over_mcp() {
                 .contains(witness)
         );
     }
+    let workspace = reopened;
     server.ok(
         "author.record_decision",
         json!({"workspace":workspace,"decision":"d-0003"}),
@@ -257,6 +258,12 @@ fn hollow_walkthrough_is_replayable_over_mcp() {
     server.ok("author.materialize", json!({"workspace":workspace}));
     let retconned = query(&mut server, &workspace, "death", "poisoned");
     assert_eq!(retconned["rows"][0]["status"], "certain");
+    record(
+        &mut transcript,
+        &mut server,
+        "4a. The retcon",
+        &json!({"blocked_supports":blocked_why["blocked_supports"], "poisoned":retconned["rows"]}),
+    );
     let attacker = retconned["rows"][0]["claim_ids"][0]
         .as_str()
         .unwrap()
@@ -269,15 +276,17 @@ fn hollow_walkthrough_is_replayable_over_mcp() {
     record(
         &mut transcript,
         &mut server,
-        "4. Retcon and restoration",
-        &json!({"blocked_supports":blocked_why["blocked_supports"],
-        "after_retcon":retconned["rows"], "after_overturn":restored["rows"],
-        "overturned_account":overturned["rows"]}),
+        "4b. Restoring the earlier ruling",
+        &json!({"drowned":restored["rows"], "poisoned":overturned["rows"]}),
     );
 
+    server.ok(
+        "author.record_decision",
+        json!({"workspace":workspace,"decision":"d-0006"}),
+    );
     server.ok("author.add_rule", json!({"workspace":workspace,"name":"away-if-not-stayed",
         "head":atom("away","wren","thornfield"),
-        "body":[{"atom":atom("journey","wren","stayed"),"negated":true}],"provenance":cited("d-0001")}));
+        "body":[{"atom":atom("journey","wren","stayed"),"negated":true}],"provenance":cited("d-0006")}));
     server.ok("author.materialize", json!({"workspace":workspace}));
     server.ok(
         "author.branch",
@@ -292,16 +301,16 @@ fn hollow_walkthrough_is_replayable_over_mcp() {
         .to_owned();
     server.ok(
         "author.record_decision",
-        json!({"workspace":branch,"decision":"d-0006"}),
+        json!({"workspace":branch,"decision":"d-0007"}),
     );
     server.ok(
         "author.add_fact",
         json!({"workspace":branch,"entity":"wren","key":"journey","value":"stayed",
-        "provenance":cited("d-0006")}),
+        "provenance":cited("d-0007")}),
     );
     server.ok("author.add_rule", json!({"workspace":branch,"name":"welcome-if-stayed",
         "head":atom("welcome","wren","thornfield"),
-        "body":[{"atom":atom("journey","wren","stayed"),"negated":false}],"provenance":cited("d-0001")}));
+        "body":[{"atom":atom("journey","wren","stayed"),"negated":false}],"provenance":cited("d-0007")}));
     let diff = server.ok("author.diff", json!({"workspace":branch}));
     let rows = diff["rows"].as_array().unwrap();
     let away = rows
@@ -327,6 +336,7 @@ fn hollow_walkthrough_is_replayable_over_mcp() {
         "5. What if Wren stayed?",
         &diff["rows"],
     );
+    transcript.push_str("\nThe branch removes the certainty of `away`; it does not assert that Wren is not away. The result is `possible`, not a claim of falsehood.\n");
     let before_restart = restored["rows"].clone();
     drop(server);
     let mut server = Server::start(&project);

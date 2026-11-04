@@ -1,142 +1,75 @@
 ---
 status: live
-verdict: "The release north star (DL-0101): De Lore Is is a continuity engine for fictional worlds that agents and authors write lore into. Every cleanup, doc, example, and the launch blog post is judged against this page."
+verdict: "The release direction: help people understand De Lore Is and use it on their own fiction before publishing."
 ---
 
-# North star: what De Lore Is is, for release
+# What this release is for
 
-This page is the reference for the fiction-release reset. Use it to decide what
-stays, what goes, and what the docs and examples say. The decision ledger
-(`../decisions.md`, DL-0101) outranks it. The execution plan is
-[`HANDOVER.md`](HANDOVER.md), and the verified state of the code is in
-[`assessment-2026-11.md`](assessment-2026-11.md).
+De Lore Is helps writers and the tools they use keep track of fictional worlds.
+It checks structured lore against the rules and rulings a writer gives it, shows
+why an answer follows, and keeps earlier claims available when a story changes.
+The checks run locally and call no model.
 
-## One paragraph
+The release is on hold until a newcomer can understand the tool and use it on a
+world of their own. The decision ledger records the direction in DL-0122; the
+work is tracked by the understanding epic, #235.
 
-De Lore Is (DLI) is a continuity engine for fictional worlds. Authors, and the
-AI agents that write with them, record lore as structured claims about
-characters, places, events, eras and rules. Each claim keeps where it came from
-and how settled it is: **canon** (certain), **unconfirmed or contested**
-(possible), or **retconned** (dead). DLI refuses to commit lore that
-contradicts ruled canon, names the rulings involved, keeps every retcon
-inspectable, and gives the same answer every time from the same inputs. It
-calls no model.
+## Who it helps
 
-**Tagline:** *A series bible that keeps track of your rulings, catches
-continuity conflicts, and remembers what changed.*
+Writers and worldbuilders who maintain a series bible, teams working in a shared
+setting, and people building tools that write or work with fiction. A person can
+write and check `.dli` files; an assistant can use the authoring tools through a
+local MCP server. The tool checks what has been recorded: it does not read a
+manuscript and discover plot holes on its own.
 
-## Who it is for
+## The casebook
 
-- Writers' rooms on serialized fiction: audio drama, web serials, long series,
-  shared worlds.
-- Game masters and designers running long campaigns or game narratives with
-  branching states.
-- Worldbuilders with a large bible that has started to contradict itself.
-- People building AI storytelling tools who want lore checked against canon,
-  not pasted into a prompt. DLI is agent-ready, with an MCP tool surface and
-  typed, repairable findings. That ergonomics is part of the pitch, but the
-  domain is fiction.
+The flagship example is the Sherlock Holmes canon. Build an original model from
+the stories themselves, with short citations to the relevant texts and no copied
+fan-wiki material. Check each claimed discrepancy before using it. If the text
+does not establish a claimed contradiction, explain the uncertainty or leave
+that claim out.
 
-## Who it is not for (do not pitch these)
+The casebook should show, in prose and with reproducible output, how to keep
+rival accounts open, check a single-valued fact, order a disputed chronology,
+revise a ruling without erasing it, and explore a what-if branch. A rule-derived
+conflict should show why the tool helps with more than an obvious pair of facts.
+Its evidence should make the difference between the text and the modeller's
+choices clear.
 
-- **General agent memory or open-domain knowledge bases.** We tried this
-  direction (2026-07 to 2026-08, the dli-benchmarks program) and abandoned it.
-  The docs must not imply it.
-- **Prose plot-hole detection.** DLI does not read a manuscript and find holes.
-  It checks structured claims against canon you have already ruled on. An
-  experiment that had a model extract claims from prose failed its efficacy
-  gate.
-- **A wiki or a prompt injector.** DLI is the checker behind those tools.
+A newcomer should be able to read the opening chapter, understand why DLI is
+useful, browse a wiki of the model, and then use the guides to model their own
+world. Explain terms before relying on them; the glossary is a reference, not a
+prerequisite for every sentence. Show actual results next to the narrative and
+keep machine-readable calls available without making them the main story.
 
-## What is good, and true today
+## Where it lives
 
-Every item below was exercised live over MCP on the default build at
-`c1ef2a9`. Evidence is in the assessment.
+DLI's GitHub Pages site will carry the book, casebook, guides, and browsable
+static wiki. Build and check the site during this work; publish it when the
+release is cut. The release remains on hold until the understanding epic is
+complete. Keep the existing Linux x86-64 and approved-RC-only macOS ARM release
+arrangements.
 
-1. **Contradictions are caught before they become canon.** Declare a slot
-   single-valued, for example `home`. When two ruled claims give Wren two
-   homes, `author.check` raises `continuity.fd-violation`, naming both values
-   and both rulings, and `author.materialize` refuses to commit
-   (`materialize-blocked`).
-2. **A retcon never erases anything.** `author.defeat` records a new ruling
-   that overrides the old one. The old claim stays inspectable, and everything
-   derived from it updates. Defeating the retcon itself restores the original,
-   and a retcon cycle stays honestly undecided.
-3. **Rival in-world accounts stay contested.** An open question with
-   mutually exclusive options keeps each account `possible`, each with its own
-   chain of support, until someone rules. A fact implied by every option is
-   still not called canon.
-4. **"Why is this canon?" has a mechanical answer.** `author.why` names the
-   supporting rulings and the defeats that block a claim. It also flags claims
-   that are safe now but depend on an open question.
-5. **The bible is a folder you can put in git.** The store is
-   content-addressed, and every verdict can be replayed from committed inputs.
-   No clock or model is involved.
-6. **Agents can't silently invent things.** Each mutating call returns graded
-   findings with typed repairs, for example "unknown entity, did you mean…".
-   An unknown citation can never make a claim read as certain.
-7. **Story time is a partial order.** "Unordered" is a real answer, and state
-   that changes over time (fluents) projects with three values.
-8. **Readable lore text.** The `.dli` language is the human face of a world,
-   and DLI ships tools for it: `check`, `fmt`, `query --why`, and `check-proof`
-   for magic-system rules. DL-0101 revives it as a first-class, hardened
-   surface. The store remains the canonical form.
+Another agent owns the mesite site and post. This repository supplies a resource
+pack with a brief, source-pinned excerpts and hashes, PNGs, and a blog outline;
+it does not write or publish the post.
 
-## Honest limits to state in launch copy
+## Material to prepare
 
-- "Who knew what when" works in production order, not story order. Don't
-  promise modelling of unreliable narrators.
-- Conflicting proposed values on a declared-functional slot raise a warning;
-  the author still decides which account, if any, becomes canon.
-- The contradiction check fires only on slots you declared single-valued.
-
-## The example world (to build; replaces every former private consumer example)
-
-The world is original, small, and public-domain-safe. Its working name is
-**The Hollow**: a courier named Wren, the villages of Thornfield and Ashby,
-and a disputed death. It must contain, in this order:
-
-1. Entities, eras, and a first canon ruling (Wren's home is Thornfield).
-2. A contradiction. A later "episode" agent says Wren lives in Ashby. The
-   contradiction is caught, the commit is refused, and the error names both
-   rulings.
-3. A contested account: two witnesses disagree about how the miller died. Both
-   accounts stay `possible`, each with its own `why`.
-4. A retcon: one account is ruled canon and the other is defeated. Then
-   restore it by defeating the retcon.
-5. A what-if branch: "what if Wren never left Thornfield?", with the
-   consequence diff.
-6. Replay: restart the server and get the same answers.
-
-The world ships as `.dli` text plus a store-backed project. A scripted MCP
-driver reproduces the transcript, and CI runs the driver, so the blog's
-transcript cannot drift from the engine. Camelot and the Norse worlds stay as
-secondary examples.
-
-## Launch blog outline (for the post on mesite; not written yet)
-
-- **Hook.** "Episode 3 said she grew up in Thornfield." Continuity drifts in
-  every long story. AI co-writers make it worse, because today's lore tools put
-  lore into a prompt and never check what comes back.
-- **What DLI is.** One picture: an agent makes `author.*` calls, each claim
-  carries provenance and standing, and canon comes out. Show one fact as
-  `.dli` next to the same fact as a tool call.
-- **Beats 1–6** from the example world above. Each beat uses real transcript
-  output produced by the CI driver.
-- **What it isn't.** Use the honest limits and the not-for list above.
-- **Try it.** Quickstart, the MCP config snippet, the example world, and the
-  glossary.
-- **What's next.** Multi-authority canon, such as books versus show or canon
-  versus fanon (GH #85), and character knowledge in story time.
-
-## Target docs set for release
-
-| Doc | Purpose |
+| Material | Purpose |
 |---|---|
-| `README.md` | The front door: the paragraph above, a 30-second contradiction-catch transcript, and links to the quickstart, skill, and glossary. Governance moves to a short "Contributing" footer. |
-| `docs/quickstart.md` | Build or install, `deloreis mcp` registration (`claude mcp add`), a blank world, and the first eight calls. |
-| `docs/concepts.md` | A glossary that maps engine words to fiction words: materialize = commit to canon; record_decision = a canon ruling; defeat = retcon; certain/possible/dead = canon/unconfirmed/retconned; functional = single-valued slot; fluent = state over time; scope = world id. |
-| `docs/cards/authoring-loop.md` | The worked tutorial on The Hollow, re-captured from the CI driver. |
-| `SKILL.md` | The agent manual for the current contract only. Core tools come first, every example is fiction, and there are no ledger IDs. |
-| `CHANGELOG.md` | Version history, moved out of AGENTS.md and SKILL.md. |
-| mdBook | Ordered for users: getting started, concepts, reference, then governance as an appendix. |
+| README and quickstart | Explain the tool and get a new user to a first check. |
+| Concepts and reference | Explain the words and operations used in the guides. |
+| Holmes world and casebook | Show sourced, reproducible examples at a useful scale. |
+| Modelling and your-world guides | Help readers turn their own notes into checked lore. |
+| Static wiki and timeline | Let readers browse claims, standing, sources, and story order. |
+| GitHub Pages book | Put the user path first and technical internals afterward. |
+| Mesite resource pack | Give the separate site agent verified material to use later. |
+
+## Later post outline
+
+Start with a real issue in the Holmes texts, show what the cited accounts say,
+and then show the result of modelling them. Follow a sourced retcon and a what-if
+branch. Explain what DLI checks and what a writer must decide, then point readers
+to the casebook and modelling guide. Do not write the post as part of this work.

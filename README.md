@@ -24,16 +24,16 @@ Save the following as `story.dli`:
 
 ```dli
 scope story
-ratify d-1
-person arthur "Arthur" decided d-1
-place camelot "Camelot" decided d-1
-place avalon "Avalon" decided d-1
-functional home decided d-1
-fact arthur home camelot decided d-1
-fact arthur home avalon decided d-1
+ratify d-0001
+person arthur "Arthur" decided d-0001
+place camelot "Camelot" decided d-0001
+place avalon "Avalon" decided d-0001
+functional home decided d-0001
+fact arthur home camelot decided d-0001
+fact arthur home avalon decided d-0001
 ```
 
-Here `d-1` names the decision supporting the declarations and facts.
+Here `d-0001` names the decision supporting the declarations and facts.
 
 Then run:
 
@@ -57,7 +57,9 @@ In a project, De Lore Is keeps the decisions behind your claims, including
 claims you later revise. You can keep accounts unresolved, inspect why
 something is considered canon, and explore changes on a separate branch. The
 project keeps the order in which claims and rulings were added; it does not
-model what each character knew at a particular point in the story.
+model what each character knew at a particular point in the story. `timeline knows`
+reads character or audience knowledge supplied in an episode file along production
+order; it does not infer what characters knew from the lore store.
 
 - [Hollow walkthrough](examples/hollow/transcript.md) — a dispute, a retcon,
   and a what-if branch, with the actual calls and results.

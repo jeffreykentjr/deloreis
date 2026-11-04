@@ -421,7 +421,7 @@ These calls and responses were captured from a walkthrough of The Hollow.
 }
 ```
 
-## 4. Retcon and restoration
+## 4a. The retcon
 
 ```json
 {
@@ -511,7 +511,7 @@ These calls and responses were captured from a walkthrough of The Hollow.
     {
       "arguments": {
         "decision": "d-0003",
-        "workspace": "ws-2"
+        "workspace": "ws-3"
       },
       "tool": "author.record_decision"
     },
@@ -527,13 +527,13 @@ These calls and responses were captured from a walkthrough of The Hollow.
           "state": "ratified"
         },
         "value": "drowned",
-        "workspace": "ws-2"
+        "workspace": "ws-3"
       },
       "tool": "author.add_fact"
     },
     {
       "arguments": {
-        "workspace": "ws-2"
+        "workspace": "ws-3"
       },
       "tool": "author.materialize"
     },
@@ -551,7 +551,7 @@ These calls and responses were captured from a walkthrough of The Hollow.
           "pred": "death"
         },
         "layer": "all",
-        "workspace": "ws-2"
+        "workspace": "ws-3"
       },
       "tool": "author.query"
     },
@@ -560,7 +560,7 @@ These calls and responses were captured from a walkthrough of The Hollow.
         "claim_id": "sha256:2413010e72f14f211a2dfec41ed8e1a82d27b31287cb47defd3e76f67e169841",
         "decision": "d-0004",
         "defeated_decision": "d-0003",
-        "workspace": "ws-2"
+        "workspace": "ws-3"
       },
       "tool": "author.defeat"
     },
@@ -577,7 +577,7 @@ These calls and responses were captured from a walkthrough of The Hollow.
           ],
           "pred": "death"
         },
-        "workspace": "ws-2"
+        "workspace": "ws-3"
       },
       "tool": "author.why"
     },
@@ -593,13 +593,13 @@ These calls and responses were captured from a walkthrough of The Hollow.
           "state": "ratified"
         },
         "value": "poisoned",
-        "workspace": "ws-2"
+        "workspace": "ws-3"
       },
       "tool": "author.add_fact"
     },
     {
       "arguments": {
-        "workspace": "ws-2"
+        "workspace": "ws-3"
       },
       "tool": "author.materialize"
     },
@@ -617,16 +617,63 @@ These calls and responses were captured from a walkthrough of The Hollow.
           "pred": "death"
         },
         "layer": "all",
-        "workspace": "ws-2"
+        "workspace": "ws-3"
       },
       "tool": "author.query"
-    },
+    }
+  ],
+  "result": {
+    "blocked_supports": [
+      {
+        "blocking_defeats": [
+          {
+            "defeated_decision": "d-0003",
+            "defeating_decision": "d-0004"
+          }
+        ],
+        "supporting_decision_path": [
+          "d-0003"
+        ]
+      }
+    ],
+    "poisoned": [
+      {
+        "atom": "death(miller, poisoned)",
+        "bindings": {},
+        "claim_ids": [
+          "sha256:e86996be1770124deabb04ac7b574fd8a1971973bbb062aca94705388db21fd3"
+        ],
+        "status": "certain",
+        "verdict": {
+          "grade": "asserted",
+          "support": {
+            "monomials": [
+              [
+                "+2"
+              ],
+              [
+                "+4"
+              ]
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+## 4b. Restoring the earlier ruling
+
+```json
+{
+  "calls": [
     {
       "arguments": {
         "claim_id": "sha256:e86996be1770124deabb04ac7b574fd8a1971973bbb062aca94705388db21fd3",
         "decision": "d-0005",
         "defeated_decision": "d-0004",
-        "workspace": "ws-2"
+        "workspace": "ws-3"
       },
       "tool": "author.defeat"
     },
@@ -644,7 +691,7 @@ These calls and responses were captured from a walkthrough of The Hollow.
           "pred": "death"
         },
         "layer": "all",
-        "workspace": "ws-2"
+        "workspace": "ws-3"
       },
       "tool": "author.query"
     },
@@ -662,13 +709,13 @@ These calls and responses were captured from a walkthrough of The Hollow.
           "pred": "death"
         },
         "layer": "all",
-        "workspace": "ws-2"
+        "workspace": "ws-3"
       },
       "tool": "author.query"
     }
   ],
   "result": {
-    "after_overturn": [
+    "drowned": [
       {
         "atom": "death(miller, drowned)",
         "bindings": {},
@@ -691,43 +738,7 @@ These calls and responses were captured from a walkthrough of The Hollow.
         }
       }
     ],
-    "after_retcon": [
-      {
-        "atom": "death(miller, poisoned)",
-        "bindings": {},
-        "claim_ids": [
-          "sha256:e86996be1770124deabb04ac7b574fd8a1971973bbb062aca94705388db21fd3"
-        ],
-        "status": "certain",
-        "verdict": {
-          "grade": "asserted",
-          "support": {
-            "monomials": [
-              [
-                "+2"
-              ],
-              [
-                "+4"
-              ]
-            ]
-          }
-        }
-      }
-    ],
-    "blocked_supports": [
-      {
-        "blocking_defeats": [
-          {
-            "defeated_decision": "d-0003",
-            "defeating_decision": "d-0004"
-          }
-        ],
-        "supporting_decision_path": [
-          "d-0003"
-        ]
-      }
-    ],
-    "overturned_account": [
+    "poisoned": [
       {
         "atom": "death(miller, poisoned)",
         "bindings": {},
@@ -761,6 +772,13 @@ These calls and responses were captured from a walkthrough of The Hollow.
   "calls": [
     {
       "arguments": {
+        "decision": "d-0006",
+        "workspace": "ws-3"
+      },
+      "tool": "author.record_decision"
+    },
+    {
+      "arguments": {
         "body": [
           {
             "atom": {
@@ -791,18 +809,18 @@ These calls and responses were captured from a walkthrough of The Hollow.
         "name": "away-if-not-stayed",
         "provenance": {
           "decisions": [
-            "d-0001"
+            "d-0006"
           ],
           "kind": "cited",
           "state": "ratified"
         },
-        "workspace": "ws-2"
+        "workspace": "ws-3"
       },
       "tool": "author.add_rule"
     },
     {
       "arguments": {
-        "workspace": "ws-2"
+        "workspace": "ws-3"
       },
       "tool": "author.materialize"
     },
@@ -811,7 +829,7 @@ These calls and responses were captured from a walkthrough of The Hollow.
         "action": "create",
         "from": "main",
         "name": "never-left",
-        "workspace": "ws-2"
+        "workspace": "ws-3"
       },
       "tool": "author.branch"
     },
@@ -824,7 +842,7 @@ These calls and responses were captured from a walkthrough of The Hollow.
     },
     {
       "arguments": {
-        "decision": "d-0006",
+        "decision": "d-0007",
         "workspace": "ws-4"
       },
       "tool": "author.record_decision"
@@ -835,7 +853,7 @@ These calls and responses were captured from a walkthrough of The Hollow.
         "key": "journey",
         "provenance": {
           "decisions": [
-            "d-0006"
+            "d-0007"
           ],
           "kind": "cited",
           "state": "ratified"
@@ -877,7 +895,7 @@ These calls and responses were captured from a walkthrough of The Hollow.
         "name": "welcome-if-stayed",
         "provenance": {
           "decisions": [
-            "d-0001"
+            "d-0007"
           ],
           "kind": "cited",
           "state": "ratified"
@@ -905,7 +923,7 @@ These calls and responses were captured from a walkthrough of The Hollow.
           ],
           "pred": "away"
         },
-        "workspace": "ws-2"
+        "workspace": "ws-3"
       },
       "tool": "author.query"
     }
@@ -917,7 +935,7 @@ These calls and responses were captured from a walkthrough of The Hollow.
         "status": "possible",
         "support": [
           [
-            "+d-0001"
+            "+d-0006"
           ]
         ]
       },
@@ -927,7 +945,7 @@ These calls and responses were captured from a walkthrough of The Hollow.
         "status": "certain",
         "support": [
           [
-            "+d-0001"
+            "+d-0006"
           ]
         ]
       },
@@ -941,7 +959,7 @@ These calls and responses were captured from a walkthrough of The Hollow.
         "status": "certain",
         "support": [
           [
-            "+d-0006"
+            "+d-0007"
           ]
         ]
       },
@@ -956,8 +974,7 @@ These calls and responses were captured from a walkthrough of The Hollow.
         "status": "certain",
         "support": [
           [
-            "+d-0001",
-            "+d-0006"
+            "+d-0007"
           ]
         ]
       },
@@ -969,6 +986,8 @@ These calls and responses were captured from a walkthrough of The Hollow.
   ]
 }
 ```
+
+The branch removes the certainty of `away`; it does not assert that Wren is not away. The result is `possible`, not a claim of falsehood.
 
 ## 6. Replay after restart
 
