@@ -1,5 +1,7 @@
 # What if Holmes stayed dead?
 
+The `author.branch` call below needs the MCP server's `--tools all` profile.
+
 Before revising the Reichenbach ruling, we made a branch called
 `holmes-stayed-dead`. A branch is a separate line of work. The main line can
 accept Holmes's return while the branch keeps the earlier starting point.

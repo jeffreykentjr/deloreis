@@ -405,4 +405,22 @@ fn exported_hollow_text_imports_to_the_same_first_ruling() {
         json!({"workspace":ws,"goal_atom":atom("home","wren","thornfield")}),
     );
     assert_eq!(home["rows"][0]["status"], "certain");
+
+    let exported = server.ok(
+        "dli.corpus.export",
+        json!({"document":"world", "format":"rendered"}),
+    );
+    let rendered = exported["rendered"][0].as_str().unwrap();
+    let exported_path = project.path().join("exported.dli");
+    fs::write(&exported_path, rendered).unwrap();
+    let check = Command::new(env!("CARGO_BIN_EXE_deloreis"))
+        .arg("check")
+        .arg(&exported_path)
+        .output()
+        .unwrap();
+    assert!(
+        check.status.success(),
+        "{}",
+        String::from_utf8_lossy(&check.stdout)
+    );
 }

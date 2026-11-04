@@ -52,8 +52,9 @@ pub(crate) fn init(args: &InitArgs) -> CmdResult {
         .map_err(|e| format!("cannot write {}: {e}", manifest.display()))?;
     Lorestore::open(store_path).map_err(|e| format!("cannot initialize store: {e}"))?;
     outln!(
-        "Created project at {}. Import a .dli file to begin.",
-        root.display()
+        "Created project at {}. To import a world, run: deloreis import FILE --project '{}'",
+        root.display(),
+        root.to_string_lossy().replace('\'', "'\\''")
     );
     Ok(EXIT_CLEAN)
 }

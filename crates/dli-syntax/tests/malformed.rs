@@ -450,3 +450,54 @@ fn bearer_named_like_a_marker_keeps_its_actual_provenance() {
         .unwrap();
     assert!(name.body.clauses.iter().any(|clause| matches!(&clause.item, dli_ast::language::NameItem::Bearer { entity: Some(entity), provenance: Some(annotation) } if entity == "decided person" && annotation.marker == dli_ast::annot::ProvenanceMarker::Proposed)));
 }
+
+#[test]
+fn ratify_rejects_unknown_clauses_instead_of_dropping_them() {
+    for body in [
+        "defeats d-1",
+        "h-test := true extra",
+        "h-test := maybe",
+        "@ := true",
+    ] {
+        let source = format!("scope story\nratify d-3 {{ {body} }}\n");
+        let diagnostics = parse_document(&source).1;
+        assert!(
+            diagnostics
+                .iter()
+                .any(|d| d.class.is_error() && d.message.contains("author.defeat")),
+            "{body}: {diagnostics:?}"
+        );
+    }
+    for body in [
+        "h-test := true",
+        "h-test = false",
+        "h-test := true decided d-1",
+        "h-test.junk := true",
+    ] {
+        let source = format!("scope story\nratify d-3 {{ {body} }}\n");
+        assert!(error_classes(&source).is_empty(), "{body}");
+    }
+}
+
+#[test]
+fn ratify_assignment_preserves_compact_names_and_boolean_values() {
+    for (body, expected_name, expected_value) in [
+        ("h-x:=true", "h-x", true),
+        ("h-x := false decided true", "h-x", false),
+        ("h-x.junk := true", "h-x.junk", true),
+    ] {
+        let (doc, diagnostics) = parse_document(&format!("scope story\nratify d-3 {{ {body} }}\n"));
+        assert!(diagnostics.is_empty(), "{body}: {diagnostics:?}");
+        let decl = doc
+            .decls
+            .iter()
+            .find_map(|d| match d {
+                dli_ast::decl::Decl::Ratify(r) => Some(r),
+                _ => None,
+            })
+            .unwrap();
+        let assignment = decl.body.clauses[0].assignment.as_ref().unwrap();
+        assert_eq!(assignment.hyp, expected_name);
+        assert_eq!(assignment.value, expected_value);
+    }
+}

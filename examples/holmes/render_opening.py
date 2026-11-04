@@ -12,6 +12,9 @@ finding = result["name_conflict"]
 citations = ", ".join(finding["citations"])
 print(f'''# What should we call Watson?
 
+To follow the tool calls throughout the casebook, start the MCP server with
+`deloreis mcp --project <directory> --tools all`.
+
 The narrator is named John H. Watson in the opening of [*A Study in Scarlet*, part I](https://www.gutenberg.org/files/244/244-h/244-h.htm). In [*The Man with the Twisted Lip*](https://www.gutenberg.org/files/1661/1661-h/1661-h.htm#chap06), his wife offers to send “James” to bed while Watson is present.
 
 Is James another name for Watson, a slip, or something else? The story does

@@ -28,6 +28,13 @@ command and arguments; point `--project` at the directory containing
 `deloreis.toml`. The server runs locally over stdio. `deloreis mcp --project
 "$PWD" --tools all` exposes the extended tool set.
 
+After importing, work with the project's stored world through MCP. The CLI
+`check` and `query` commands read `.dli` files, rather than opening the project
+store. To get text back, start the server with `--tools all` and call
+`dli.corpus.export` with `{"document":"world","format":"rendered"}`. Save
+the returned `rendered` documents as `.dli` files before checking or querying
+them with the CLI.
+
 ## Make the first ruling
 
 Ask your client to make the following tool calls, in order. Substitute the
@@ -86,4 +93,5 @@ The blocks show tool arguments, not shell commands.
 The [Holmes casebook](casebook/01-watson-name.md) continues with contested
 accounts, a retcon, a what-if branch, and replay. See the
 [concepts](concepts.md) and [agent guide](../SKILL.md) for what the terms and
-other tools mean.
+other tools mean. To follow the casebook's branch and rule calls, start the MCP
+server with `--tools all`.

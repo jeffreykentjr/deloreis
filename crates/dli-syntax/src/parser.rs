@@ -599,22 +599,7 @@ pub fn structure_ratify_body(clauses: &[Clause]) -> RatifyBody {
     let ratify_clauses = clauses
         .iter()
         .map(|clause| {
-            let toks = lex_clause_tokens(&clause.text, clause.span.file);
-            // The hypothesis is the first word that is not an assignment operator;
-            // the value is the last `true`/`false` word — the compiler's own reads.
-            let hyp = toks
-                .iter()
-                .find(|t| t.kind == TokenKind::Word && !is_assign_op(&t.text))
-                .map(|t| t.text.clone());
-            let value = toks.iter().rev().find_map(|t| match t.text.as_str() {
-                "true" => Some(true),
-                "false" => Some(false),
-                _ => None,
-            });
-            let assignment = match (hyp, value) {
-                (Some(hyp), Some(value)) => Some(Assignment { hyp, value }),
-                _ => None,
-            };
+            let assignment = parse_ratify_assignment(&clause.text);
             RatifyClause {
                 clause: clause.clone(),
                 assignment,
@@ -625,6 +610,37 @@ pub fn structure_ratify_body(clauses: &[Clause]) -> RatifyBody {
         clauses: ratify_clauses,
         citations: harvest_ratify_citations(clauses),
     }
+}
+
+fn parse_ratify_assignment(text: &str) -> Option<Assignment> {
+    let (name, rest) = [":=", "=", ":"].iter().find_map(|op| text.split_once(op))?;
+    let name = name.trim();
+    if !name.chars().next().is_some_and(char::is_alphabetic)
+        || !name
+            .chars()
+            .all(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '.'))
+    {
+        return None;
+    }
+    let mut words = rest.split_whitespace();
+    let value = match words.next()? {
+        "true" => true,
+        "false" => false,
+        _ => return None,
+    };
+    let tail: Vec<_> = words.collect();
+    if tail.len() % 2 != 0
+        || !tail.chunks_exact(2).all(|pair| {
+            matches!(pair[0], "cited" | "decided" | "ratified" | "provisional")
+                && !pair[1].is_empty()
+        })
+    {
+        return None;
+    }
+    Some(Assignment {
+        hyp: name.to_owned(),
+        value,
+    })
 }
 
 /// Lex a clause's normalized text into its non-newline tokens (the language
@@ -654,10 +670,6 @@ fn word_list(toks: &[Token], strip_dash: bool) -> Vec<String> {
 }
 
 /// Whether a token is an assignment operator in a `ratify` body (`:=`, `=`, `:`).
-fn is_assign_op(text: &str) -> bool {
-    matches!(text, ":=" | "=" | ":")
-}
-
 /// Parse a `name-kind <kind> = <role>… [ | <role>… ]` clause tail (the tokens
 /// after the `name-kind` keyword) into its typed [`NameKindSpec`].
 fn parse_name_kind(rest: &[Token]) -> Option<NameKindSpec> {
@@ -1696,6 +1708,15 @@ fn parse_record(record: &Record, items: &mut Vec<Item>, diags: &mut Vec<Diagnost
         "ratify" => match cur.eat_ident() {
             Some(decision) => {
                 expect_consumed(&cur, diags, "a `ratify` reads `ratify <d-id> { … }`.");
+                for clause in &record.body {
+                    if parse_ratify_assignment(&clause.text).is_none() {
+                        diags.push(Diagnostic::new(
+                            DiagClass::Malformed,
+                            "a ratify block accepts hypothesis assignments such as `h-name := true`; use `author.defeat` to overturn a decision",
+                            clause.span,
+                        ));
+                    }
+                }
                 items.push(Item::Decl(Decl::Ratify(RatifyDecl {
                     decision,
                     body: structure_ratify_body(&record.body),

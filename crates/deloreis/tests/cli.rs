@@ -2742,3 +2742,69 @@ fn undotted_state_values_are_not_mistaken_for_entity_subjects() {
     let out = stdout(&output);
     assert!(!out.contains("entity.undeclared"), "{out}");
 }
+
+#[test]
+fn review_era_anchor_explains_event_requirement() {
+    let dir = tmp("review-era-anchor");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, "scope story\nratify d-1\nera before-storm < after-storm ratified d-1\nstate lighthouse.keeper = ada since after-storm ratified d-1\n").unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    assert!(!output.status.success());
+    let report = stdout(&output);
+    assert!(report.contains("not a declared event"), "{report}");
+    assert!(report.contains("rather than an era"), "{report}");
+}
+
+#[test]
+fn review_query_warns_about_invalid_corpus() {
+    let dir = tmp("review-query-errors");
+    let corpus = dir.join("world.dli");
+    fs::write(
+        &corpus,
+        "scope story\nfact orrin fate drowned decided d-99\n",
+    )
+    .unwrap();
+    let output = bin()
+        .args(["query", "fate(orrin, drowned)", "--corpus"])
+        .arg(&corpus)
+        .output()
+        .unwrap();
+    assert!(
+        stderr(&output).contains("corpus has errors"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn review_init_names_the_import_command() {
+    let dir = tmp("review-init");
+    let project = dir.join("my story's world");
+    let output = bin().arg("init").arg(&project).output().unwrap();
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(stdout(&output).contains("deloreis import FILE --project"));
+    assert!(stdout(&output).contains("my story'\\''s world'"));
+}
+
+#[test]
+fn review_modelling_guide_state_change_checks_clean() {
+    let guide = fs::read_to_string(repo().join("docs/guide/modelling.md")).unwrap();
+    let example = guide
+        .split("```dli\n")
+        .nth(1)
+        .unwrap()
+        .split("\n```")
+        .next()
+        .unwrap();
+    let dir = tmp("review-guide-state");
+    let corpus = dir.join("world.dli");
+    fs::write(&corpus, example).unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    assert!(
+        output.status.success(),
+        "{} {}",
+        stdout(&output),
+        stderr(&output)
+    );
+    assert!(stdout(&output).contains("clean"), "{}", stdout(&output));
+}
