@@ -1,9 +1,3 @@
----
-status: live
-title: "A first world in .dli"
-verdict: "A short tutorial for writing and checking fictional-world notes as .dli text or through the authoring tools."
----
-
 # A first world in .dli
 
 A `.dli` document records claims about a fictional world and where they came

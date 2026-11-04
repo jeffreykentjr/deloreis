@@ -1,8 +1,3 @@
----
-status: live
-verdict: "A fiction-oriented glossary for the continuity engine."
----
-
 # Concepts
 
 | Engine term | Meaning for a fictional world |
@@ -23,10 +18,8 @@ For an authoring diff, use the structured `rows` to distinguish a missing
 claim from a defeated one. The older `consequences` summary uses `dead` as a
 placeholder for a missing side.
 
-Entity-typo suggestions are advisory. An undotted state's value can name a
-concept rather than an entity, so the check does not infer an entity reference
-from that value. It also cannot identify the subject of a synthetic, valueless
-dotted state after lowering; the authoring tool checks that reference separately.
+Name suggestions are warnings. They can help spot a misspelled subject, but
+they don't catch every missing declaration.
 
 The engine records the rulings and attribution supplied by its caller; review
 and permission policy belong to the application using it. The record follows

@@ -1,54 +1,20 @@
----
-status: live
-title: "Expert-tier reference card"
-verdict: "The second card: the expert vocabulary — rules, forks, cycles, practices, proofs, dialects, states — reached through the same author.* tool surface, stored as fact objects with typed interiors, and rendered in the same flat shape as the first card."
----
+# Rules, states, and other tools
 
-# The expert tier — reference card
+This guide covers features for working with rules, changing state, forks,
+cycles, practices, proofs, and languages. Start with [a first world](gentle-card.md)
+if you're new to `.dli`.
 
-This is the second card. It adds **vocabulary, never grammar** (spec
-`../spec/01-syntax.md` §2–§3): every form below is the same flat, order-
-insensitive record you already know, and every claim still ends by saying where
-it came from. The expert tier is not a second interface and not a second syntax
-regime — it is more kinds of claim in the same store, and where a form has an
-interior it stays shallow, never a deep tree.
-
-Two things carry over from the gentle card and are worth restating, because the
-expert forms are where people expect them to break:
-
-- **The interiors are typed, not text.** Since LS-9 (DL-0047, DL-0049) an expert
-  declaration's body rides in its stored fact object as a structured
-  `expert_body`, not as captured source. That is why a `proof` is *checked as
-  data* — structurally, over its typed premises and steps — instead of being
-  formatted and re-read.
-- **The tool surface reaches most of this card today, and that is worth being
-  precise about.** Forks, hypotheses, and suppositions are first-class calls
-  (`author.open {fork}`, `author.add_hypothesis`, `author.suppose` — worked
-  below). `dialect`, `name-part`, `name`, `term`, `banned`, `state`, and
-  `attest` each have a per-declaration `author.*` tool since contract 1.3.0
-  (`author.add_dialect`, `author.add_name_part`, `author.add_name`,
-  `author.add_term`, `author.add_banned`, `author.add_state`,
-  `author.add_attest` — `SKILL.md` §2) — author them the ordinary way, not
-  by loading a corpus. Only `rule`, `cycle`, `practice`, and `proof` have no
-  per-declaration `author.*` tool yet; they remain **tier 3**, deliberately
-  parked until a consumer needs them (DL-0058), and enter a world when its
-  corpus is loaded. That is a missing tool, not a second interface: there is
-  still exactly one way in, and hand-edited text carries no reliability claim
-  (DL-0043).
-
-Nothing on this card is needed to build a world; the gentle card
-(`gentle-card.md`) is most of worldbuilding. Reach here when you want rules that
-check, forks that explore, cyclic time, magic systems, or a constructed
-language. Each lane has a full spec under `../spec/`; this card is the map.
-
----
+The MCP server offers tools for many of these forms. For example,
+`author.add_rule` adds a derivation rule, and `author.add_state` adds a value
+that changes over time. The extended profile (`--tools all`) includes more
+specialist tools. Cycles, practices, and proofs can be introduced by importing
+`.dli` text. See the [agent guide](../../SKILL.md) for the current tool list.
 
 ## Rules — claims that check
 
-A `rule` is a checkable constraint. A bare `rule` checks the world; `rule …
-over order` constrains a timeline; `rule … over season` is a season-ledger
-rule. All carry a severity and their origin — the domain is stated in the form,
-not encoded in a separate keyword.
+A bare world `rule` derives a claim when its premises hold. A rule `over
+order` constrains a timeline, and a rule `over season` describes a
+production-order constraint. Each carries its origin.
 
 ```dli
 scope camelot
@@ -103,17 +69,15 @@ inertial water-status               proposed session-9c1
 ```
 
 Like `functional`, it stages via `author.declare_inertial` and carries no
-ground atom (`docs/decisions.md` DL-0081). The continuity check reads the
+ground atom. The continuity check reads the
 declaration: an open inertial value's forward persistence is bounded at the
 next distinct certain value on the slot, surfacing as a silent transition, a
 `continuity.fluent-order-undeclared` warn, or a `continuity.fluent-contradiction`.
 
-A silent transition's derived boundary is readable directly: `author.as_of
-{workspace, pred, subject, at}` (contract 1.9.0, `docs/decisions.md`
-DL-0082) projects the value(s) `pred(subject)` holds at `at` — the DERIVED
-`until` and the certain defeater that caps it, when one applies. It is the
-one inertia-aware read; `author.query` still returns the raw extensional
-value(s) unmodified.
+A silent transition's derived boundary is readable with `author.as_of
+{workspace, pred, subject, at}`. It reports the values at that point, including
+the derived `until` and the certain defeater that caps it, when one applies.
+`author.query` returns values without that point-in-time projection.
 
 ## Cycles — cyclic time that refuses rank
 
@@ -303,34 +267,20 @@ printing it.
 
 ---
 
-## The one rule that still holds
+## Decisions and support
 
-Everything here obeys the first card's discipline: **a claim carries its
-origin**, and nothing is true until a declared decision is cited in the consuming
-ledger (koan 1, koan 3). The
-expert vocabulary buys reach — checkable rules, cyclic time, forks, magic — but
-not a way past provenance. When you materialize, all of it commits as fact
-objects with their typed interiors; a reviewer reads the structured diff rows,
-and the rendered block is offered alongside for eyes that want a sentence.
+Claims carry their origin and, when ruled, the decisions that support them.
+Use `author.record_decision` to record a ruling and cite it when adding a
+claim. `author.materialize` checks and commits staged changes; pass
+`rendered: true` if you also want the `.dli` rendering.
 
-**Reaching and auditing certainty.** `author.materialize {decision}` batch-accepts
-the committed **facts** under a named, recorded decision so they read `certain` —
-but it is **facts-only**: the expert carriage claims on this card (rules, `same-as`
-links, inertial declarations) are never stamped and stay `possible`. Make *them*
-certain with `author.record_decision` plus a **cited declaration**, not
-`materialize {decision}`. To audit that a fact reached certainty the designed
-way, call `author.why` and, on contract `1.13.0`, read
-`active_supporting_decision_paths`: each nested array is one currently
-admissible minimal decision path. `blocked_supports` keeps a defeated
-alternative separate with the exact direct decision attacks that block it;
-top-level `blocking_defeats` is non-empty only when no active path remains. The
-older `supporting_decisions` union remains for compatibility. Pass the atom as a
-typed `goal_atom` (the shape `author.query` takes) so the check works in a
-syntax-free build, where the rendered `atom` string has no `.dli` front end to
-parse it.
+The optional `decision` on `author.materialize` records a decision and applies
+it to previously uncited facts. Other declaration objects keep their existing
+provenance. Use a cited declaration to give a rule or other declaration its
+own support.
 
-When several new decisions arrive together, contract `1.13.0` provides
-`author.record_decisions {records:[…]}`. Prefer that atomic batch to a long
-singleton loop: the complete citation graph validates first (including legal
-same-batch forward or cyclic references), and success uses one compile and one
-commit. Any invalid record refuses the whole batch with its `record_index`.
+`author.why` explains why a claim has its current standing. Its
+`active_supporting_decision_paths` shows the admissible paths of support, and
+`blocked_supports` identifies defeated alternatives. Pass a typed `goal_atom`
+to ask about a claim. To record several decisions together, use
+`author.record_decisions` with a `records` array.

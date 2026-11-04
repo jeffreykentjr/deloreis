@@ -1,9 +1,3 @@
----
-status: reference
-title: "Human-writer reading probe"
-verdict: "A proposed way to assess whether writers can read the text surface; it is not evidence that a study has been completed."
----
-
 # Human-writer reading probe
 
 The parser and examples can show that `.dli` text is accepted; they cannot show

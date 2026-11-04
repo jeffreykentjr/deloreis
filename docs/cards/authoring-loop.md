@@ -1,15 +1,10 @@
----
-status: live
-verdict: "Follow a checked authoring session through The Hollow."
----
-
 # The authoring loop
 
 Start with a new world and make the first ruling that Wren lives in Thornfield,
 following steps 1–6 of the [quickstart](../quickstart.md). Then use the calls
 below to continue the session. The complete
-[transcript](../../examples/hollow/transcript.md) is generated and checked by
-the MCP driver using `--tools all`; use that profile for this walkthrough.
+[transcript](../../examples/hollow/transcript.md) uses `--tools all`; use that
+profile for this walkthrough too.
 Each block below is the arguments object for a `tools/call`; replace
 `WORKSPACE` with the ID returned by `author.open`.
 

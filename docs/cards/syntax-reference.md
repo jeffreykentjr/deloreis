@@ -1,9 +1,3 @@
----
-status: live
-title: "Syntax reference — the complete .dli rendering grammar"
-verdict: "A reference to the .dli text surface for reading and writing fictional lore."
----
-
 # Syntax reference — the complete `.dli` rendering grammar
 
 This sheet documents the `.dli` text surface for writing and reading lore.
@@ -16,11 +10,8 @@ and can also return `.dli` rendering on request.
 The syntax implementation lives in `crates/dli-syntax`. Builds made with
 `--no-default-features` omit the text parser and formatter.
 
-The grammar is **v0 and will not be frozen** — the freeze milestone (SURF-4) is
-retired, not deferred (DL-0041), because a rendering has no surface contract to
-freeze. What replaced the freeze is the killed-form discipline: a retired
-keyword or line form is registered with its successor and refused by name, never
-silently dropped (DL-0029 as relocated by DL-0041).
+Retired keywords and line forms are refused with a message naming their
+successor.
 
 ## 1. The frame
 
@@ -146,20 +137,11 @@ holds|fails-at <error>`.
 | `ratify` | `ratify <id> { … }` (ruling record block) |
 | `variant` | `variant <id> …` (ruleset delta) |
 
-## 4. Everything here is typed
+## 4. Stored form
 
-Top-level line shapes, entity slots, facts (all three forms), provenance, time
-clauses, cycles, states, question/option/implies, before, and era chains have
-always been fully typed. Since LS-9 (DL-0047, DL-0049) **the interiors are too**:
-every string-bodied declaration type — `rule`, `practice`, `proof`, `dialect`,
-`name-part`, `name`, `ratify`, and the near-empty `fork` / `draft` / `export` /
-`variant` / `principle` bodies — carries typed structure into the stored fact
-object's `expert_body`, with its normalized clause text kept beside it so the
-rendering round-trips byte-identically.
-
-The practical consequence: no subsystem re-parses a stored declaration body to
-check it. A proof is validated structurally, not by formatting and re-reading.
-The text parser structures these declarations before the world loader reads them.
+Declarations carry structured data into the lorestore. The parser reads the
+text into that structure; tools can then inspect rules, practices, proofs, and
+other declarations without treating their bodies as arbitrary text.
 
 ## 5. Not rendered yet
 
@@ -175,18 +157,3 @@ line form on this sheet.
 - `schemas/lorestore/fact-object-v1.json` — the canonical stored form this grammar renders.
 - `schemas/ast/document.schema.json` — the AST the parser produces from a rendering.
 - `examples/*.dli` — the living corpus (all gate-parsed).
-
-## 7. Surface-review items — resolved by the surface-v1 pass (DL-0016)
-
-Filed 2026-07-19 from the author's first review pass; **all three were resolved
-by the does-what-it-says rename (DL-0016, 2026-07-20)**:
-
-1. **`pack`** — **resolved: renamed to `scope`.** The header keyword and `use`
-   target both read `scope` now.
-2. **`fluent`** — **resolved: renamed to `state`.** The whole rename set landed
-   with it (`wheel`→`cycle`, `ledger`→`proof`, `morpheme`→`name-part`,
-   `lexeme`→`word`, `register`→`dialect`, `sort`→`kind`), and the rule family
-   unified under one `rule … over <domain>` keyword.
-3. **Indentation as load-bearing** — **resolved: the autoformat guarantee.**
-   The parser stays indent-tolerant; the formatter owns all layout, and no
-   diagnostic ever asks a writer to fix indentation (spec/01 §2).

@@ -120,7 +120,7 @@ fn hollow_walkthrough_is_replayable_over_mcp() {
     );
     let mut server = Server::start(&project);
     let mut transcript = String::from(
-        "---\nstatus: reference\nverdict: \"A replayed MCP walkthrough of The Hollow.\"\n---\n\n# The Hollow: a replayed authoring session\n\nThese excerpts come from the checked MCP driver.\n",
+        "# The Hollow: a walkthrough\n\nThese calls and responses were captured from a walkthrough of The Hollow.\n",
     );
 
     let workspace = server.ok("author.open", json!({"scope":"world"}))["workspace"]
