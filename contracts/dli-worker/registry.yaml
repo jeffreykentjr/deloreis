@@ -359,7 +359,7 @@ replay_project:
 - path: fixture-project/attestation-questions.json
   sha256: dd6236381ae1663eb353b62b798a8034e7ba4f0b1cf7b2889356587f6628f3e9
 - path: fixture-project/nine-realms.dli
-  sha256: 228fb22ff4ac7a28679f0e213ea2963d40f08b1427be5fb36a958f4545686b1a
+  sha256: a20439b7b81385c0b4f2fa27f3a183604651b627692c02e20eade9a249502699
 - path: fixture-project/storybook.dli
   sha256: b8fb21c5807aeda6b3c750ef3e48efa74eefb59b5d076f8d984da8a38c83a317
 - path: fixture-project/simulation.dli

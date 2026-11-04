@@ -209,7 +209,10 @@ name taldin "Taldin"  person.given in old-speech
 ratify d-0011 { h-old-loan := true }     # one valuation ratifies the bundle
 ```
 
-**One hypothesis variable per bundle** means ratification is one authorial act.
+**One hypothesis variable per bundle** means ratification is one authorial act
+for this language layer. A `ratify` assignment does not currently settle
+ordinary world claims; if a world claim assumes the same hypothesis, the check
+reports an error instead of silently leaving it open.
 The clause grain the annotation algebra already carries
 ([02-semantics](02-semantics.md)) gives **partial ratification for free**: ratify
 the dialect but reject two name-parts, and their variables valuate false — every

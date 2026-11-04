@@ -40,6 +40,9 @@ successor.
   `d-ref` is a diagnostic and fails closed.
 - One marker per line; extras diagnose (`conflicting-markers`).
 - `assumes` conjoins a hypothesis/option condition onto the claim's support.
+- `ratify d-1 { h-name := true }` currently settles language-name hypotheses
+  only. If a world claim also assumes that hypothesis, `check` reports an error;
+  cite a decision on the world claim instead.
 - `proposed-bundle "scope#number"` preserves an anonymous proposal's exact
   identity on text replay; the scope may be empty for scope-less source. It cannot
   be combined with origin tokens,

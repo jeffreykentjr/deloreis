@@ -161,7 +161,93 @@ pub(crate) fn ledger_valuation(
         );
     }
     gate_language_citations(&mut nu, &mut findings, model, pack, known_decisions);
+    findings.extend(unsupported_world_hypothesis_rulings(pack));
     (nu, findings)
+}
+
+/// Report text ratify assignments that cannot affect the referenced world claims.
+/// The assignments currently change the language model's valuation only.
+#[must_use]
+pub fn unsupported_world_hypothesis_rulings(pack: &Pack) -> Vec<LowerFinding> {
+    use dli_ast::annot::{Annotation, CondExpr};
+
+    fn collect(expr: &CondExpr, names: &mut BTreeSet<String>) {
+        match expr {
+            CondExpr::Hyp(id) => {
+                names.insert(id.text.clone());
+            }
+            CondExpr::Not(inner) => collect(inner, names),
+            CondExpr::And(items) | CondExpr::Or(items) => {
+                for item in items {
+                    collect(item, names);
+                }
+            }
+        }
+    }
+    fn annotation(annotation: Option<&Annotation>, names: &mut BTreeSet<String>) {
+        if let Some(annotation) = annotation {
+            if let Some(condition) = annotation.condition.as_ref() {
+                collect(condition, names);
+            } else if annotation.marker == dli_ast::annot::ProvenanceMarker::Proposed
+                && !annotation.tags.is_empty()
+            {
+                names.insert(format!("h.{}", annotation.tags.join("+")));
+            }
+        }
+    }
+
+    let mut world_conditions = BTreeSet::new();
+    for decl in pack.documents.iter().flat_map(|document| &document.decls) {
+        let provenance = match decl {
+            Decl::Entity(entity) => {
+                for slot in &entity.slots {
+                    annotation(slot.provenance.as_ref(), &mut world_conditions);
+                }
+                entity.provenance.as_ref()
+            }
+            Decl::Attr(d) => d.provenance.as_ref(),
+            Decl::Fact(d) => d.provenance.as_ref(),
+            Decl::State(d) => d.provenance.as_ref(),
+            Decl::Before(d) => d.provenance.as_ref(),
+            Decl::SameAs(d) => d.provenance.as_ref(),
+            Decl::PredicateSameAs(d) => d.provenance.as_ref(),
+            Decl::Functional(d) => d.provenance.as_ref(),
+            Decl::Inertial(d) => d.provenance.as_ref(),
+            Decl::Kind(d) => d.provenance.as_ref(),
+            Decl::Rule(d) => d.provenance.as_ref(),
+            Decl::Cycle(d) => d.provenance.as_ref(),
+            Decl::Question(d) => d.provenance.as_ref(),
+            Decl::Fork(d) => d.provenance.as_ref(),
+            _ => None,
+        };
+        annotation(provenance, &mut world_conditions);
+    }
+    let known_decisions = declared_decisions(pack);
+    let mut findings = Vec::new();
+    for decl in pack.documents.iter().flat_map(|document| &document.decls) {
+        if let Decl::Ratify(ratify) = decl {
+            for line in &ratify.body.clauses {
+                if let Some(assignment) = &line.assignment {
+                    if known_decisions.contains(assignment.hyp.as_str()) {
+                        findings.push(LowerFinding {
+                            code: "ratify.decision-as-hypothesis".to_owned(),
+                            message: format!("'{}' is a decision, not a hypothesis; use author.defeat to revise a decision", assignment.hyp),
+                            span: Some(line.clause.span),
+                        });
+                    }
+                    if !world_conditions.contains(&assignment.hyp) {
+                        continue;
+                    }
+                    findings.push(LowerFinding {
+                        code: "ratify.world-hypothesis-unsupported".to_owned(),
+                        message: format!("`ratify` does not settle world claims that assume '{}'; leave the claim proposed or record a decision for it", assignment.hyp),
+                        span: Some(line.clause.span),
+                    });
+                }
+            }
+        }
+    }
+    findings
 }
 
 /// Extend the citation guard over the ledger-authority declarations the loader

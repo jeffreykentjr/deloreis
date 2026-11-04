@@ -45,6 +45,13 @@ claim open instead. The result depends on the current rulings, not on the word
 alone. In a wiki, **canon** means certain under those rulings, **unconfirmed**
 means possible, and **overturned** means the recorded support no longer holds.
 
+A `ratify` block's hypothesis assignments currently apply to language names,
+not to ordinary world claims. If a world claim assumes that hypothesis, the
+check reports an error instead of silently treating the assignment as a ruling.
+Leave the claim proposed, or record the accepted claim with a decision citation.
+An MCP corpus import preserves the supplied evidence and reports this error in
+its findings; inspect them and run a check before accepting the world.
+
 The evaluated statuses describe what follows under the current rulings:
 
 - **Certain:** supported as an accepted answer under those rulings.

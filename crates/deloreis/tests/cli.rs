@@ -2828,3 +2828,99 @@ fn review_timeline_shows_nearest_order_without_inventing_one() {
     assert!(!text.contains("`unrelated` →"), "{text}");
     assert!(!text.contains("→ `unrelated`"), "{text}");
 }
+
+#[test]
+fn review_ratify_warns_when_world_hypothesis_would_not_change() {
+    let dir = tmp("review-ratify-world-hypothesis");
+    let corpus = dir.join("world.dli");
+    for claim in [
+        "fact wren home den proposed assumes h-x",
+        "event turn proposed assumes h-x",
+        "state wren.home = den proposed assumes h-x",
+        "before a -> b proposed assumes h-x",
+    ] {
+        let source =
+            format!("scope story\nhypothesis h-x\n{claim}\nratify d-1 {{ h-x := true }}\n");
+        fs::write(&corpus, source).unwrap();
+        let output = bin().arg("check").arg(&corpus).output().unwrap();
+        assert!(!output.status.success(), "{claim}: {}", stdout(&output));
+        assert!(
+            stdout(&output).contains("ratify.world-hypothesis-unsupported"),
+            "{claim}: {}",
+            stdout(&output)
+        );
+    }
+}
+
+#[test]
+fn review_ratify_cannot_masquerade_as_decision_defeat() {
+    let dir = tmp("review-ratify-decision-boundary");
+    let corpus = dir.join("world.dli");
+    fs::write(
+        &corpus,
+        "scope story\nratify d-1\nfact wren home den ratified d-1\nratify d-2 { d-1 := false }\n",
+    )
+    .unwrap();
+    let check = bin().arg("check").arg(&corpus).output().unwrap();
+    assert!(!check.status.success());
+    assert!(
+        stdout(&check).contains("ratify.decision-as-hypothesis"),
+        "{}",
+        stdout(&check)
+    );
+    let query = bin()
+        .args(["query", "home(wren, den)", "--corpus"])
+        .arg(&corpus)
+        .output()
+        .unwrap();
+    assert!(stdout(&query).contains("certain"), "{}", stdout(&query));
+    assert!(
+        stderr(&query).contains("corpus has errors"),
+        "{}",
+        stderr(&query)
+    );
+}
+
+#[test]
+fn review_ratify_world_condition_is_checked_across_documents() {
+    let dir = tmp("review-ratify-cross-document");
+    let first = dir.join("claim.dli");
+    let second = dir.join("ruling.dli");
+    fs::write(
+        &first,
+        "scope story\nhypothesis h-x\nfact wren home den proposed assumes h-x and h-y\n",
+    )
+    .unwrap();
+    fs::write(&second, "scope story\nratify d-1 { h-x := true }\n").unwrap();
+    let output = bin()
+        .arg("check")
+        .arg(&first)
+        .arg(&second)
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(
+        stdout(&output).contains("ratify.world-hypothesis-unsupported"),
+        "{}",
+        stdout(&output)
+    );
+}
+
+#[test]
+fn review_ratify_reports_conflicts_and_named_proposal_bundles() {
+    let dir = tmp("review-ratify-conflicting-rulings");
+    let corpus = dir.join("world.dli");
+    let text = "scope story\nhypothesis h-x\nfact wren home den proposed assumes h-x\nfact wren role guide proposed source\nratify d-1 { h-x := true }\nratify d-2 { h-x := false }\nratify d-3 { h.source := true }\n";
+    fs::write(&corpus, text).unwrap();
+    let output = bin().arg("check").arg(&corpus).output().unwrap();
+    assert!(!output.status.success());
+    let report = stdout(&output);
+    assert_eq!(
+        report
+            .matches("ratify.world-hypothesis-unsupported")
+            .count(),
+        3,
+        "{report}"
+    );
+    assert!(report.contains("h.source"));
+}

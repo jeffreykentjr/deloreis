@@ -3882,24 +3882,6 @@ expression: document
             "start": 5742,
             "end": 5748
           }
-        },
-        "body": {
-          "clauses": [
-            {
-              "clause": {
-                "text": "h-merlin-foresaw := true",
-                "span": {
-                  "file": 0,
-                  "start": 5753,
-                  "end": 5777
-                }
-              },
-              "assignment": {
-                "hyp": "h-merlin-foresaw",
-                "value": true
-              }
-            }
-          ]
         }
       }
     }

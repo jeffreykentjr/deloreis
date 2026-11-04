@@ -98,6 +98,29 @@ struct Family {
 
 const FAMILIES: &[Family] = &[
     Family {
+        key: "ratify",
+        title: "Ratify blocks",
+        emitter: "World check and corpus import",
+        owner: "dli-world :: lib.rs",
+        severity_note: "Errors identify a ruling that cannot safely affect a world claim or decision.",
+        sources: &["../crates/dli-world/src/lib.rs"],
+        scrape: Scrape::Prefixed("ratify"),
+        codes: &[
+            Code {
+                code: "ratify.world-hypothesis-unsupported",
+                severity: "error",
+                repair: "—",
+                meaning: "a ratify assignment cannot settle a world claim that assumes the hypothesis.",
+            },
+            Code {
+                code: "ratify.decision-as-hypothesis",
+                severity: "error",
+                repair: "—",
+                meaning: "a ratify assignment names a decision rather than a hypothesis.",
+            },
+        ],
+    },
+    Family {
         key: "entity",
         title: "Entity references",
         emitter: "World check, CLI and authoring reads",

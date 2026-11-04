@@ -125,6 +125,4 @@ question who-holds-excalibur "Who holds Excalibur after Camlann?"
 keeps(the-lake, excalibur) proposed assumes the-lake and h-return
 hypothesis h-merlin-foresaw "Merlin foresaw the fall at Camlann from the first"
 event the-warning  during arthurs-reign proposed assumes h-merlin-foresaw
-ratify d-0011 {
-  h-merlin-foresaw := true
-}
+ratify d-0011
