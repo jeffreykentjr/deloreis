@@ -1,6 +1,6 @@
 # The return from Reichenbach
 
-At the end of [*The Final Problem*](https://www.gutenberg.org/files/834/834-h/834-h.htm), Watson concludes that Holmes died at Reichenbach. In [*The Empty House*](https://www.gutenberg.org/files/108/108-h/108-h), Holmes returns and explains that he escaped. We can revise the earlier ruling while keeping its history.
+At the end of [*The Final Problem*](https://www.gutenberg.org/files/834/834-h/834-h.htm), Watson concludes that Holmes died at Reichenbach. In [*The Empty House*](https://www.gutenberg.org/files/108/108-h/108-h.htm#chap01), Holmes returns and explains that he escaped. We can revise the earlier ruling while keeping its history.
 
 First, our editorial decision `d-0008` accepts Watson's conclusion, supported
 by source `d-0004`. The authoring tool renders the claim as:
@@ -31,12 +31,30 @@ reichenbach-outcome(holmes, survived): certain
 When we ask why the old claim no longer holds, the explanation says:
 
 ```text
-status: dead
+status: overturned
 support: d-0004, d-0008
 d-0009 defeats d-0008
 ```
 
-Here `dead` describes the old claim's support under the new rulings. The claim
+The old claim is overturned under the new rulings. The claim
 and the earlier decision are still available to explain what changed. This is
 a model of a revised account: the later story does not say Holmes died and
 came back to life.
+
+In the calls below, `claim_id` identifies the recorded claim to revise. A
+`{"Sym": "holmes"}` value is the wire format for the symbol `holmes`.
+
+## Run it yourself
+
+From the repository root, with `deloreis` installed, run:
+
+```sh
+python3 examples/holmes/try_casebook.py return
+```
+
+This replays the casebook in a temporary project and prints:
+
+```text
+earlier claim: overturned
+supporting decisions: d-0004, d-0008
+```

@@ -25,6 +25,11 @@ Reichenbach example shows an earlier account, a later ruling, and the support
 that changed. A branch keeps the earlier possibility. Each interpretation is
 identified as a modelling choice and linked to the original stories.
 
+The chronology chapter tests another discrepancy: if Watson's wife in March
+1888 is Mary and her September visit is in 1888, their meeting comes both
+before and after his marriage. The year and identification are interpretations
+supported by the cited passages, not explicit dates for every event.
+
 Suggested overview: open with a concrete problem from a long-running world;
 show the Watson name check and the writer's choice; explain sourced claims,
 revision, and the local command-line and MCP interfaces; then link to the
