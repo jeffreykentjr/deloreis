@@ -25,3 +25,18 @@ reported-wound-location(watson, leg): possible
 account is false or that De Lore Is has decided the wounds are the same. If a
 writer chooses a single-wound interpretation, they can add that rule and make
 a ruling later.
+
+## Run it yourself
+
+From the repository root, with `deloreis` installed, run:
+
+```sh
+python3 examples/holmes/try_casebook.py wounds
+```
+
+This replays the casebook in a temporary project and prints:
+
+```text
+reported-wound-location(watson, shoulder): possible
+reported-wound-location(watson, leg): possible
+```

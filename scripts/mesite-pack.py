@@ -15,6 +15,7 @@ pack = root / "docs/release/mesite-pack"
 selections = {
     "01-watson-name.md": "docs/casebook/01-watson-name.md",
     "02-wounds.md": "docs/casebook/02-wounds.md",
+    "03-timeline.md": "docs/casebook/03-timeline.md",
     "04-return.md": "docs/casebook/04-return.md",
     "06-rules.md": "docs/casebook/06-rules.md",
 }

@@ -1,48 +1,55 @@
 {
-  "sourceRevision": "33cb317f92327e6b6772d89645d7a240c8b8d70b",
+  "sourceRevision": "99d3acf8fc3bd094bc27f9b006bcef4d494d7900",
   "excerpts": [
     {
       "file": "excerpts/01-watson-name.md",
       "source": "docs/casebook/01-watson-name.md",
-      "sourceSha256": "02375cdac39052af23fff47c09dbf8a5021d78005e287df6f2edde7219a8dfc8",
-      "sha256": "534af1b7f31f6e96e3819cf0a22f3087134b7891e94c402757765fec4fc6feed",
+      "sourceSha256": "6acc6eed682c421887bcde545504c73b204bf1ee8cf57e0de1d6f175abac77cd",
+      "sha256": "c228966b8cdc2f926c148f4388c9850b55445138a2bb913f6e72c5e746121584",
       "selection": "chapter before the calls appendix"
     },
     {
       "file": "excerpts/02-wounds.md",
       "source": "docs/casebook/02-wounds.md",
-      "sourceSha256": "b0c46ceaa5bd5a1e1ee35aa59ee16a41c2257296463f13a46296c1749d3d2520",
-      "sha256": "6b9faa57999f6cd105dc6b702dc07899d201a4ce5d61f1c5a961f4da9563e525",
+      "sourceSha256": "fc8aa3b2e89f61c206cb1948ef015d9511b806f66250f9636fde2162badc73d1",
+      "sha256": "c7cb6b5554daeb885872a9c7935de5ad4ef9aa668ec2aecb2d4c1b6aac0ce2f4",
+      "selection": "chapter before the calls appendix"
+    },
+    {
+      "file": "excerpts/03-timeline.md",
+      "source": "docs/casebook/03-timeline.md",
+      "sourceSha256": "3dbea699a6bc5c01b5b7b3b9b71cb3c1800b35c871d38a6df4a7bb131a1e491c",
+      "sha256": "ab1ad16bc20b2d084cdeb0addafbd96dd3a0d8fb2f39323a267770b8a3442c2a",
       "selection": "chapter before the calls appendix"
     },
     {
       "file": "excerpts/04-return.md",
       "source": "docs/casebook/04-return.md",
-      "sourceSha256": "ec45abd4dae9eacea1c0c679252cd38c3eabb8f381f417122fda390ccf5153c9",
-      "sha256": "bcf96eadc11cfe24882da75891a62afc7d0b1676b1303bced64e73cd4000778c",
+      "sourceSha256": "bee756b7da7921cbcacb2265308e318f6c8e9bb31cc8d151669d1a225ab14c4e",
+      "sha256": "d942a012d2bfe2af4c77b9dc1aabdc101065144a56bf68728d40923167bffd13",
       "selection": "chapter before the calls appendix"
     },
     {
       "file": "excerpts/06-rules.md",
       "source": "docs/casebook/06-rules.md",
-      "sourceSha256": "74a53f5c0dcf01e01ab1495595da460975441b6338d7d5e27ade1c5c82593dd1",
-      "sha256": "f9f102bf65e1bdb891706c43d44d5ea864a5ebf1e25a8febee58619e9711edbf",
+      "sourceSha256": "002060eb481327d33de2732b9ba376699f66792034a73f99dbbdfe1ef36b482f",
+      "sha256": "2bf974d520eaf6129a9f4fa8ed26eec0b8950bc869191b531d21668669ab9e7a",
       "selection": "chapter before the calls appendix"
     }
   ],
   "images": [
     {
       "file": "images/holmes-retcon.png",
-      "sha256": "7e2ddb71eba7fd11c86bb4ec1c911d83698b0bad73463c41f8b2c74d0aed401b",
+      "sha256": "6886ea3c090ca0b2b78b277db6ee05771ebf61038e3f3c11a822c157021ea281",
       "sourcePage": "wiki/predicate-reichenbach-outcome.html",
-      "sourcePageSha256": "73f985d92a94db7115531fc43cf699cb96d238133adcf485ce4b739d3d6086b8",
+      "sourcePageSha256": "8ac2b16cbdd76fa1c83df6b8aeadb84ed9b7702eb383d90941d935bfac5bcdad",
       "capture": "Firefox screenshot, visually checked"
     },
     {
       "file": "images/watson-wounds.png",
-      "sha256": "dba1848c5bab191fa0ee238b29c5798190234d9c589433455ca72bb1eb08d819",
+      "sha256": "13efdc6239c3e472a4f3d97e0eb08f8319a79df5e02e8f27f284405e01d2a601",
       "sourcePage": "wiki/predicate-reported-wound-location.html",
-      "sourcePageSha256": "8e0325c0d311cb6bd71cbfc91eed48e44d0ebbe314a5301a93d6aa8d7321c599",
+      "sourcePageSha256": "d4a9e00ff01fce2efb76dc22da7002f30e758223db47d66daee60109693bd6d2",
       "capture": "Firefox screenshot, visually checked"
     }
   ]
