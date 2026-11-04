@@ -8,9 +8,8 @@
 //! formatter is idempotent (charter koan 7; DL-0003).
 //!
 //! [`probe`] is the pre-parser relic — a coarse gentle-subset gate the
-//! docs-oracle used before a real parser existed. It is kept only because a
-//! sibling gate still calls [`probe::probe_source`]; the real oracle now runs
-//! [`parse_document`].
+//! docs-oracle used before a real parser existed. It remains available for
+//! callers that need that narrower subset; use [`parse_document`] for real documents.
 
 pub mod diag;
 pub mod format;

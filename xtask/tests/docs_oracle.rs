@@ -1,5 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-//! The committed examples must stay inside the gentle probe subset.
+//! The committed examples must parse as real De Lore Is documents.
 
 use std::path::PathBuf;
 
@@ -10,7 +10,7 @@ fn repo_root() -> PathBuf {
 }
 
 #[test]
-fn probe_accepts_committed_examples() {
+fn parser_accepts_committed_examples() {
     let examples = repo_root().join("examples");
     let mut saw_example = false;
     for entry in walkdir::WalkDir::new(&examples)
@@ -23,10 +23,14 @@ fn probe_accepts_committed_examples() {
         }
         saw_example = true;
         let content = std::fs::read_to_string(&path).unwrap();
-        let errors = dli_syntax::probe_source(&content);
+        let (_, diagnostics) = dli_syntax::parse_document(&content);
+        let errors: Vec<_> = diagnostics
+            .into_iter()
+            .filter(|diagnostic| diagnostic.class.is_error())
+            .collect();
         assert!(
             errors.is_empty(),
-            "probe rejected {}: {errors:?}",
+            "parser rejected {}: {errors:?}",
             path.display()
         );
     }

@@ -824,6 +824,49 @@ fn all_standing_wiki_labels_individual_source_support() {
 }
 
 #[test]
+fn all_standing_wiki_exposes_proposal_support_only_with_provenance() {
+    use dli_core::ann::Theory;
+    use dli_core::atom::Interner;
+    use dli_core::posbool::PosBool;
+    use dli_core::valuation::Valuation;
+
+    let mut names = Interner::new();
+    let origin = names.intern("h.study-in-scarlet");
+    let mut claim = loaded_fact("wound", &["watson", "shoulder"]);
+    claim.kind = Provenance::Proposed;
+    claim.ann = Ann::supported(PosBool::pos(origin));
+    let mut spec = Registry::builtin()
+        .resolve("wiki/all-standing")
+        .unwrap()
+        .clone();
+    let wiki = dli_export::static_wiki::compile_all_with_names(
+        &spec,
+        "all",
+        &[&claim],
+        &Valuation::default(),
+        &Theory::default(),
+        Some(&names),
+    )
+    .unwrap();
+    assert!(
+        wiki.pages[1]
+            .content
+            .contains("(support: (h.study-in-scarlet))")
+    );
+    spec.carries_provenance = ProvenanceMode::Stripped;
+    let wiki = dli_export::static_wiki::compile_all_with_names(
+        &spec,
+        "all",
+        &[&claim],
+        &Valuation::default(),
+        &Theory::default(),
+        Some(&names),
+    )
+    .unwrap();
+    assert!(!wiki.pages[1].content.contains("study-in-scarlet"));
+}
+
+#[test]
 fn static_wiki_paths_cannot_escape_the_bundle() {
     let atom = loaded_fact("../notes", &["alpha"]);
     let spec = ProfileSpec {

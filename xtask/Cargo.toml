@@ -24,8 +24,7 @@ dli-world.workspace = true
 dli-serve.workspace = true
 deloreis.workspace = true
 clap.workspace = true
-# dli-syntax is required by the docs-oracle (`dli_syntax::probe_source`); the
-# build spec's dependency list omitted it.
+# The docs-oracle validates examples with the real syntax parser.
 dli-syntax.workspace = true
 anyhow.workspace = true
 serde_json.workspace = true

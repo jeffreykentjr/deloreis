@@ -1,9 +1,8 @@
 //! The gentle-subset probe — the pre-parser relic.
 //!
 //! This is *not* the parser and no longer backs the docs-oracle, which now runs
-//! the real [`crate::parse_document`]. The probe survives only because a sibling
-//! gate (`xtask`'s committed-examples test) still calls [`probe_source`]. Do not
-//! build new checks on it.
+//! the real [`crate::parse_document`]. The probe remains available for callers that need its narrower subset.
+//! It must not be used to validate general `.dli` documents.
 //!
 //! A line is accepted when it is blank, a `#` comment, an indented continuation,
 //! opens with a known keyword, or is a relation fact of the form `pred(args)`.
