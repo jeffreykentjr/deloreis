@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Build a small sourced Holmes corpus through the authoring server.
+"""Build and replay the sourced Holmes casebook through the authoring server.
 
-Work in progress: source decisions are mapped in sources.md. This script is
-not yet the full casebook fixture.
+Source decisions and modelling choices are explained in sources.md.
 """
 import json
 import pathlib
