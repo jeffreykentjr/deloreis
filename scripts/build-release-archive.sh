@@ -4,7 +4,7 @@ set -euo pipefail
 python3 scripts/release-control.py
 cargo build --release --locked -p deloreis
 target/release/deloreis --version
-target/release/deloreis check examples/camelot.dli
+target/release/deloreis check examples/holmes/holmes.dli
 scratch="$(mktemp -d)"
 trap 'rm -r "$scratch"' EXIT
 target/release/deloreis init "$scratch/story"
