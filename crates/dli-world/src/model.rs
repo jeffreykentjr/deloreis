@@ -355,9 +355,15 @@ impl LoadFinding {
                 pack,
                 ..
             } => {
-                format!(
-                    "{decl} in pack '{pack}' references {expected_kind} '{target}', which the world does not declare"
-                )
+                if expected_kind == "event" {
+                    format!(
+                        "{decl} in pack '{pack}' references '{target}', which is not a declared event; `since` and `until` need an event rather than an era"
+                    )
+                } else {
+                    format!(
+                        "{decl} in pack '{pack}' references {expected_kind} '{target}', which the world does not declare"
+                    )
+                }
             }
             Self::DuplicateDeclaration {
                 pack, kind, name, ..

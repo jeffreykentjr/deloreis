@@ -99,7 +99,9 @@ pub(crate) fn run(args: &QueryArgs) -> CmdResult {
             );
         }
         let files = cmd::load_corpus(&args.corpus)?;
-        (cmd::compile_corpus(&files, "query")?, None)
+        let world = cmd::compile_corpus(&files, "query")?;
+        warn_if_invalid(&files, &world);
+        (world, None)
     };
 
     let point = args.as_of.as_ref().map(|as_of| {
@@ -180,6 +182,7 @@ fn run_name_view(args: &QueryArgs) -> CmdResult {
 
     let files = cmd::load_corpus(&args.corpus)?;
     let world = cmd::compile_corpus(&files, "query-name")?;
+    warn_if_invalid(&files, &world);
     let mut names = ratified_names(&world.model.language);
     names.sort_by(|a, b| {
         (&a.name, &a.kind, &a.register, &a.decision, &a.bearer).cmp(&(
@@ -194,4 +197,19 @@ fn run_name_view(args: &QueryArgs) -> CmdResult {
         .map_err(|err| format!("cannot render the generated name view: {err}"))?;
     outln!("{rendered}");
     Ok(EXIT_CLEAN)
+}
+
+fn warn_if_invalid(files: &[cmd::CorpusFile], world: &dli_world::CompiledWorld) {
+    let syntax_error = files
+        .iter()
+        .any(|file| file.diagnostics.iter().any(|d| d.class.is_error()));
+    let semantic_error = dli_world::check::run(world)
+        .iter()
+        .chain(dli_world::language::check(&world.model.language).iter())
+        .any(|finding| finding.severity == dli_world::Severity::Error);
+    if syntax_error || semantic_error {
+        cmd::emit_err(
+            "warning: this corpus has errors; run `deloreis check` on the same files before relying on this answer",
+        );
+    }
 }

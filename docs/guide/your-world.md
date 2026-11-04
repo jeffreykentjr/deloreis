@@ -20,6 +20,12 @@ Some operations, including `author.record_decision` and `author.defeat`, update
 the store immediately. Agree on those rulings before the assistant calls them;
 `author.discard` only discards staged work.
 
+The project store is read through MCP. To use CLI `check` or `query` on its
+contents, start the server with `--tools all`, call `dli.corpus.export` with
+`{"document":"world","format":"rendered"}`, and save each returned rendered
+document as a `.dli` file. Pass those files to the CLI; see the
+[quickstart](../quickstart.md) for client setup.
+
 For example, you could say:
 
 > Use these notes to start my world in De Lore Is. Record the settled claims

@@ -1,5 +1,7 @@
 # When a rule causes the conflict
 
+The `author.add_rule` call below needs the MCP server's `--tools all` profile.
+
 Suppose we interpret the name James used by Watson's wife as referring to
 Watson, while the first chapter records John as his first name. Those two notes
 can coexist. Now imagine a rule saying the name she uses must be his first name.

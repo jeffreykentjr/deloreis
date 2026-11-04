@@ -113,6 +113,8 @@ elif chapter == "branch":
     row = result["retcon"]["branch"][0]
     print(f'''# What if Holmes stayed dead?
 
+The `author.branch` call below needs the MCP server's `--tools all` profile.
+
 Before revising the Reichenbach ruling, we made a branch called
 `holmes-stayed-dead`. A branch is a separate line of work. The main line can
 accept Holmes's return while the branch keeps the earlier starting point.
@@ -138,6 +140,8 @@ elif chapter == "rule":
     finding = result["rule_conflict"]
     rule = "\n".join(result["rule_rendered"])
     print(f'''# When a rule causes the conflict
+
+The `author.add_rule` call below needs the MCP server's `--tools all` profile.
 
 Suppose we interpret the name James used by Watson's wife as referring to
 Watson, while the first chapter records John as his first name. Those two notes

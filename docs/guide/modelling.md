@@ -20,9 +20,24 @@ single-valued in your setting; their friends usually are not. Do not declare
 
 Values can also change. For a changing relationship, use a state and place its
 changes in story time. A present home and a former home are not necessarily a
-contradiction. Check the [syntax reference](../cards/syntax-reference.md) for
-state declarations, or use `author.add_state` and `author.declare_inertial`
-through MCP.
+contradiction. Here Ada takes over the lighthouse after the storm:
+
+```dli
+scope lighthouse-story
+ratify d-0001
+thing lighthouse "Lighthouse" ratified d-0001
+person wren "Wren" ratified d-0001
+person ada "Ada" ratified d-0001
+era before-storm < after-storm ratified d-0001
+event storm during after-storm ratified d-0001
+state lighthouse.keeper = wren until storm ratified d-0001
+state lighthouse.keeper = ada since storm ratified d-0001
+```
+
+`since` and `until` name events, not eras. `during` a declared era starts a
+state at that era; it does not end the state automatically when a later era
+begins. Use an event as the boundary when one value replaces another. You can
+also use `author.add_state` through MCP.
 
 ## Put events in time
 
