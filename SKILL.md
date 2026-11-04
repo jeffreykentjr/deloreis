@@ -1,8 +1,6 @@
 ---
 name: deloreis
 description: Author structured fiction lore with the De Lore Is MCP tools, inspect findings, and commit checked changes.
-status: live
-verdict: "Author and inspect a fictional world through the current 2.0.0 tool surface."
 ---
 
 # Authoring with De Lore Is

@@ -1,8 +1,3 @@
----
-status: live
-verdict: "Introduction to the fiction continuity engine and its documentation."
----
-
 # De Lore Is
 
 De Lore Is is a continuity engine for fictional worlds. It checks structured

@@ -1,18 +1,13 @@
----
-status: live
-verdict: "De Lore Is checks and explains continuity in fictional worlds."
----
-
 # De Lore Is
 
-De Lore Is helps you keep track of the facts, timelines, and rules of a
-fictional world. It checks the lore you record for contradictions and can
-explain which decisions support an answer.
+De Lore Is is a local continuity checker for fictional worlds. It keeps track
+of the people, places, events, and rules you give it, checks them for
+contradictions, and can explain which decisions support an answer.
 
 It's for writers, worldbuilders, and people building tools that work with
 fiction. You can write lore in `.dli` files and check it from the command line,
-or connect an MCP client to work with a local world through its authoring
-tools. The checks run locally and don't call a model.
+or connect an MCP client, such as an AI assistant, to work with a local world.
+The checks don't call a model.
 
 You decide what to record and which rules apply. De Lore Is checks structured
 lore; it doesn't read a manuscript and find plot holes on its own.
@@ -47,9 +42,9 @@ deloreis check story.dli
 ```
 
 The finding lists both values: `[avalon, camelot]`. The `functional` line tells
-De Lore Is to treat home as single-valued;
-without that rule, the two statements aren't automatically a conflict. The
-command exits with status 1 because it found a problem.
+De Lore Is that Arthur can have only one home. Without that rule, the two
+statements aren't automatically a conflict. The command exits with status 1
+because it found a problem.
 
 ## Work with a world
 
@@ -61,8 +56,8 @@ shows how to ask the client to make the tool calls.
 In a project, De Lore Is keeps the decisions behind your claims, including
 claims you later revise. You can keep accounts unresolved, inspect why
 something is considered canon, and explore changes on a separate branch. The
-project records when claims and rulings were added; it does not model what each
-character knew at a particular point in the story.
+project keeps the order in which claims and rulings were added; it does not
+model what each character knew at a particular point in the story.
 
 - [Hollow walkthrough](examples/hollow/transcript.md) — a dispute, a retcon,
   and a what-if branch, with the actual calls and results.

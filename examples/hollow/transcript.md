@@ -1,11 +1,6 @@
----
-status: reference
-verdict: "A replayed MCP walkthrough of The Hollow."
----
+# The Hollow: a walkthrough
 
-# The Hollow: a replayed authoring session
-
-These excerpts come from the checked MCP driver.
+These calls and responses were captured from a walkthrough of The Hollow.
 
 ## 1. Wren's home is canon
 
