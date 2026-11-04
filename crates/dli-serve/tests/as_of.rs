@@ -165,6 +165,64 @@ fn as_of_is_answered_at_contract_1_9_0() {
     assert_eq!(result(&response)["holdings"][0]["value"], "commons");
 }
 
+#[test]
+fn camelot_era_cut_matches_the_changing_keeper() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/camelot.dli");
+    let source = std::fs::read_to_string(path).unwrap();
+    let (document, diagnostics) = dli_syntax::parse_document(&source);
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    let mut store = Store::with_pack(dli_world::pack::Pack {
+        name: "camelot".to_owned(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let ws = open_scope(&mut store, "2.0.0", "camelot");
+    let later = as_of(
+        &mut store,
+        "2.0.0",
+        &ws,
+        "keeper",
+        "excalibur",
+        "arthurs-reign",
+    );
+    let later = result(&later)["holdings"].as_array().unwrap();
+    assert_eq!(later.len(), 1, "{later:?}");
+    assert_eq!(later[0]["value"], "the-king");
+    assert_eq!(later[0]["projection"], "holds-certainly");
+
+    let within = as_of(
+        &mut store,
+        "2.0.0",
+        &ws,
+        "keeper",
+        "excalibur",
+        "uthers-time",
+    );
+    let within = result(&within)["holdings"].as_array().unwrap();
+    assert_eq!(within.len(), 2, "{within:?}");
+    assert!(
+        within
+            .iter()
+            .all(|h| h["projection"] == "order-indeterminate")
+    );
+}
+
+#[test]
+fn wire_as_of_refuses_a_cycle_inferred_at_an_era_cut() {
+    let mut store = base(
+        "scope storybook\nratify d-1\nera early < middle ratified d-1\nevent change during early ratified d-1\nbefore middle -> change ratified d-1\nstate wren.home = old until change ratified d-1\nstate wren.home = new since change ratified d-1\n",
+    );
+    let ws = open_scope(&mut store, "2.0.0", "storybook");
+    let response = as_of(&mut store, "2.0.0", &ws, "home", "wren", "middle");
+    assert!(!response.ok, "{response:?}");
+    let error = response.error.unwrap();
+    assert_eq!(
+        serde_json::to_value(error.code).unwrap(),
+        "temporal-indeterminate"
+    );
+    assert!(error.message.contains("cyclic chronology"));
+}
+
 // -- the three as-of cases ------------------------------------------------------
 
 /// The capped value, its successor, and the unbounded tail: `commons since

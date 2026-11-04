@@ -204,6 +204,12 @@ const FAMILIES: &[Family] = &[
         scrape: Scrape::Prefixed("continuity"),
         codes: &[
             Code {
+                code: "continuity.stale-era-model",
+                severity: "error",
+                repair: "—",
+                meaning: "an older compiled model lacks era declarations; recompile it from source or the lorestore before checking.",
+            },
+            Code {
                 code: "continuity.chronology-cycle",
                 severity: "error",
                 repair: "—",

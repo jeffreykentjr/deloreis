@@ -1451,6 +1451,58 @@ fn query_known_as_of_is_accepted() {
 }
 
 #[test]
+fn query_camelot_keeper_at_an_era_after_the_change() {
+    let output = bin()
+        .args(["query", "-c"])
+        .arg(camelot())
+        .args(["--as-of", "arthurs-reign", "excalibur.keeper = $v"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert!(
+        stdout(&output).contains("keeper(excalibur, the-king)"),
+        "{}",
+        stdout(&output)
+    );
+    assert!(
+        !stdout(&output).contains("in-the-stone"),
+        "{}",
+        stdout(&output)
+    );
+
+    let within = bin()
+        .args(["query", "-c"])
+        .arg(camelot())
+        .args(["--as-of", "uthers-time", "excalibur.keeper = $v"])
+        .output()
+        .unwrap();
+    assert_eq!(within.status.code(), Some(2), "{}", stderr(&within));
+    assert!(stderr(&within).contains("cannot project uncertain temporal bounds"));
+}
+
+#[test]
+fn check_and_event_query_refuse_an_era_membership_cycle() {
+    let dir = tmp("era-membership-cycle");
+    let corpus = dir.join("story.dli");
+    fs::write(&corpus, "scope storybook\nratify d-1\nratify d-2\nratify d-3\nera early < middle ratified d-1\nevent change during early ratified d-2\nbefore middle -> change ratified d-3\nstate wren.home = new since change ratified d-1\n").unwrap();
+    let check = bin().arg("check").arg(&corpus).output().unwrap();
+    assert_eq!(check.status.code(), Some(1));
+    let finding = stdout(&check);
+    assert!(finding.contains("continuity.chronology-cycle"), "{finding}");
+    for decision in ["d-1", "d-2", "d-3"] {
+        assert!(finding.contains(decision), "{finding}");
+    }
+    let query = bin()
+        .args(["query", "-c"])
+        .arg(&corpus)
+        .args(["--as-of", "change", "home(wren, new)"])
+        .output()
+        .unwrap();
+    assert_eq!(query.status.code(), Some(2));
+    assert!(stderr(&query).contains("cyclic chronology"));
+}
+
+#[test]
 fn chronology_cycle_reports_a_source_file_and_repair() {
     let dir = tmp("chronology-source-location");
     let first = dir.join("a.dli");
@@ -2135,10 +2187,10 @@ fn timeline_orders_certain_events_in_ordered_eras() {
         .lines()
         .find(|line| line.starts_with("at the-sword-drawn:"))
         .unwrap();
-    assert!(
-        cursor.contains("before [the-round-table-founded, the-grail-quest"),
-        "{cursor}"
-    );
+    let before = cursor.split_once("before [").unwrap().1;
+    assert!(before.contains("arthurs-reign"), "{cursor}");
+    assert!(before.contains("the-round-table-founded"), "{cursor}");
+    assert!(before.contains("the-grail-quest"), "{cursor}");
 }
 
 #[test]

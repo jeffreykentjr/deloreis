@@ -650,6 +650,9 @@ fn reset_wire_fixture_correction(old: &[u8], new: &[u8]) -> bool {
         // DL-0118 corrects absent standing in human review rows.
         || (old == "809fb34f09c684a0d619d30065a6cd507af186b11c9b1ed51ec3f74da2811bef"
             && new == "1eec4129d32eeefae62284ee0d215b4151809905885cc00e34ca324fe9a07003")
+        // DL-0121 updates the two pre-release chronology fixtures.
+        || (old == "1eec4129d32eeefae62284ee0d215b4151809905885cc00e34ca324fe9a07003"
+            && new == "4486866a35286cd6891aab6cc1b1202e166bf6f95418ac9fdbc92c7780cb7e3b")
 }
 
 #[cfg(test)]

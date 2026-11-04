@@ -112,5 +112,6 @@ pub(crate) fn seal(
     };
     model.world = saturated;
     model.inferred_era_edges = crate::era_order::infer(&model);
+    model.era_inference_revision = crate::era_order::INFERENCE_REVISION;
     Ok((model, report))
 }

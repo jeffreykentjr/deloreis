@@ -377,7 +377,7 @@ fn timeline_and_fork_add_are_wired() {
     .unwrap();
     assert_eq!(
         cursor["cursor"]["before"],
-        serde_json::json!(["uthers-time"])
+        serde_json::json!(["uthers-time", "the-sword-drawn"])
     );
     assert_eq!(
         cursor["cursor"]["after"],

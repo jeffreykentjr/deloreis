@@ -49,6 +49,118 @@ fn run(source: &str, at: &str, pred: &str) -> Vec<String> {
 const WORLD: &str = "scope storybook\nratify d-0001\nevent first ratified d-0001\nevent second ratified d-0001\nbefore first -> second ratified d-0001\ninertial home ratified d-0001\nstate wren.home = old since first ratified d-0001\nstate wren.home = new since second ratified d-0001\n";
 
 #[test]
+fn era_cut_orders_events_in_other_eras_but_not_its_own() {
+    let source = "scope storybook\nratify d-0001\nera early < middle < late ratified d-0001\nevent change during early ratified d-0001\nstate wren.home = old until change ratified d-0001\nstate wren.home = new since change ratified d-0001\n";
+    assert_eq!(run(source, "middle", "home"), vec!["home(wren, new)"]);
+
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(diagnostics.iter().all(|d| !d.class.is_error()));
+    let compiled = dli_world::compile(&Pack {
+        name: "storybook".into(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let middle = TimePoint(compiled.model.world.time_points.lookup("middle").unwrap().0);
+    let early = TimePoint(compiled.model.world.time_points.lookup("early").unwrap().0);
+    let later = dli_world::check::slot_state_at(&compiled, "home", "wren", middle).unwrap();
+    assert_eq!(later.holdings.len(), 1);
+    assert_eq!(later.holdings[0].value, "new");
+    assert_eq!(
+        later.holdings[0].projection,
+        dli_time::fluent::Projection::HoldsCertainly
+    );
+    let within = dli_world::check::slot_state_at(&compiled, "home", "wren", early).unwrap();
+    assert_eq!(within.holdings.len(), 2);
+    assert!(
+        within
+            .holdings
+            .iter()
+            .all(|h| h.projection == dli_time::fluent::Projection::OrderIndeterminate)
+    );
+    let future = source.replace("event change during early", "event change during late");
+    assert_eq!(run(&future, "middle", "home"), vec!["home(wren, old)"]);
+
+    let uncertain = source.replace(
+        "event change during early ratified d-0001",
+        "event change during early proposed",
+    );
+    let (document, _) = dli_syntax::parse_document(&uncertain);
+    let compiled = dli_world::compile(&Pack {
+        name: "storybook".into(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let middle = TimePoint(compiled.model.world.time_points.lookup("middle").unwrap().0);
+    let result = dli_world::check::slot_state_at(&compiled, "home", "wren", middle).unwrap();
+    assert!(
+        result
+            .holdings
+            .iter()
+            .all(|h| h.projection != dli_time::fluent::Projection::HoldsCertainly)
+    );
+
+    let defeated = source
+        .replace("ratify d-0001\n", "ratify d-0001\nratify d-0002\n")
+        .replace(
+            "event change during early ratified d-0001",
+            "event change during early ratified d-0002",
+        );
+    let (document, _) = dli_syntax::parse_document(&defeated);
+    let mut compiled = dli_world::compile(&Pack {
+        name: "storybook".into(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let decision = compiled.model.world.interner.lookup("d-0002").unwrap();
+    compiled.model.world.valuation.set(decision, false);
+    let middle = TimePoint(compiled.model.world.time_points.lookup("middle").unwrap().0);
+    let result = dli_world::check::slot_state_at(&compiled, "home", "wren", middle).unwrap();
+    assert!(
+        result
+            .holdings
+            .iter()
+            .all(|h| h.projection != dli_time::fluent::Projection::HoldsCertainly)
+    );
+}
+
+#[test]
+fn conflicting_era_and_event_order_refuses_both_projections() {
+    let source = "scope storybook\nratify d-0001\nera early < middle < late ratified d-0001\nevent change during early ratified d-0001\nbefore middle -> change ratified d-0001\nstate wren.home = old until change ratified d-0001\nstate wren.home = new since change ratified d-0001\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    let compiled = dli_world::compile(&Pack {
+        name: "storybook".into(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let middle = TimePoint(compiled.model.world.time_points.lookup("middle").unwrap().0);
+    let slot = dli_world::check::slot_state_at(&compiled, "home", "wren", middle).unwrap_err();
+    let query = dli_world::check::continuity::query_world_at(&compiled, middle).unwrap_err();
+    assert!(slot.to_string().contains("cyclic chronology"), "{slot}");
+    assert!(query.to_string().contains("cyclic chronology"), "{query}");
+}
+
+#[test]
+fn a_path_through_an_event_does_not_order_entire_eras() {
+    let source = "scope storybook\nratify d-1\nera early ratified d-1\nera middle ratified d-1\nevent change during early ratified d-1\nevent bridge during early ratified d-1\nbefore early -> bridge ratified d-1\nbefore bridge -> middle ratified d-1\nstate wren.home = new since change ratified d-1\n";
+    assert!(run(source, "middle", "home").is_empty());
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    let compiled = dli_world::compile(&Pack {
+        name: "storybook".into(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let middle = TimePoint(compiled.model.world.time_points.lookup("middle").unwrap().0);
+    let state = dli_world::check::slot_state_at(&compiled, "home", "wren", middle).unwrap();
+    assert_eq!(state.holdings.len(), 1);
+    assert_eq!(
+        state.holdings[0].projection,
+        dli_time::fluent::Projection::OrderIndeterminate
+    );
+}
+
+#[test]
 fn changing_fluent_projects_the_current_value() {
     assert_eq!(run(WORLD, "first", "home"), vec!["home(wren, old)"]);
     assert_eq!(run(WORLD, "second", "home"), vec!["home(wren, new)"]);
@@ -131,7 +243,7 @@ fn equal_values_in_disjoint_spans_keep_the_surviving_source() {
     })
     .unwrap();
     let at = TimePoint(compiled.model.world.time_points.lookup("start").unwrap().0);
-    let state = dli_world::check::slot_state_at(&compiled, "home", "wren", at);
+    let state = dli_world::check::slot_state_at(&compiled, "home", "wren", at).unwrap();
     assert_eq!(state.holdings.len(), 1);
     assert_eq!(state.holdings[0].citations, vec!["d-0002"]);
     let projected = dli_world::check::continuity::query_world_at(&compiled, at).unwrap();
@@ -222,7 +334,7 @@ fn unordered_successor_cannot_leave_an_old_inertial_value_certain() {
     })
     .unwrap();
     let at = TimePoint(compiled.model.world.time_points.lookup("cutoff").unwrap().0);
-    let state = dli_world::check::slot_state_at(&compiled, "home", "wren", at);
+    let state = dli_world::check::slot_state_at(&compiled, "home", "wren", at).unwrap();
     assert!(
         state
             .holdings

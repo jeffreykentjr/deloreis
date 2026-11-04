@@ -63,6 +63,42 @@ fn unresolved_inertial_order_has_a_specific_error() {
 }
 
 #[test]
+fn era_membership_cycle_remains_indeterminate_after_store_reopen() {
+    let source = "scope storybook\nratify d-0001\nratify d-0002\nratify d-0003\nera early < middle ratified d-0001\nevent change during early ratified d-0002\nbefore middle -> change ratified d-0003\nstate wren.home = old until change ratified d-0001\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    let root = tempfile::tempdir().unwrap();
+    let store = dli_lorestore::Lorestore::open(root.path().join("store")).unwrap();
+    store
+        .ensure_pack_imported(&dli_world::pack::Pack {
+            name: "storybook".into(),
+            documents: vec![document],
+        })
+        .unwrap();
+    drop(store);
+    fs::write(
+        root.path().join("deloreis.toml"),
+        "version = 1\nname = \"storybook\"\n[documents.storybook]\nstore = \"store\"\n",
+    )
+    .unwrap();
+    for point in ["middle", "change"] {
+        let project = dli_serve::project::Project::load(root.path()).unwrap();
+        let mut sessions = dli_serve::session::Sessions::from_project(Arc::new(project));
+        let mut author = dli_serve::author::store::Store::default();
+        let frame = json!({"dli":"2.0.0","id":"test","op":"dli.query","params":{"document":"storybook","goal_atom":{"pred":"home","args":[{"Sym":"wren"},{"Sym":"old"}]},"as_of":point}});
+        let response = serde_json::to_value(
+            dli_serve::serve::respond(&frame.to_string(), &mut sessions, &mut author).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(response["ok"], false, "{response}");
+        assert_eq!(
+            response["error"]["code"], "temporal-indeterminate",
+            "{response}"
+        );
+    }
+}
+
+#[test]
 fn wire_export_projects_states_and_reports_the_cutoff() {
     let source = "scope storybook\nratify d-0001\nevent first ratified d-0001\nevent second ratified d-0001\nbefore first -> second ratified d-0001\ninertial home ratified d-0001\nstate wren.home = old since first ratified d-0001\nstate wren.home = new since second ratified d-0001\n";
     let (document, diagnostics) = dli_syntax::parse_document(source);

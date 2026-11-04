@@ -242,12 +242,14 @@ pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
 /// persistence.md`). Never touches the eval query path or the derived
 /// (saturated-rule) layer; see [`continuity::slot_state_at`] for the full
 /// projection discipline.
-#[must_use]
+///
+/// # Errors
+/// Returns an indeterminate error if the ordering at this cut is cyclic.
 pub fn slot_state_at(
     world: &CompiledWorld,
     pred: &str,
     subject: &str,
     at: TimePoint,
-) -> SlotStateAt {
+) -> Result<SlotStateAt, continuity::TemporalQueryError> {
     continuity::slot_state_at(world, pred, subject, at)
 }

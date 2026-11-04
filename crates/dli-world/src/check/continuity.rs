@@ -87,6 +87,13 @@ pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
             world_finding
         });
     }
+    if !world.model.era_points_complete && !world.model.era_memberships.is_empty() {
+        out.push(WorldFinding::error(
+            "continuity.stale-era-model",
+            "era declaration mapping is unavailable; recompile the world from source or the lorestore".to_owned(),
+        ));
+        return out;
+    }
     // The identity-closure canon map is built ONCE per battery run, from the
     // world's certain `same-as` links (WS-1) — every reader below
     // canonicalizes through it rather than re-deriving the closure.
@@ -227,7 +234,27 @@ fn inferred_cycle_source(
 ) -> Option<dli_ast::span::Span> {
     use dli_eval::world::conjoin_annotations;
     let model = &world.model;
+    let paths = model.inferred_era_paths();
     for &(earlier, later) in cycle_edges {
+        for (index, member) in model.era_memberships.iter().enumerate() {
+            for path in paths.iter() {
+                let matches = (member.event.0 == earlier
+                    && path.later.0 == later
+                    && member.era == path.earlier)
+                    || (path.earlier.0 == earlier
+                        && member.event.0 == later
+                        && member.era == path.later);
+                if matches
+                    && conjoin_annotations(&member.ann, &path.ann)
+                        .status(&model.world.valuation, &model.world.theory)
+                        == Status::Certain
+                    && let Some(span) = model.era_membership_spans.get(&index).copied()
+                    && span.end > span.start
+                {
+                    return Some(span);
+                }
+            }
+        }
         for (first_index, first) in model.era_memberships.iter().enumerate() {
             if first.event.0 != earlier {
                 continue;
@@ -236,7 +263,7 @@ fn inferred_cycle_source(
                 if second.event.0 != later {
                     continue;
                 }
-                for path in &model.inferred_era_edges {
+                for path in paths.iter() {
                     if path.earlier != first.era || path.later != second.era {
                         continue;
                     }
@@ -1420,16 +1447,18 @@ fn inertial_derived_until(
 /// empty `holdings`, with no fallback to the raw extensional facts
 /// `author.query` still answers unmodified (the DL-0081/DL-0082 hard
 /// invariant that this is the ONLY inertia-aware read).
-#[must_use]
+///
+/// # Errors
+/// Returns an indeterminate error if the ordering at this cut is cyclic.
 pub fn slot_state_at(
     world: &CompiledWorld,
     pred: &str,
     subject: &str,
     at: TimePoint,
-) -> SlotStateAt {
+) -> Result<SlotStateAt, TemporalQueryError> {
     let canon = identity_canon(world);
     let slot = canon_slot(world, &canon, &(pred.to_owned(), subject.to_owned()));
-    let chronology = world.model.chronology_with_era_membership();
+    let chronology = chronology_for_cut(world, at)?;
     let chronology = &chronology;
     let valuation = &world.model.world.valuation;
     let theory = &world.model.world.theory;
@@ -1515,7 +1544,7 @@ pub fn slot_state_at(
         })
         .collect();
 
-    SlotStateAt {
+    Ok(SlotStateAt {
         pred: slot.0,
         subject: slot.1,
         inertial: inertial.is_some(),
@@ -1523,7 +1552,26 @@ pub fn slot_state_at(
         contested,
         inertial_citations,
         holdings,
+    })
+}
+
+/// Use the same standing-aware chronology for every point-in-time read.
+fn chronology_for_cut(
+    world: &CompiledWorld,
+    _at: TimePoint,
+) -> Result<dli_time::chronology::Chronology, TemporalQueryError> {
+    if !world.model.era_points_complete && !world.model.era_memberships.is_empty() {
+        return Err(TemporalQueryError::Internal(
+            "era declaration mapping is unavailable; recompile the world".to_owned(),
+        ));
     }
+    let chronology = world.model.chronology_with_era_membership();
+    if chronology.find_cycle(&[]).is_some() {
+        return Err(TemporalQueryError::Indeterminate(
+            "cannot project temporal bounds over a cyclic chronology".to_owned(),
+        ));
+    }
+    Ok(chronology)
 }
 
 /// Build an evaluable world for a point in story time. Temporal state facts
@@ -1656,12 +1704,7 @@ pub fn query_world_at(
     for slot in world.model.fluents.keys() {
         groups.insert(canon_slot(world, &canon, slot));
     }
-    let chronology = world.model.chronology_with_era_membership();
-    if chronology.find_cycle(&[]).is_some() {
-        return Err(TemporalQueryError::Indeterminate(
-            "cannot project temporal bounds over a cyclic chronology".to_owned(),
-        ));
-    }
+    let chronology = chronology_for_cut(world, at)?;
     let valuation = &world.model.world.valuation;
     let theory = &world.model.world.theory;
     let inertial_predicates = effective_inertial_predicates(world);

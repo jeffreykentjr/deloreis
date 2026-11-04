@@ -11,57 +11,104 @@ use dli_time::chronology::TimePoint;
 
 use crate::model::{EraEdge, WorldModel};
 
+/// Version of the derived era-path cache, not the stored world format.
+pub(crate) const INFERENCE_REVISION: u8 = 3;
+
+type Adjacency = BTreeMap<u32, Vec<(u32, Ann)>>;
+
+fn reachable(source: u32, adjacency: &Adjacency) -> BTreeMap<u32, Ann> {
+    let mut reached = BTreeMap::from([(source, Ann::unconditional())]);
+    let mut pending = VecDeque::from([source]);
+    while let Some(point) = pending.pop_front() {
+        let prior = reached[&point].clone();
+        for (next, edge) in adjacency.get(&point).into_iter().flatten() {
+            let candidate = conjoin_annotations(&prior, edge);
+            let joined = reached.get(next).map_or_else(
+                || candidate.clone(),
+                |old| disjoin_annotations(old, &candidate),
+            );
+            if reached.get(next) != Some(&joined) {
+                reached.insert(*next, joined);
+                pending.push_back(*next);
+            }
+        }
+    }
+    reached
+}
+
 pub(crate) fn infer(model: &WorldModel) -> Vec<EraEdge> {
     if model.era_memberships.is_empty() {
         return Vec::new();
     }
-    let mut adjacency: BTreeMap<u32, Vec<(u32, Ann)>> = BTreeMap::new();
+    let membership_eras: BTreeSet<_> = model
+        .era_memberships
+        .iter()
+        .map(|entry| entry.era.0)
+        .collect();
+    let mut sources = membership_eras.clone();
+    if model.era_points_complete {
+        sources.extend(&model.era_points);
+    } else {
+        // Older serialized models lack this registry. This fallback is
+        // conservative; point-in-time reads require a recompile before use.
+        for entity in &model.entities {
+            if entity.sort.as_deref() == Some("era")
+                && let Some(point) = model.world.time_points.lookup(&entity.name)
+            {
+                sources.insert(point.0);
+            }
+        }
+    }
+    let mut adjacency = Adjacency::new();
+    let mut reverse = Adjacency::new();
     for (index, &(earlier, later)) in model.world.chronology.edges.iter().enumerate() {
+        if !sources.contains(&earlier.0) || !sources.contains(&later.0) {
+            continue;
+        }
         let ann = model
             .chronology_anns
             .get(index)
             .cloned()
             .unwrap_or_else(Ann::unconditional);
-        adjacency.entry(earlier.0).or_default().push((later.0, ann));
+        adjacency
+            .entry(earlier.0)
+            .or_default()
+            .push((later.0, ann.clone()));
+        reverse.entry(later.0).or_default().push((earlier.0, ann));
     }
-    let sources: BTreeSet<_> = model
-        .era_memberships
-        .iter()
-        .map(|entry| entry.era.0)
-        .collect();
-    let mut paths = BTreeMap::new();
-    for source in sources {
-        let mut reached = BTreeMap::from([(source, Ann::unconditional())]);
-        let mut pending = VecDeque::from([source]);
-        while let Some(point) = pending.pop_front() {
-            let prior = reached[&point].clone();
-            for (next, edge) in adjacency.get(&point).into_iter().flatten() {
-                let candidate = conjoin_annotations(&prior, edge);
-                let joined = reached.get(next).map_or_else(
-                    || candidate.clone(),
-                    |old| disjoin_annotations(old, &candidate),
-                );
-                if reached.get(next) != Some(&joined) {
-                    reached.insert(*next, joined);
-                    pending.push_back(*next);
-                }
+    // Only paths touching an era with an event can generate a lifted edge.
+    // Walk both directions from those eras, avoiding an all-era path matrix.
+    let mut paths: BTreeMap<(u32, u32), Ann> = BTreeMap::new();
+    for &era in &membership_eras {
+        for (point, ann) in reachable(era, &adjacency) {
+            if point != era {
+                paths
+                    .entry((era, point))
+                    .and_modify(|old| {
+                        *old = disjoin_annotations(old, &ann);
+                    })
+                    .or_insert(ann);
             }
         }
-        paths.insert(source, reached);
-    }
-    let mut inferred = Vec::new();
-    for (&source, targets) in &paths {
-        for (&target, ann) in targets {
-            if source != target && paths.contains_key(&target) {
-                inferred.push(EraEdge {
-                    earlier: TimePoint(source),
-                    later: TimePoint(target),
-                    ann: ann.clone(),
-                });
+        for (point, ann) in reachable(era, &reverse) {
+            if point != era {
+                paths
+                    .entry((point, era))
+                    .and_modify(|old| {
+                        *old = disjoin_annotations(old, &ann);
+                    })
+                    .or_insert(ann);
             }
         }
     }
-    inferred
+    paths
+        .into_iter()
+        .map(|((earlier, later), ann)| EraEdge {
+            earlier: TimePoint(earlier),
+            later: TimePoint(later),
+            ann,
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -186,6 +233,7 @@ mod tests {
             })
             .collect();
         model.inferred_era_edges = infer(&model);
+        model.era_inference_revision = INFERENCE_REVISION;
         let (actual_graph, actual_anns) = model.annotated_chronology();
         let actual: BTreeMap<_, _> = actual_graph
             .edges
@@ -229,6 +277,7 @@ mod tests {
                 ann: Ann::unconditional(),
             },
         ];
+        model.era_inference_revision = INFERENCE_REVISION;
         model
             .world
             .chronology
