@@ -21,7 +21,9 @@ claims that are possible or dead, explicitly select `wiki/all-standing` with
 `--profile-name` or `profile_name`. Its pages label each source claim's own
 evaluated support and include provenance markers and decision IDs when the
 profile carries provenance. A reader needs a source index to associate those
-IDs with story titles; the export does not invent source descriptions.
+IDs with story titles; the export does not invent source descriptions. Proposed
+claims can also show named support expressions when provenance is enabled;
+those names are not automatically source citations.
 This is a broader disclosure than a canon-only export; review it before sharing.
 Keep-stamp visibility restrictions still apply. The manifest labels this view
 `all`, and other targets keep their usual certain-only behavior.

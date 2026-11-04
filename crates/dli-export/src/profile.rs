@@ -769,12 +769,13 @@ pub fn export_with(
         ExportTarget::Csv => ExportArtifact::Csv(csv::compile(spec, &layer, &selected)?),
         ExportTarget::StaticWiki => {
             let wiki = if all_standing {
-                static_wiki::compile_all(
+                static_wiki::compile_all_with_names(
                     spec,
                     &layer,
                     &selected,
                     &valuation,
                     &world.model().world.theory,
+                    Some(&world.model().world.interner),
                 )?
             } else {
                 static_wiki::compile(spec, &layer, &selected)?

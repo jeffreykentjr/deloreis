@@ -1,0 +1,1890 @@
+{
+  "decisions": [
+    "d-0001",
+    "d-0002",
+    "d-0003",
+    "d-0004",
+    "d-0005",
+    "d-0006",
+    "d-0007"
+  ],
+  "rendered": [
+    "scope world",
+    "",
+    "person watson             \"John Watson\"             ratified d-0001",
+    "person holmes             \"Sherlock Holmes\"         ratified d-0001",
+    "person stamford           \"Stamford\"                ratified d-0001",
+    "person murray             \"Murray\"                  ratified d-0001",
+    "person kate-whitney       \"Kate Whitney\"            ratified d-0003",
+    "person isa-whitney        \"Isa Whitney\"             ratified d-0003",
+    "person elias-whitney      \"Elias Whitney\"           ratified d-0003",
+    "person moriarty           \"Professor Moriarty\"      ratified d-0004",
+    "person peter-steiler      \"Peter Steiler the elder\" ratified d-0004",
+    "person mary-morstan       \"Mary Morstan\"            ratified d-0002",
+    "person captain-morstan    \"Captain Morstan\"         ratified d-0002",
+    "person cecil-forrester    \"Mrs Cecil Forrester\"     ratified d-0002",
+    "person thaddeus-sholto    \"Thaddeus Sholto\"         ratified d-0002",
+    "person bartholomew-sholto \"Bartholomew Sholto\"      ratified d-0002",
+    "person major-sholto       \"Major John Sholto\"       ratified d-0002",
+    "person mrs-hudson         \"Mrs Hudson\"              ratified d-0002",
+    "person mycroft            \"Mycroft Holmes\"          ratified d-0005",
+    "person ronald-adair       \"Ronald Adair\"            ratified d-0005",
+    "person sebastian-moran    \"Colonel Sebastian Moran\" ratified d-0005",
+    "person augustus-moran     \"Sir Augustus Moran\"      ratified d-0005",
+    "person earl-of-maynooth   \"Earl of Maynooth\"        ratified d-0005",
+    "person oscar-meunier      \"Oscar Meunier\"           ratified d-0005",
+    "person neville-st-clair   \"Neville St Clair\"        ratified d-0003",
+    "person mrs-st-clair       \"Mrs St Clair\"            ratified d-0003",
+    "person athelney-jones     \"Athelney Jones\"          ratified d-0002",
+    "person le-villard         \"Fran\u00e7ois Le Villard\"     ratified d-0002",
+    "person jonathan-small     \"Jonathan Small\"          ratified d-0002",
+    "person tonga              \"Tonga\"                   ratified d-0002",
+    "place london  \"London\"     ratified d-0001",
+    "place maiwand \"Maiwand\"    ratified d-0001",
+    "place bombay  \"Bombay\"     ratified d-0001",
+    "place netley  \"Netley\"     ratified d-0001",
+    "place strand  \"The Strand\" ratified d-0001",
+    "thing orontes \"Orontes\" ratified d-0001",
+    "place peshawar          \"Peshawar\"           ratified d-0001",
+    "place portsmouth        \"Portsmouth\"         ratified d-0001",
+    "place criterion-bar     \"Criterion Bar\"      ratified d-0001",
+    "place holborn           \"Holborn\"            ratified d-0001",
+    "place meiringen         \"Meiringen\"          ratified d-0004",
+    "place edinburgh         \"Edinburgh\"          ratified d-0002",
+    "place langham-hotel     \"Langham Hotel\"      ratified d-0002",
+    "place upper-norwood     \"Upper Norwood\"      ratified d-0002",
+    "place pondicherry-lodge \"Pondicherry Lodge\"  ratified d-0002",
+    "place andaman-islands   \"Andaman Islands\"    ratified d-0002",
+    "place reichenbach       \"Reichenbach Falls\"  ratified d-0004",
+    "place tibet             \"Tibet\"              ratified d-0005",
+    "place persia            \"Persia\"             ratified d-0005",
+    "place mecca             \"Mecca\"              ratified d-0005",
+    "place khartoum          \"Khartoum\"           ratified d-0005",
+    "place sherpur           \"Sherpur\"            ratified d-0005",
+    "place cabul             \"Cabul\"              ratified d-0005",
+    "place florence          \"Florence\"           ratified d-0005",
+    "place camden-house      \"Camden House\"       ratified d-0005",
+    "place the-cedars        \"The Cedars\"         ratified d-0003",
+    "place swandam-lane      \"Upper Swandam Lane\" ratified d-0003",
+    "thing wax-bust \"The wax bust\" ratified d-0005",
+    "place baker-street          \"Baker Street\"                ratified d-0005",
+    "place baker-street-lodgings \"Holmes\u2019s Baker Street rooms\" ratified d-0005",
+    "era years-1880s \"The 1880s\" ratified d-0006",
+    "era year-1891   \"1891\"      ratified d-0006",
+    "era year-1894   \"1894\"      ratified d-0006",
+    "event scandal               \"A Scandal in Bohemia\"         during years-1880s ratified d-0007",
+    "event mary-case             \"Mary Morstan consults Holmes\" during years-1880s ratified d-0002",
+    "event reichenbach-encounter \"The Reichenbach encounter\"    during year-1891 ratified d-0004",
+    "event return                \"Holmes returns\"               during year-1894 ratified d-0005",
+    "before years-1880s -> year-1891 ratified d-0006",
+    "before year-1891 -> year-1894 ratified d-0006",
+    "functional first-name ratified d-0006",
+    "watson.first-name                      = john                           ratified d-0001",
+    "watson.name-used-by-wife               = james                          ratified d-0003",
+    "watson.profession                      = doctor                         ratified d-0001",
+    "watson.studied-at                      = university-of-london           ratified d-0001",
+    "watson.trained-at                      = netley                         ratified d-0001",
+    "watson.landed-in                       = bombay                         ratified d-0001",
+    "watson.returned-on                     = orontes                        ratified d-0001",
+    "watson.stayed-on                       = strand                         ratified d-0001",
+    "watson.held-rank                       = assistant-surgeon              ratified d-0001",
+    "watson.served-with                     = berkshires                     ratified d-0001",
+    "watson.contracted                      = enteric-fever                  ratified d-0001",
+    "watson.served-at                       = maiwand                        ratified d-0001",
+    "murray.assisted                        = watson                         ratified d-0001",
+    "watson.recovering-at                   = peshawar                       ratified d-0001",
+    "watson.landed-at                       = portsmouth                     ratified d-0001",
+    "watson.met-stamford-at                 = criterion-bar                  ratified d-0001",
+    "watson.lunched-at                      = holborn                        ratified d-0001",
+    "watson.sought-lodgings-in              = london                         ratified d-0001",
+    "holmes.sought-lodgings-in              = london                         ratified d-0001",
+    "holmes.occupation                      = consulting-detective           ratified d-0002",
+    "le-villard.consulted                   = holmes                         ratified d-0002",
+    "le-villard.profession                  = detective                      ratified d-0002",
+    "mary-morstan.received                  = pearls                         ratified d-0002",
+    "mary-morstan.sought-help-from          = holmes                         ratified d-0002",
+    "captain-morstan.belonged-to            = bombay-infantry                ratified d-0002",
+    "major-sholto.belonged-to               = bombay-infantry                ratified d-0002",
+    "major-sholto.served-at                 = andaman-islands                ratified d-0002",
+    "kate-whitney.married-to                = isa-whitney                    ratified d-0003",
+    "isa-whitney.brother-of                 = elias-whitney                  ratified d-0003",
+    "watson.medical-adviser-of              = isa-whitney                    ratified d-0003",
+    "mary-morstan.employed-by               = cecil-forrester                ratified d-0002",
+    "mary-morstan.occupation                = governess                      ratified d-0002",
+    "mary-morstan.father                    = captain-morstan                ratified d-0002",
+    "mary-morstan.boarded-in                = edinburgh                      ratified d-0002",
+    "captain-morstan.stayed-at              = langham-hotel                  ratified d-0002",
+    "captain-morstan.served-at              = andaman-islands                ratified d-0002",
+    "captain-morstan.friend                 = major-sholto                   ratified d-0002",
+    "major-sholto.lived-in                  = upper-norwood                  ratified d-0002",
+    "major-sholto.home                      = pondicherry-lodge              ratified d-0002",
+    "thaddeus-sholto.father                 = major-sholto                   ratified d-0002",
+    "bartholomew-sholto.father              = major-sholto                   ratified d-0002",
+    "thaddeus-sholto.twin-brother           = bartholomew-sholto             ratified d-0002",
+    "mrs-hudson.landlady-of                 = holmes                         ratified d-0002",
+    "holmes.brother                         = mycroft                        ratified d-0005",
+    "holmes.visited                         = florence                       ratified d-0005",
+    "holmes.travelled-in                    = tibet                          ratified d-0005",
+    "mycroft.preserved-rooms-in             = baker-street                   ratified d-0005",
+    "camden-house.opposite                  = baker-street-lodgings          ratified d-0005",
+    "watson.medical-degree-year             = year-1878                      ratified d-0001",
+    "watson.original-regiment               = fifth-northumberland-fusiliers ratified d-0001",
+    "watson.battle                          = maiwand                        ratified d-0001",
+    "watson.hospitalized-at                 = peshawar                       ratified d-0001",
+    "watson.homeward-arrival                = portsmouth                     ratified d-0001",
+    "watson.daily-income                    = eleven-shillings-sixpence      ratified d-0001",
+    "stamford.worked-at                     = barts                          ratified d-0001",
+    "stamford.introduced                    = holmes                         ratified d-0001",
+    "holmes.studied                         = chemistry                      ratified d-0001",
+    "holmes.worked-in                       = hospital-laboratory            ratified d-0001",
+    "murray.role                            = watson-orderly                 ratified d-0001",
+    "orontes.type                           = troopship                      ratified d-0001",
+    "mary-morstan.mother                    = deceased                       ratified d-0002",
+    "mary-morstan.school-city               = edinburgh                      ratified d-0002",
+    "mary-morstan.school-until-age          = seventeen                      ratified d-0002",
+    "mary-morstan.pearl-count               = six                            ratified d-0002",
+    "mary-morstan.advertisement-newspaper   = times                          ratified d-0002",
+    "mary-morstan.advertisement-date        = may-4-1882                     ratified d-0002",
+    "captain-morstan.leave-began            = year-1878                      ratified d-0002",
+    "captain-morstan.disappeared            = december-3-1878                ratified d-0002",
+    "captain-morstan.hotel-luggage          = left-behind                    ratified d-0002",
+    "captain-morstan.military-rank          = captain                        ratified d-0002",
+    "major-sholto.military-rank             = major                          ratified d-0002",
+    "major-sholto.died                      = april-28-1882                  ratified d-0002",
+    "thaddeus-sholto.sibling                = bartholomew-sholto             ratified d-0002",
+    "thaddeus-sholto.patron                 = arts                           ratified d-0002",
+    "thaddeus-sholto.asked-advice-of        = watson                         ratified d-0002",
+    "bartholomew-sholto.sibling             = thaddeus-sholto                ratified d-0002",
+    "le-villard.translated-work-of          = holmes                         ratified d-0002",
+    "le-villard.worked-in                   = france                         ratified d-0002",
+    "holmes.wrote-about                     = tobacco-ash                    ratified d-0002",
+    "holmes.wrote-about                     = footsteps                      ratified d-0002",
+    "holmes.wrote-about                     = trade-and-hands                ratified d-0002",
+    "cecil-forrester.employed               = mary-morstan                   ratified d-0002",
+    "isa-whitney.wife                       = kate-whitney                   ratified d-0003",
+    "isa-whitney.addiction                  = opium                          ratified d-0003",
+    "elias-whitney.brother                  = isa-whitney                    ratified d-0003",
+    "elias-whitney.occupation               = college-principal              ratified d-0003",
+    "kate-whitney.sought-help-from          = watson                         ratified d-0003",
+    "kate-whitney.school-friend-of          = watson-wife                    ratified d-0003",
+    "watson.sought                          = isa-whitney                    ratified d-0003",
+    "peter-steiler.managed                  = englischer-hof                 ratified d-0004",
+    "peter-steiler.spoke                    = english                        ratified d-0004",
+    "peter-steiler.previous-employer        = grosvenor-hotel                ratified d-0004",
+    "holmes.stayed-in                       = meiringen                      ratified d-0004",
+    "watson.stayed-in                       = meiringen                      ratified d-0004",
+    "holmes.encountered                     = moriarty                       ratified d-0004",
+    "watson.found                           = holmes-alpine-stock            ratified d-0004",
+    "watson.received-note-from              = holmes                         ratified d-0004",
+    "holmes.kept-informed                   = mycroft                        ratified d-0005",
+    "holmes.travel-alias                    = sigerson                       ratified d-0005",
+    "holmes.visited-after-florence          = tibet                          ratified d-0005",
+    "holmes.visited                         = persia                         ratified d-0005",
+    "holmes.visited                         = mecca                          ratified d-0005",
+    "holmes.visited                         = khartoum                       ratified d-0005",
+    "holmes.researched-in                   = montpellier                    ratified d-0005",
+    "ronald-adair.died-in                   = london                         ratified d-0005",
+    "sebastian-moran.former-regiment        = first-bangalore-pioneers       ratified d-0005",
+    "sebastian-moran.born-in                = london                         ratified d-0005",
+    "sebastian-moran.birth-year             = year-1840                      ratified d-0005",
+    "sebastian-moran.associate-of           = moriarty                       ratified d-0005",
+    "ronald-adair.father                    = earl-of-maynooth               ratified d-0005",
+    "ronald-adair.sister                    = hilda-adair                    ratified d-0005",
+    "ronald-adair.address                   = 427-park-lane                  ratified d-0005",
+    "ronald-adair.former-fiancee            = edith-woodley                  ratified d-0005",
+    "ronald-adair.death-date                = march-30-1894                  ratified d-0005",
+    "ronald-adair.played                    = whist                          ratified d-0005",
+    "ronald-adair.card-club                 = bagatelle                      ratified d-0005",
+    "ronald-adair.card-club                 = baldwin                        ratified d-0005",
+    "ronald-adair.card-club                 = cavendish                      ratified d-0005",
+    "ronald-adair.played-cards-with         = sebastian-moran                ratified d-0005",
+    "holmes.observed-from                   = camden-house                   ratified d-0005",
+    "holmes.used-as-decoy                   = wax-bust                       ratified d-0005",
+    "holmes.sentry-identified-as            = parker                         ratified d-0005",
+    "mrs-hudson.moved                       = wax-bust                       ratified d-0005",
+    "mrs-hudson.cared-for                   = baker-street-lodgings          ratified d-0005",
+    "mycroft.provided-funds-to              = holmes                         ratified d-0005",
+    "holmes.visited-lhasa                   = lhasa                          ratified d-0005",
+    "holmes.tibet-duration                  = two-years                      ratified d-0005",
+    "holmes.montpellier-study               = coal-tar-derivatives           ratified d-0005",
+    "holmes.learned-of                      = park-lane-mystery              ratified d-0005",
+    "holmes.returned-to                     = london                         ratified d-0005",
+    "holmes.disguised-as                    = book-merchant                  ratified d-0005",
+    "holmes.disclosed-himself-to            = watson                         ratified d-0005",
+    "holmes.recognized-enemy                = sebastian-moran                ratified d-0005",
+    "sebastian-moran.military-rank          = colonel                        ratified d-0005",
+    "sebastian-moran.father                 = augustus-moran                 ratified d-0005",
+    "sebastian-moran.educated-at            = eton                           ratified d-0005",
+    "sebastian-moran.educated-at            = oxford                         ratified d-0005",
+    "sebastian-moran.address                = conduit-street                 ratified d-0005",
+    "sebastian-moran.club                   = bagatelle                      ratified d-0005",
+    "sebastian-moran.club                   = tankerville                    ratified d-0005",
+    "sebastian-moran.club                   = anglo-indian                   ratified d-0005",
+    "sebastian-moran.served-in              = afghan-campaign                ratified d-0005",
+    "sebastian-moran.served-in              = jowaki-campaign                ratified d-0005",
+    "sebastian-moran.wrote                  = heavy-game-western-himalayas   ratified d-0005",
+    "sebastian-moran.wrote                  = three-months-in-jungle         ratified d-0005",
+    "moriarty.commissioned                  = air-gun                        ratified d-0005",
+    "camden-house.used-by                   = holmes                         ratified d-0005",
+    "camden-house.was                       = empty                          ratified d-0005",
+    "mary-morstan.father-returned           = year-1878                      ratified d-0002",
+    "mary-morstan.father-hotel              = langham-hotel                  ratified d-0002",
+    "mary-morstan.reported-disappearance-to = police                         ratified d-0002",
+    "mary-morstan.employer-referred-her-to  = holmes                         ratified d-0002",
+    "mary-morstan.showed-pearls-to          = holmes                         ratified d-0002",
+    "captain-morstan.knew                   = major-sholto                   ratified d-0002",
+    "captain-morstan.overseas-service       = andaman-islands                ratified d-0002",
+    "major-sholto.retired-to                = upper-norwood                  ratified d-0002",
+    "major-sholto.child                     = thaddeus-sholto                ratified d-0002",
+    "major-sholto.child                     = bartholomew-sholto             ratified d-0002",
+    "thaddeus-sholto.invited                = mary-morstan                   ratified d-0002",
+    "thaddeus-sholto.accompanied-to         = pondicherry-lodge              ratified d-0002",
+    "wax-bust.depicts                       = holmes                         ratified d-0005",
+    "wax-bust.made-by                       = oscar-meunier                  ratified d-0005",
+    "wax-bust.material                      = wax                            ratified d-0005",
+    "wax-bust.moulding-duration             = several-days                   ratified d-0005",
+    "wax-bust.placed-in                     = baker-street-lodgings          ratified d-0005",
+    "wax-bust.wore                          = holmes-dressing-gown           ratified d-0005",
+    "wax-bust.struck-by                     = bullet                         ratified d-0005",
+    "oscar-meunier.based-in                 = grenoble                       ratified d-0005",
+    "mrs-hudson.recovered                   = bullet                         ratified d-0005",
+    "mrs-hudson.reported-to                 = holmes                         ratified d-0005",
+    "camden-house.room-used                 = front-room                     ratified d-0005",
+    "holmes.planned-arrest-with             = lestrade                       ratified d-0005",
+    "holmes.examined                        = air-gun                        ratified d-0005",
+    "holmes.identified-wax-maker            = oscar-meunier                  ratified d-0005",
+    "sebastian-moran.campaign-charasiab     = mentioned-in-despatches        ratified d-0005",
+    "sebastian-moran.served-at              = sherpur                        ratified d-0005",
+    "sebastian-moran.served-at              = cabul                          ratified d-0005",
+    "sebastian-moran.first-book-year        = year-1881                      ratified d-0005",
+    "sebastian-moran.second-book-year       = year-1884                      ratified d-0005",
+    "moriarty.used-agent                    = sebastian-moran                ratified d-0005",
+    "ronald-adair.mother-treatment          = cataract-operation             ratified d-0005",
+    "ronald-adair.engagement-ended          = mutual-consent                 ratified d-0005",
+    "ronald-adair.died-between              = ten-and-eleven-twenty          ratified d-0005",
+    "ronald-adair.position-in-family        = second-son                     ratified d-0005",
+    "mrs-st-clair.husband                   = neville-st-clair               ratified d-0003",
+    "mrs-st-clair.home                      = the-cedars                     ratified d-0003",
+    "mrs-st-clair.saw-husband-in            = swandam-lane                   ratified d-0003",
+    "mrs-st-clair.received-letter-from      = neville-st-clair               ratified d-0003",
+    "mrs-st-clair.received                  = signet-ring                    ratified d-0003",
+    "mrs-st-clair.received-letter-postmark  = gravesend                      ratified d-0003",
+    "mrs-st-clair.consulted                 = holmes                         ratified d-0003",
+    "mrs-st-clair.hosted                    = holmes                         ratified d-0003",
+    "mrs-st-clair.hosted                    = watson                         ratified d-0003",
+    "neville-st-clair.wife                  = mrs-st-clair                   ratified d-0003",
+    "neville-st-clair.home                  = the-cedars                     ratified d-0003",
+    "neville-st-clair.sent-letter-to        = mrs-st-clair                   ratified d-0003",
+    "neville-st-clair.sent                  = signet-ring                    ratified d-0003",
+    "the-cedars.hosted                      = holmes                         ratified d-0003",
+    "the-cedars.hosted                      = watson                         ratified d-0003",
+    "swandam-lane.contains                  = bar-of-gold                    ratified d-0003",
+    "watson.reported-wound-location         = shoulder                       proposed study-in-scarlet",
+    "watson.reported-wound-location         = leg                            proposed sign-of-four"
+  ],
+  "timeline": "# Chronology\n\nThese are the known orderings. Pairs not listed are unordered.\n\nPoints: `mary-case`, `reichenbach-encounter`, `return`, `scandal`, `year-1891`, `year-1894`, `years-1880s`\n\n- `mary-case` before `reichenbach-encounter`\n- `mary-case` before `return`\n- `mary-case` before `year-1891`\n- `mary-case` before `year-1894`\n- `reichenbach-encounter` before `return`\n- `reichenbach-encounter` before `year-1894`\n- `scandal` before `reichenbach-encounter`\n- `scandal` before `return`\n- `scandal` before `year-1891`\n- `scandal` before `year-1894`\n- `year-1891` before `return`\n- `year-1891` before `year-1894`\n- `years-1880s` before `reichenbach-encounter`\n- `years-1880s` before `return`\n- `years-1880s` before `year-1891`\n- `years-1880s` before `year-1894`\n",
+  "wound_accounts": {
+    "shoulder": [
+      {
+        "atom": "reported-wound-location(watson, shoulder)",
+        "bindings": {},
+        "claim_ids": [
+          "sha256:0fc0eac64c1050eb9536d0861f8bee8deedf4a74977be9e926f029cdf526e357"
+        ],
+        "status": "possible",
+        "verdict": {
+          "grade": "asserted",
+          "support": {
+            "monomials": [
+              [
+                "+7"
+              ]
+            ]
+          }
+        }
+      }
+    ],
+    "leg": [
+      {
+        "atom": "reported-wound-location(watson, leg)",
+        "bindings": {},
+        "claim_ids": [
+          "sha256:c66d3f33167f4a0b1c0eabb89a37f62527376c685618c35fee4b0371c0b444bc"
+        ],
+        "status": "possible",
+        "verdict": {
+          "grade": "asserted",
+          "support": {
+            "monomials": [
+              [
+                "+8"
+              ]
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "wound_why": {
+    "shoulder": {
+      "active_supporting_decision_paths": [],
+      "blocked_supports": [],
+      "blocking_defeats": [],
+      "why": {
+        "antichain": [
+          [
+            7
+          ]
+        ],
+        "rendered": [
+          "h.study-in-scarlet"
+        ]
+      },
+      "why_not": {
+        "atom": "reported-wound-location(watson, shoulder)",
+        "blocking": [
+          7
+        ],
+        "closest": [
+          7
+        ],
+        "defeater": null,
+        "known": true,
+        "rendered": [
+          "awaits ruling: h.study-in-scarlet"
+        ],
+        "status": "possible"
+      }
+    },
+    "leg": {
+      "active_supporting_decision_paths": [],
+      "blocked_supports": [],
+      "blocking_defeats": [],
+      "why": {
+        "antichain": [
+          [
+            8
+          ]
+        ],
+        "rendered": [
+          "h.sign-of-four"
+        ]
+      },
+      "why_not": {
+        "atom": "reported-wound-location(watson, leg)",
+        "blocking": [
+          8
+        ],
+        "closest": [
+          8
+        ],
+        "defeater": null,
+        "known": true,
+        "rendered": [
+          "awaits ruling: h.sign-of-four"
+        ],
+        "status": "possible"
+      }
+    }
+  },
+  "name_staged": [
+    "watson.first-name = james ratified d-0003"
+  ],
+  "name_conflict": {
+    "citations": [
+      "d-0001",
+      "d-0003"
+    ],
+    "code": "continuity.fd-violation",
+    "data": {
+      "pred": "first-name",
+      "slot_key": "first-name/watson",
+      "subject": "watson",
+      "values": [
+        "james",
+        "john"
+      ]
+    },
+    "grade": "checked",
+    "message": "canon breaks the functional dependency on 'first-name': watson carries 2 distinct certain values [james, john]",
+    "severity": "error"
+  },
+  "rule_rendered": [
+    "rule wife-name-is-first-name ratified d-0006",
+    "  first-name(watson, james) :- name-used-by-wife(watson, james)"
+  ],
+  "rule_conflict": {
+    "citations": [
+      "d-0001",
+      "d-0003",
+      "d-0006"
+    ],
+    "code": "continuity.derived-fd-violation",
+    "data": {
+      "pred": "first-name",
+      "slot_key": "first-name/watson",
+      "subject": "watson",
+      "values": [
+        "james",
+        "john"
+      ]
+    },
+    "grade": "checked",
+    "message": "the evaluated world derives a functional-dependency break on 'first-name': watson carries 2 distinct certain values [james, john] once rules fire",
+    "severity": "error"
+  },
+  "calls": {
+    "name": [
+      {
+        "tool": "author.add_fact",
+        "arguments": {
+          "workspace": "ws-1",
+          "entity": "watson",
+          "key": "first-name",
+          "value": "james",
+          "provenance": {
+            "kind": "cited",
+            "decisions": [
+              "d-0003"
+            ],
+            "state": "ratified"
+          }
+        }
+      },
+      {
+        "tool": "author.check",
+        "arguments": {
+          "workspace": "ws-1"
+        }
+      }
+    ],
+    "wounds": [
+      {
+        "tool": "author.add_fact",
+        "arguments": {
+          "workspace": "ws-1",
+          "entity": "watson",
+          "key": "reported-wound-location",
+          "value": "shoulder",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "study-in-scarlet"
+          }
+        }
+      },
+      {
+        "tool": "author.add_fact",
+        "arguments": {
+          "workspace": "ws-1",
+          "entity": "watson",
+          "key": "reported-wound-location",
+          "value": "leg",
+          "provenance": {
+            "kind": "proposed",
+            "origin": "sign-of-four"
+          }
+        }
+      },
+      {
+        "tool": "author.materialize",
+        "arguments": {
+          "workspace": "ws-1",
+          "rendered": true
+        }
+      },
+      {
+        "tool": "author.query",
+        "arguments": {
+          "workspace": "ws-1",
+          "goal_atom": {
+            "pred": "reported-wound-location",
+            "args": [
+              {
+                "Sym": "watson"
+              },
+              {
+                "Sym": "shoulder"
+              }
+            ]
+          },
+          "layer": "all"
+        }
+      },
+      {
+        "tool": "author.query",
+        "arguments": {
+          "workspace": "ws-1",
+          "goal_atom": {
+            "pred": "reported-wound-location",
+            "args": [
+              {
+                "Sym": "watson"
+              },
+              {
+                "Sym": "leg"
+              }
+            ]
+          },
+          "layer": "all"
+        }
+      },
+      {
+        "tool": "author.why",
+        "arguments": {
+          "workspace": "ws-1",
+          "goal_atom": {
+            "pred": "reported-wound-location",
+            "args": [
+              {
+                "Sym": "watson"
+              },
+              {
+                "Sym": "shoulder"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "tool": "author.why",
+        "arguments": {
+          "workspace": "ws-1",
+          "goal_atom": {
+            "pred": "reported-wound-location",
+            "args": [
+              {
+                "Sym": "watson"
+              },
+              {
+                "Sym": "leg"
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "timeline": [
+      {
+        "tool": "author.add_event",
+        "arguments": {
+          "workspace": "ws-1",
+          "id": "scandal",
+          "name": "A Scandal in Bohemia",
+          "era": "years-1880s",
+          "provenance": {
+            "kind": "cited",
+            "decisions": [
+              "d-0007"
+            ],
+            "state": "ratified"
+          }
+        }
+      },
+      {
+        "tool": "author.add_event",
+        "arguments": {
+          "workspace": "ws-1",
+          "id": "mary-case",
+          "name": "Mary Morstan consults Holmes",
+          "era": "years-1880s",
+          "provenance": {
+            "kind": "cited",
+            "decisions": [
+              "d-0002"
+            ],
+            "state": "ratified"
+          }
+        }
+      },
+      {
+        "tool": "author.add_event",
+        "arguments": {
+          "workspace": "ws-1",
+          "id": "reichenbach-encounter",
+          "name": "The Reichenbach encounter",
+          "era": "year-1891",
+          "provenance": {
+            "kind": "cited",
+            "decisions": [
+              "d-0004"
+            ],
+            "state": "ratified"
+          }
+        }
+      },
+      {
+        "tool": "author.add_event",
+        "arguments": {
+          "workspace": "ws-1",
+          "id": "return",
+          "name": "Holmes returns",
+          "era": "year-1894",
+          "provenance": {
+            "kind": "cited",
+            "decisions": [
+              "d-0005"
+            ],
+            "state": "ratified"
+          }
+        }
+      },
+      {
+        "tool": "author.add_before",
+        "arguments": {
+          "workspace": "ws-1",
+          "earlier": "years-1880s",
+          "later": "year-1891",
+          "provenance": {
+            "kind": "cited",
+            "decisions": [
+              "d-0006"
+            ],
+            "state": "ratified"
+          }
+        }
+      },
+      {
+        "tool": "author.add_before",
+        "arguments": {
+          "workspace": "ws-1",
+          "earlier": "year-1891",
+          "later": "year-1894",
+          "provenance": {
+            "kind": "cited",
+            "decisions": [
+              "d-0006"
+            ],
+            "state": "ratified"
+          }
+        }
+      }
+    ],
+    "rule": [
+      {
+        "tool": "author.add_rule",
+        "arguments": {
+          "workspace": "ws-2",
+          "name": "wife-name-is-first-name",
+          "head": {
+            "pred": "first-name",
+            "args": [
+              {
+                "Sym": "watson"
+              },
+              {
+                "Sym": "james"
+              }
+            ]
+          },
+          "body": [
+            {
+              "atom": {
+                "pred": "name-used-by-wife",
+                "args": [
+                  {
+                    "Sym": "watson"
+                  },
+                  {
+                    "Sym": "james"
+                  }
+                ]
+              },
+              "negated": false
+            }
+          ],
+          "provenance": {
+            "kind": "cited",
+            "decisions": [
+              "d-0006"
+            ],
+            "state": "ratified"
+          }
+        }
+      },
+      {
+        "tool": "author.check",
+        "arguments": {
+          "workspace": "ws-2"
+        }
+      }
+    ],
+    "return": [
+      {
+        "tool": "author.record_decision",
+        "arguments": {
+          "workspace": "ws-3",
+          "decision": "d-0008"
+        }
+      },
+      {
+        "tool": "author.add_fact",
+        "arguments": {
+          "workspace": "ws-3",
+          "entity": "holmes",
+          "key": "reichenbach-outcome",
+          "value": "died",
+          "provenance": {
+            "kind": "cited",
+            "decisions": [
+              "d-0004",
+              "d-0008"
+            ],
+            "state": "ratified"
+          }
+        }
+      },
+      {
+        "tool": "author.materialize",
+        "arguments": {
+          "workspace": "ws-3"
+        }
+      },
+      {
+        "tool": "author.query",
+        "arguments": {
+          "workspace": "ws-3",
+          "goal_atom": {
+            "pred": "reichenbach-outcome",
+            "args": [
+              {
+                "Sym": "holmes"
+              },
+              {
+                "Sym": "died"
+              }
+            ]
+          },
+          "layer": "all"
+        }
+      },
+      {
+        "tool": "author.branch",
+        "arguments": {
+          "workspace": "ws-3",
+          "action": "create",
+          "name": "holmes-stayed-dead",
+          "from": "main"
+        }
+      },
+      {
+        "tool": "author.defeat",
+        "arguments": {
+          "workspace": "ws-3",
+          "claim_id": "sha256:970cd2741b4bfe5631c5514e3fe8a8b0906ea68905cba85d9d12baf2316fabbe",
+          "decision": "d-0009",
+          "defeated_decision": "d-0008"
+        }
+      },
+      {
+        "tool": "author.add_fact",
+        "arguments": {
+          "workspace": "ws-3",
+          "entity": "holmes",
+          "key": "reichenbach-outcome",
+          "value": "survived",
+          "provenance": {
+            "kind": "cited",
+            "decisions": [
+              "d-0005",
+              "d-0009"
+            ],
+            "state": "ratified"
+          }
+        }
+      },
+      {
+        "tool": "author.materialize",
+        "arguments": {
+          "workspace": "ws-3"
+        }
+      },
+      {
+        "tool": "author.query",
+        "arguments": {
+          "workspace": "ws-3",
+          "goal_atom": {
+            "pred": "reichenbach-outcome",
+            "args": [
+              {
+                "Sym": "holmes"
+              },
+              {
+                "Sym": "survived"
+              }
+            ]
+          },
+          "layer": "all"
+        }
+      },
+      {
+        "tool": "author.query",
+        "arguments": {
+          "workspace": "ws-3",
+          "goal_atom": {
+            "pred": "reichenbach-outcome",
+            "args": [
+              {
+                "Sym": "holmes"
+              },
+              {
+                "Sym": "died"
+              }
+            ]
+          },
+          "layer": "all"
+        }
+      },
+      {
+        "tool": "author.why",
+        "arguments": {
+          "workspace": "ws-3",
+          "goal_atom": {
+            "pred": "reichenbach-outcome",
+            "args": [
+              {
+                "Sym": "holmes"
+              },
+              {
+                "Sym": "died"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "tool": "author.open",
+        "arguments": {
+          "scope": "world",
+          "branch": "holmes-stayed-dead"
+        }
+      },
+      {
+        "tool": "author.query",
+        "arguments": {
+          "workspace": "ws-4",
+          "goal_atom": {
+            "pred": "reichenbach-outcome",
+            "args": [
+              {
+                "Sym": "holmes"
+              },
+              {
+                "Sym": "died"
+              }
+            ]
+          },
+          "layer": "all"
+        }
+      }
+    ],
+    "branch": [
+      {
+        "tool": "author.branch",
+        "arguments": {
+          "workspace": "ws-3",
+          "action": "create",
+          "name": "holmes-stayed-dead",
+          "from": "main"
+        }
+      },
+      {
+        "tool": "author.open",
+        "arguments": {
+          "scope": "world",
+          "branch": "holmes-stayed-dead"
+        }
+      },
+      {
+        "tool": "author.query",
+        "arguments": {
+          "workspace": "ws-4",
+          "goal_atom": {
+            "pred": "reichenbach-outcome",
+            "args": [
+              {
+                "Sym": "holmes"
+              },
+              {
+                "Sym": "died"
+              }
+            ]
+          },
+          "layer": "all"
+        }
+      }
+    ]
+  },
+  "wiki": {
+    "emission": {
+      "artifact": {
+        "layer": "all",
+        "pages": [
+          {
+            "content": "# Lore index\n\nThis view includes source claims with certain, possible, or dead support.\n\n- [accompanied-to](predicate-accompanied-to.md)\n- [addiction](predicate-addiction.md)\n- [address](predicate-address.md)\n- [advertisement-date](predicate-advertisement-date.md)\n- [advertisement-newspaper](predicate-advertisement-newspaper.md)\n- [asked-advice-of](predicate-asked-advice-of.md)\n- [assisted](predicate-assisted.md)\n- [associate-of](predicate-associate-of.md)\n- [based-in](predicate-based-in.md)\n- [battle](predicate-battle.md)\n- [before](predicate-before.md)\n- [belonged-to](predicate-belonged-to.md)\n- [birth-year](predicate-birth-year.md)\n- [boarded-in](predicate-boarded-in.md)\n- [born-in](predicate-born-in.md)\n- [brother](predicate-brother.md)\n- [brother-of](predicate-brother-of.md)\n- [campaign-charasiab](predicate-campaign-charasiab.md)\n- [card-club](predicate-card-club.md)\n- [cared-for](predicate-cared-for.md)\n- [child](predicate-child.md)\n- [club](predicate-club.md)\n- [commissioned](predicate-commissioned.md)\n- [consulted](predicate-consulted.md)\n- [contains](predicate-contains.md)\n- [contracted](predicate-contracted.md)\n- [daily-income](predicate-daily-income.md)\n- [death-date](predicate-death-date.md)\n- [depicts](predicate-depicts.md)\n- [died](predicate-died.md)\n- [died-between](predicate-died-between.md)\n- [died-in](predicate-died-in.md)\n- [disappeared](predicate-disappeared.md)\n- [disclosed-himself-to](predicate-disclosed-himself-to.md)\n- [disguised-as](predicate-disguised-as.md)\n- [educated-at](predicate-educated-at.md)\n- [employed](predicate-employed.md)\n- [employed-by](predicate-employed-by.md)\n- [employer-referred-her-to](predicate-employer-referred-her-to.md)\n- [encountered](predicate-encountered.md)\n- [engagement-ended](predicate-engagement-ended.md)\n- [era](predicate-era.md)\n- [event](predicate-event.md)\n- [examined](predicate-examined.md)\n- [father](predicate-father.md)\n- [father-hotel](predicate-father-hotel.md)\n- [father-returned](predicate-father-returned.md)\n- [first-book-year](predicate-first-book-year.md)\n- [first-name](predicate-first-name.md)\n- [former-fiancee](predicate-former-fiancee.md)\n- [former-regiment](predicate-former-regiment.md)\n- [found](predicate-found.md)\n- [friend](predicate-friend.md)\n- [held-rank](predicate-held-rank.md)\n- [home](predicate-home.md)\n- [homeward-arrival](predicate-homeward-arrival.md)\n- [hospitalized-at](predicate-hospitalized-at.md)\n- [hosted](predicate-hosted.md)\n- [hotel-luggage](predicate-hotel-luggage.md)\n- [husband](predicate-husband.md)\n- [identified-wax-maker](predicate-identified-wax-maker.md)\n- [introduced](predicate-introduced.md)\n- [invited](predicate-invited.md)\n- [kept-informed](predicate-kept-informed.md)\n- [knew](predicate-knew.md)\n- [landed-at](predicate-landed-at.md)\n- [landed-in](predicate-landed-in.md)\n- [landlady-of](predicate-landlady-of.md)\n- [learned-of](predicate-learned-of.md)\n- [leave-began](predicate-leave-began.md)\n- [lived-in](predicate-lived-in.md)\n- [lunched-at](predicate-lunched-at.md)\n- [made-by](predicate-made-by.md)\n- [managed](predicate-managed.md)\n- [married-to](predicate-married-to.md)\n- [material](predicate-material.md)\n- [medical-adviser-of](predicate-medical-adviser-of.md)\n- [medical-degree-year](predicate-medical-degree-year.md)\n- [met-stamford-at](predicate-met-stamford-at.md)\n- [military-rank](predicate-military-rank.md)\n- [montpellier-study](predicate-montpellier-study.md)\n- [mother](predicate-mother.md)\n- [mother-treatment](predicate-mother-treatment.md)\n- [moulding-duration](predicate-moulding-duration.md)\n- [moved](predicate-moved.md)\n- [name-used-by-wife](predicate-name-used-by-wife.md)\n- [observed-from](predicate-observed-from.md)\n- [occupation](predicate-occupation.md)\n- [opposite](predicate-opposite.md)\n- [original-regiment](predicate-original-regiment.md)\n- [overseas-service](predicate-overseas-service.md)\n- [patron](predicate-patron.md)\n- [pearl-count](predicate-pearl-count.md)\n- [person](predicate-person.md)\n- [place](predicate-place.md)\n- [placed-in](predicate-placed-in.md)\n- [planned-arrest-with](predicate-planned-arrest-with.md)\n- [played](predicate-played.md)\n- [played-cards-with](predicate-played-cards-with.md)\n- [position-in-family](predicate-position-in-family.md)\n- [preserved-rooms-in](predicate-preserved-rooms-in.md)\n- [previous-employer](predicate-previous-employer.md)\n- [profession](predicate-profession.md)\n- [provided-funds-to](predicate-provided-funds-to.md)\n- [received](predicate-received.md)\n- [received-letter-from](predicate-received-letter-from.md)\n- [received-letter-postmark](predicate-received-letter-postmark.md)\n- [received-note-from](predicate-received-note-from.md)\n- [recognized-enemy](predicate-recognized-enemy.md)\n- [recovered](predicate-recovered.md)\n- [recovering-at](predicate-recovering-at.md)\n- [reichenbach-outcome](predicate-reichenbach-outcome.md)\n- [reported-disappearance-to](predicate-reported-disappearance-to.md)\n- [reported-to](predicate-reported-to.md)\n- [reported-wound-location](predicate-reported-wound-location.md)\n- [researched-in](predicate-researched-in.md)\n- [retired-to](predicate-retired-to.md)\n- [returned-on](predicate-returned-on.md)\n- [returned-to](predicate-returned-to.md)\n- [role](predicate-role.md)\n- [room-used](predicate-room-used.md)\n- [saw-husband-in](predicate-saw-husband-in.md)\n- [school-city](predicate-school-city.md)\n- [school-friend-of](predicate-school-friend-of.md)\n- [school-until-age](predicate-school-until-age.md)\n- [second-book-year](predicate-second-book-year.md)\n- [sent](predicate-sent.md)\n- [sent-letter-to](predicate-sent-letter-to.md)\n- [sentry-identified-as](predicate-sentry-identified-as.md)\n- [served-at](predicate-served-at.md)\n- [served-in](predicate-served-in.md)\n- [served-with](predicate-served-with.md)\n- [showed-pearls-to](predicate-showed-pearls-to.md)\n- [sibling](predicate-sibling.md)\n- [sister](predicate-sister.md)\n- [sought](predicate-sought.md)\n- [sought-help-from](predicate-sought-help-from.md)\n- [sought-lodgings-in](predicate-sought-lodgings-in.md)\n- [spoke](predicate-spoke.md)\n- [stayed-at](predicate-stayed-at.md)\n- [stayed-in](predicate-stayed-in.md)\n- [stayed-on](predicate-stayed-on.md)\n- [struck-by](predicate-struck-by.md)\n- [studied](predicate-studied.md)\n- [studied-at](predicate-studied-at.md)\n- [thing](predicate-thing.md)\n- [tibet-duration](predicate-tibet-duration.md)\n- [trained-at](predicate-trained-at.md)\n- [translated-work-of](predicate-translated-work-of.md)\n- [travel-alias](predicate-travel-alias.md)\n- [travelled-in](predicate-travelled-in.md)\n- [twin-brother](predicate-twin-brother.md)\n- [type](predicate-type.md)\n- [used-agent](predicate-used-agent.md)\n- [used-as-decoy](predicate-used-as-decoy.md)\n- [used-by](predicate-used-by.md)\n- [visited](predicate-visited.md)\n- [visited-after-florence](predicate-visited-after-florence.md)\n- [visited-lhasa](predicate-visited-lhasa.md)\n- [was](predicate-was.md)\n- [wife](predicate-wife.md)\n- [wore](predicate-wore.md)\n- [worked-at](predicate-worked-at.md)\n- [worked-in](predicate-worked-in.md)\n- [wrote](predicate-wrote.md)\n- [wrote-about](predicate-wrote-about.md)\n",
+            "path": "index.md",
+            "title": "Lore index"
+          },
+          {
+            "content": "# accompanied-to\n\n[Back to index](index.md)\n\n- `accompanied-to(thaddeus-sholto, pondicherry-lodge)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-accompanied-to.md",
+            "title": "accompanied-to"
+          },
+          {
+            "content": "# addiction\n\n[Back to index](index.md)\n\n- `addiction(isa-whitney, opium)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-addiction.md",
+            "title": "addiction"
+          },
+          {
+            "content": "# address\n\n[Back to index](index.md)\n\n- `address(ronald-adair, 427-park-lane)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `address(sebastian-moran, conduit-street)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-address.md",
+            "title": "address"
+          },
+          {
+            "content": "# advertisement-date\n\n[Back to index](index.md)\n\n- `advertisement-date(mary-morstan, may-4-1882)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-advertisement-date.md",
+            "title": "advertisement-date"
+          },
+          {
+            "content": "# advertisement-newspaper\n\n[Back to index](index.md)\n\n- `advertisement-newspaper(mary-morstan, times)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-advertisement-newspaper.md",
+            "title": "advertisement-newspaper"
+          },
+          {
+            "content": "# asked-advice-of\n\n[Back to index](index.md)\n\n- `asked-advice-of(thaddeus-sholto, watson)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-asked-advice-of.md",
+            "title": "asked-advice-of"
+          },
+          {
+            "content": "# assisted\n\n[Back to index](index.md)\n\n- `assisted(murray, watson)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-assisted.md",
+            "title": "assisted"
+          },
+          {
+            "content": "# associate-of\n\n[Back to index](index.md)\n\n- `associate-of(sebastian-moran, moriarty)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-associate-of.md",
+            "title": "associate-of"
+          },
+          {
+            "content": "# based-in\n\n[Back to index](index.md)\n\n- `based-in(oscar-meunier, grenoble)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-based-in.md",
+            "title": "based-in"
+          },
+          {
+            "content": "# battle\n\n[Back to index](index.md)\n\n- `battle(watson, maiwand)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-battle.md",
+            "title": "battle"
+          },
+          {
+            "content": "# before\n\n[Back to index](index.md)\n\n- `before(year-1891, year-1894)` \u2014 **certain** (provenance: ratified) (decisions: d-0006)\n- `before(years-1880s, year-1891)` \u2014 **certain** (provenance: ratified) (decisions: d-0006)\n",
+            "path": "predicate-before.md",
+            "title": "before"
+          },
+          {
+            "content": "# belonged-to\n\n[Back to index](index.md)\n\n- `belonged-to(captain-morstan, bombay-infantry)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `belonged-to(major-sholto, bombay-infantry)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-belonged-to.md",
+            "title": "belonged-to"
+          },
+          {
+            "content": "# birth-year\n\n[Back to index](index.md)\n\n- `birth-year(sebastian-moran, year-1840)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-birth-year.md",
+            "title": "birth-year"
+          },
+          {
+            "content": "# boarded-in\n\n[Back to index](index.md)\n\n- `boarded-in(mary-morstan, edinburgh)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-boarded-in.md",
+            "title": "boarded-in"
+          },
+          {
+            "content": "# born-in\n\n[Back to index](index.md)\n\n- `born-in(sebastian-moran, london)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-born-in.md",
+            "title": "born-in"
+          },
+          {
+            "content": "# brother\n\n[Back to index](index.md)\n\n- `brother(elias-whitney, isa-whitney)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n- `brother(holmes, mycroft)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-brother.md",
+            "title": "brother"
+          },
+          {
+            "content": "# brother-of\n\n[Back to index](index.md)\n\n- `brother-of(isa-whitney, elias-whitney)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-brother-of.md",
+            "title": "brother-of"
+          },
+          {
+            "content": "# campaign-charasiab\n\n[Back to index](index.md)\n\n- `campaign-charasiab(sebastian-moran, mentioned-in-despatches)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-campaign-charasiab.md",
+            "title": "campaign-charasiab"
+          },
+          {
+            "content": "# card-club\n\n[Back to index](index.md)\n\n- `card-club(ronald-adair, bagatelle)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `card-club(ronald-adair, baldwin)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `card-club(ronald-adair, cavendish)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-card-club.md",
+            "title": "card-club"
+          },
+          {
+            "content": "# cared-for\n\n[Back to index](index.md)\n\n- `cared-for(mrs-hudson, baker-street-lodgings)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-cared-for.md",
+            "title": "cared-for"
+          },
+          {
+            "content": "# child\n\n[Back to index](index.md)\n\n- `child(major-sholto, bartholomew-sholto)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `child(major-sholto, thaddeus-sholto)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-child.md",
+            "title": "child"
+          },
+          {
+            "content": "# club\n\n[Back to index](index.md)\n\n- `club(sebastian-moran, anglo-indian)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `club(sebastian-moran, bagatelle)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `club(sebastian-moran, tankerville)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-club.md",
+            "title": "club"
+          },
+          {
+            "content": "# commissioned\n\n[Back to index](index.md)\n\n- `commissioned(moriarty, air-gun)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-commissioned.md",
+            "title": "commissioned"
+          },
+          {
+            "content": "# consulted\n\n[Back to index](index.md)\n\n- `consulted(le-villard, holmes)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `consulted(mrs-st-clair, holmes)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-consulted.md",
+            "title": "consulted"
+          },
+          {
+            "content": "# contains\n\n[Back to index](index.md)\n\n- `contains(swandam-lane, bar-of-gold)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-contains.md",
+            "title": "contains"
+          },
+          {
+            "content": "# contracted\n\n[Back to index](index.md)\n\n- `contracted(watson, enteric-fever)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-contracted.md",
+            "title": "contracted"
+          },
+          {
+            "content": "# daily-income\n\n[Back to index](index.md)\n\n- `daily-income(watson, eleven-shillings-sixpence)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-daily-income.md",
+            "title": "daily-income"
+          },
+          {
+            "content": "# death-date\n\n[Back to index](index.md)\n\n- `death-date(ronald-adair, march-30-1894)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-death-date.md",
+            "title": "death-date"
+          },
+          {
+            "content": "# depicts\n\n[Back to index](index.md)\n\n- `depicts(wax-bust, holmes)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-depicts.md",
+            "title": "depicts"
+          },
+          {
+            "content": "# died\n\n[Back to index](index.md)\n\n- `died(major-sholto, april-28-1882)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-died.md",
+            "title": "died"
+          },
+          {
+            "content": "# died-between\n\n[Back to index](index.md)\n\n- `died-between(ronald-adair, ten-and-eleven-twenty)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-died-between.md",
+            "title": "died-between"
+          },
+          {
+            "content": "# died-in\n\n[Back to index](index.md)\n\n- `died-in(ronald-adair, london)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-died-in.md",
+            "title": "died-in"
+          },
+          {
+            "content": "# disappeared\n\n[Back to index](index.md)\n\n- `disappeared(captain-morstan, december-3-1878)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-disappeared.md",
+            "title": "disappeared"
+          },
+          {
+            "content": "# disclosed-himself-to\n\n[Back to index](index.md)\n\n- `disclosed-himself-to(holmes, watson)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-disclosed-himself-to.md",
+            "title": "disclosed-himself-to"
+          },
+          {
+            "content": "# disguised-as\n\n[Back to index](index.md)\n\n- `disguised-as(holmes, book-merchant)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-disguised-as.md",
+            "title": "disguised-as"
+          },
+          {
+            "content": "# educated-at\n\n[Back to index](index.md)\n\n- `educated-at(sebastian-moran, eton)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `educated-at(sebastian-moran, oxford)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-educated-at.md",
+            "title": "educated-at"
+          },
+          {
+            "content": "# employed\n\n[Back to index](index.md)\n\n- `employed(cecil-forrester, mary-morstan)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-employed.md",
+            "title": "employed"
+          },
+          {
+            "content": "# employed-by\n\n[Back to index](index.md)\n\n- `employed-by(mary-morstan, cecil-forrester)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-employed-by.md",
+            "title": "employed-by"
+          },
+          {
+            "content": "# employer-referred-her-to\n\n[Back to index](index.md)\n\n- `employer-referred-her-to(mary-morstan, holmes)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-employer-referred-her-to.md",
+            "title": "employer-referred-her-to"
+          },
+          {
+            "content": "# encountered\n\n[Back to index](index.md)\n\n- `encountered(holmes, moriarty)` \u2014 **certain** (provenance: ratified) (decisions: d-0004)\n",
+            "path": "predicate-encountered.md",
+            "title": "encountered"
+          },
+          {
+            "content": "# engagement-ended\n\n[Back to index](index.md)\n\n- `engagement-ended(ronald-adair, mutual-consent)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-engagement-ended.md",
+            "title": "engagement-ended"
+          },
+          {
+            "content": "# era\n\n[Back to index](index.md)\n\n- `era(year-1891)` \u2014 **certain** (provenance: ratified) (decisions: d-0006)\n- `era(year-1894)` \u2014 **certain** (provenance: ratified) (decisions: d-0006)\n- `era(years-1880s)` \u2014 **certain** (provenance: ratified) (decisions: d-0006)\n",
+            "path": "predicate-era.md",
+            "title": "era"
+          },
+          {
+            "content": "# event\n\n[Back to index](index.md)\n\n- `event(mary-case)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `event(reichenbach-encounter)` \u2014 **certain** (provenance: ratified) (decisions: d-0004)\n- `event(return)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `event(scandal)` \u2014 **certain** (provenance: ratified) (decisions: d-0007)\n",
+            "path": "predicate-event.md",
+            "title": "event"
+          },
+          {
+            "content": "# examined\n\n[Back to index](index.md)\n\n- `examined(holmes, air-gun)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-examined.md",
+            "title": "examined"
+          },
+          {
+            "content": "# father\n\n[Back to index](index.md)\n\n- `father(bartholomew-sholto, major-sholto)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `father(mary-morstan, captain-morstan)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `father(ronald-adair, earl-of-maynooth)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `father(sebastian-moran, augustus-moran)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `father(thaddeus-sholto, major-sholto)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-father.md",
+            "title": "father"
+          },
+          {
+            "content": "# father-hotel\n\n[Back to index](index.md)\n\n- `father-hotel(mary-morstan, langham-hotel)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-father-hotel.md",
+            "title": "father-hotel"
+          },
+          {
+            "content": "# father-returned\n\n[Back to index](index.md)\n\n- `father-returned(mary-morstan, year-1878)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-father-returned.md",
+            "title": "father-returned"
+          },
+          {
+            "content": "# first-book-year\n\n[Back to index](index.md)\n\n- `first-book-year(sebastian-moran, year-1881)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-first-book-year.md",
+            "title": "first-book-year"
+          },
+          {
+            "content": "# first-name\n\n[Back to index](index.md)\n\n- `first-name(watson, john)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-first-name.md",
+            "title": "first-name"
+          },
+          {
+            "content": "# former-fiancee\n\n[Back to index](index.md)\n\n- `former-fiancee(ronald-adair, edith-woodley)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-former-fiancee.md",
+            "title": "former-fiancee"
+          },
+          {
+            "content": "# former-regiment\n\n[Back to index](index.md)\n\n- `former-regiment(sebastian-moran, first-bangalore-pioneers)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-former-regiment.md",
+            "title": "former-regiment"
+          },
+          {
+            "content": "# found\n\n[Back to index](index.md)\n\n- `found(watson, holmes-alpine-stock)` \u2014 **certain** (provenance: ratified) (decisions: d-0004)\n",
+            "path": "predicate-found.md",
+            "title": "found"
+          },
+          {
+            "content": "# friend\n\n[Back to index](index.md)\n\n- `friend(captain-morstan, major-sholto)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-friend.md",
+            "title": "friend"
+          },
+          {
+            "content": "# held-rank\n\n[Back to index](index.md)\n\n- `held-rank(watson, assistant-surgeon)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-held-rank.md",
+            "title": "held-rank"
+          },
+          {
+            "content": "# home\n\n[Back to index](index.md)\n\n- `home(major-sholto, pondicherry-lodge)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `home(mrs-st-clair, the-cedars)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n- `home(neville-st-clair, the-cedars)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-home.md",
+            "title": "home"
+          },
+          {
+            "content": "# homeward-arrival\n\n[Back to index](index.md)\n\n- `homeward-arrival(watson, portsmouth)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-homeward-arrival.md",
+            "title": "homeward-arrival"
+          },
+          {
+            "content": "# hospitalized-at\n\n[Back to index](index.md)\n\n- `hospitalized-at(watson, peshawar)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-hospitalized-at.md",
+            "title": "hospitalized-at"
+          },
+          {
+            "content": "# hosted\n\n[Back to index](index.md)\n\n- `hosted(mrs-st-clair, holmes)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n- `hosted(mrs-st-clair, watson)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n- `hosted(the-cedars, holmes)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n- `hosted(the-cedars, watson)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-hosted.md",
+            "title": "hosted"
+          },
+          {
+            "content": "# hotel-luggage\n\n[Back to index](index.md)\n\n- `hotel-luggage(captain-morstan, left-behind)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-hotel-luggage.md",
+            "title": "hotel-luggage"
+          },
+          {
+            "content": "# husband\n\n[Back to index](index.md)\n\n- `husband(mrs-st-clair, neville-st-clair)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-husband.md",
+            "title": "husband"
+          },
+          {
+            "content": "# identified-wax-maker\n\n[Back to index](index.md)\n\n- `identified-wax-maker(holmes, oscar-meunier)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-identified-wax-maker.md",
+            "title": "identified-wax-maker"
+          },
+          {
+            "content": "# introduced\n\n[Back to index](index.md)\n\n- `introduced(stamford, holmes)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-introduced.md",
+            "title": "introduced"
+          },
+          {
+            "content": "# invited\n\n[Back to index](index.md)\n\n- `invited(thaddeus-sholto, mary-morstan)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-invited.md",
+            "title": "invited"
+          },
+          {
+            "content": "# kept-informed\n\n[Back to index](index.md)\n\n- `kept-informed(holmes, mycroft)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-kept-informed.md",
+            "title": "kept-informed"
+          },
+          {
+            "content": "# knew\n\n[Back to index](index.md)\n\n- `knew(captain-morstan, major-sholto)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-knew.md",
+            "title": "knew"
+          },
+          {
+            "content": "# landed-at\n\n[Back to index](index.md)\n\n- `landed-at(watson, portsmouth)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-landed-at.md",
+            "title": "landed-at"
+          },
+          {
+            "content": "# landed-in\n\n[Back to index](index.md)\n\n- `landed-in(watson, bombay)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-landed-in.md",
+            "title": "landed-in"
+          },
+          {
+            "content": "# landlady-of\n\n[Back to index](index.md)\n\n- `landlady-of(mrs-hudson, holmes)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-landlady-of.md",
+            "title": "landlady-of"
+          },
+          {
+            "content": "# learned-of\n\n[Back to index](index.md)\n\n- `learned-of(holmes, park-lane-mystery)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-learned-of.md",
+            "title": "learned-of"
+          },
+          {
+            "content": "# leave-began\n\n[Back to index](index.md)\n\n- `leave-began(captain-morstan, year-1878)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-leave-began.md",
+            "title": "leave-began"
+          },
+          {
+            "content": "# lived-in\n\n[Back to index](index.md)\n\n- `lived-in(major-sholto, upper-norwood)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-lived-in.md",
+            "title": "lived-in"
+          },
+          {
+            "content": "# lunched-at\n\n[Back to index](index.md)\n\n- `lunched-at(watson, holborn)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-lunched-at.md",
+            "title": "lunched-at"
+          },
+          {
+            "content": "# made-by\n\n[Back to index](index.md)\n\n- `made-by(wax-bust, oscar-meunier)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-made-by.md",
+            "title": "made-by"
+          },
+          {
+            "content": "# managed\n\n[Back to index](index.md)\n\n- `managed(peter-steiler, englischer-hof)` \u2014 **certain** (provenance: ratified) (decisions: d-0004)\n",
+            "path": "predicate-managed.md",
+            "title": "managed"
+          },
+          {
+            "content": "# married-to\n\n[Back to index](index.md)\n\n- `married-to(kate-whitney, isa-whitney)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-married-to.md",
+            "title": "married-to"
+          },
+          {
+            "content": "# material\n\n[Back to index](index.md)\n\n- `material(wax-bust, wax)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-material.md",
+            "title": "material"
+          },
+          {
+            "content": "# medical-adviser-of\n\n[Back to index](index.md)\n\n- `medical-adviser-of(watson, isa-whitney)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-medical-adviser-of.md",
+            "title": "medical-adviser-of"
+          },
+          {
+            "content": "# medical-degree-year\n\n[Back to index](index.md)\n\n- `medical-degree-year(watson, year-1878)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-medical-degree-year.md",
+            "title": "medical-degree-year"
+          },
+          {
+            "content": "# met-stamford-at\n\n[Back to index](index.md)\n\n- `met-stamford-at(watson, criterion-bar)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-met-stamford-at.md",
+            "title": "met-stamford-at"
+          },
+          {
+            "content": "# military-rank\n\n[Back to index](index.md)\n\n- `military-rank(captain-morstan, captain)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `military-rank(major-sholto, major)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `military-rank(sebastian-moran, colonel)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-military-rank.md",
+            "title": "military-rank"
+          },
+          {
+            "content": "# montpellier-study\n\n[Back to index](index.md)\n\n- `montpellier-study(holmes, coal-tar-derivatives)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-montpellier-study.md",
+            "title": "montpellier-study"
+          },
+          {
+            "content": "# mother\n\n[Back to index](index.md)\n\n- `mother(mary-morstan, deceased)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-mother.md",
+            "title": "mother"
+          },
+          {
+            "content": "# mother-treatment\n\n[Back to index](index.md)\n\n- `mother-treatment(ronald-adair, cataract-operation)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-mother-treatment.md",
+            "title": "mother-treatment"
+          },
+          {
+            "content": "# moulding-duration\n\n[Back to index](index.md)\n\n- `moulding-duration(wax-bust, several-days)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-moulding-duration.md",
+            "title": "moulding-duration"
+          },
+          {
+            "content": "# moved\n\n[Back to index](index.md)\n\n- `moved(mrs-hudson, wax-bust)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-moved.md",
+            "title": "moved"
+          },
+          {
+            "content": "# name-used-by-wife\n\n[Back to index](index.md)\n\n- `name-used-by-wife(watson, james)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-name-used-by-wife.md",
+            "title": "name-used-by-wife"
+          },
+          {
+            "content": "# observed-from\n\n[Back to index](index.md)\n\n- `observed-from(holmes, camden-house)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-observed-from.md",
+            "title": "observed-from"
+          },
+          {
+            "content": "# occupation\n\n[Back to index](index.md)\n\n- `occupation(elias-whitney, college-principal)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n- `occupation(holmes, consulting-detective)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `occupation(mary-morstan, governess)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-occupation.md",
+            "title": "occupation"
+          },
+          {
+            "content": "# opposite\n\n[Back to index](index.md)\n\n- `opposite(camden-house, baker-street-lodgings)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-opposite.md",
+            "title": "opposite"
+          },
+          {
+            "content": "# original-regiment\n\n[Back to index](index.md)\n\n- `original-regiment(watson, fifth-northumberland-fusiliers)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-original-regiment.md",
+            "title": "original-regiment"
+          },
+          {
+            "content": "# overseas-service\n\n[Back to index](index.md)\n\n- `overseas-service(captain-morstan, andaman-islands)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-overseas-service.md",
+            "title": "overseas-service"
+          },
+          {
+            "content": "# patron\n\n[Back to index](index.md)\n\n- `patron(thaddeus-sholto, arts)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-patron.md",
+            "title": "patron"
+          },
+          {
+            "content": "# pearl-count\n\n[Back to index](index.md)\n\n- `pearl-count(mary-morstan, six)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-pearl-count.md",
+            "title": "pearl-count"
+          },
+          {
+            "content": "# person\n\n[Back to index](index.md)\n\n- `person(athelney-jones)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `person(augustus-moran)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `person(bartholomew-sholto)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `person(captain-morstan)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `person(cecil-forrester)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `person(earl-of-maynooth)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `person(elias-whitney)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n- `person(holmes)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n- `person(isa-whitney)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n- `person(jonathan-small)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `person(kate-whitney)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n- `person(le-villard)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `person(major-sholto)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `person(mary-morstan)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `person(moriarty)` \u2014 **certain** (provenance: ratified) (decisions: d-0004)\n- `person(mrs-hudson)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `person(mrs-st-clair)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n- `person(murray)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n- `person(mycroft)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `person(neville-st-clair)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n- `person(oscar-meunier)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `person(peter-steiler)` \u2014 **certain** (provenance: ratified) (decisions: d-0004)\n- `person(ronald-adair)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `person(sebastian-moran)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `person(stamford)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n- `person(thaddeus-sholto)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `person(tonga)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `person(watson)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-person.md",
+            "title": "person"
+          },
+          {
+            "content": "# place\n\n[Back to index](index.md)\n\n- `place(andaman-islands)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `place(baker-street)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `place(baker-street-lodgings)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `place(bombay)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n- `place(cabul)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `place(camden-house)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `place(criterion-bar)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n- `place(edinburgh)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `place(florence)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `place(holborn)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n- `place(khartoum)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `place(langham-hotel)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `place(london)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n- `place(maiwand)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n- `place(mecca)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `place(meiringen)` \u2014 **certain** (provenance: ratified) (decisions: d-0004)\n- `place(netley)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n- `place(persia)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `place(peshawar)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n- `place(pondicherry-lodge)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `place(portsmouth)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n- `place(reichenbach)` \u2014 **certain** (provenance: ratified) (decisions: d-0004)\n- `place(sherpur)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `place(strand)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n- `place(swandam-lane)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n- `place(the-cedars)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n- `place(tibet)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `place(upper-norwood)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-place.md",
+            "title": "place"
+          },
+          {
+            "content": "# placed-in\n\n[Back to index](index.md)\n\n- `placed-in(wax-bust, baker-street-lodgings)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-placed-in.md",
+            "title": "placed-in"
+          },
+          {
+            "content": "# planned-arrest-with\n\n[Back to index](index.md)\n\n- `planned-arrest-with(holmes, lestrade)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-planned-arrest-with.md",
+            "title": "planned-arrest-with"
+          },
+          {
+            "content": "# played\n\n[Back to index](index.md)\n\n- `played(ronald-adair, whist)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-played.md",
+            "title": "played"
+          },
+          {
+            "content": "# played-cards-with\n\n[Back to index](index.md)\n\n- `played-cards-with(ronald-adair, sebastian-moran)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-played-cards-with.md",
+            "title": "played-cards-with"
+          },
+          {
+            "content": "# position-in-family\n\n[Back to index](index.md)\n\n- `position-in-family(ronald-adair, second-son)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-position-in-family.md",
+            "title": "position-in-family"
+          },
+          {
+            "content": "# preserved-rooms-in\n\n[Back to index](index.md)\n\n- `preserved-rooms-in(mycroft, baker-street)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-preserved-rooms-in.md",
+            "title": "preserved-rooms-in"
+          },
+          {
+            "content": "# previous-employer\n\n[Back to index](index.md)\n\n- `previous-employer(peter-steiler, grosvenor-hotel)` \u2014 **certain** (provenance: ratified) (decisions: d-0004)\n",
+            "path": "predicate-previous-employer.md",
+            "title": "previous-employer"
+          },
+          {
+            "content": "# profession\n\n[Back to index](index.md)\n\n- `profession(le-villard, detective)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `profession(watson, doctor)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-profession.md",
+            "title": "profession"
+          },
+          {
+            "content": "# provided-funds-to\n\n[Back to index](index.md)\n\n- `provided-funds-to(mycroft, holmes)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-provided-funds-to.md",
+            "title": "provided-funds-to"
+          },
+          {
+            "content": "# received\n\n[Back to index](index.md)\n\n- `received(mary-morstan, pearls)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `received(mrs-st-clair, signet-ring)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-received.md",
+            "title": "received"
+          },
+          {
+            "content": "# received-letter-from\n\n[Back to index](index.md)\n\n- `received-letter-from(mrs-st-clair, neville-st-clair)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-received-letter-from.md",
+            "title": "received-letter-from"
+          },
+          {
+            "content": "# received-letter-postmark\n\n[Back to index](index.md)\n\n- `received-letter-postmark(mrs-st-clair, gravesend)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-received-letter-postmark.md",
+            "title": "received-letter-postmark"
+          },
+          {
+            "content": "# received-note-from\n\n[Back to index](index.md)\n\n- `received-note-from(watson, holmes)` \u2014 **certain** (provenance: ratified) (decisions: d-0004)\n",
+            "path": "predicate-received-note-from.md",
+            "title": "received-note-from"
+          },
+          {
+            "content": "# recognized-enemy\n\n[Back to index](index.md)\n\n- `recognized-enemy(holmes, sebastian-moran)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-recognized-enemy.md",
+            "title": "recognized-enemy"
+          },
+          {
+            "content": "# recovered\n\n[Back to index](index.md)\n\n- `recovered(mrs-hudson, bullet)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-recovered.md",
+            "title": "recovered"
+          },
+          {
+            "content": "# recovering-at\n\n[Back to index](index.md)\n\n- `recovering-at(watson, peshawar)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-recovering-at.md",
+            "title": "recovering-at"
+          },
+          {
+            "content": "# reichenbach-outcome\n\n[Back to index](index.md)\n\n- `reichenbach-outcome(holmes, died)` \u2014 **dead** (provenance: ratified) (decisions: d-0004, d-0008)\n- `reichenbach-outcome(holmes, survived)` \u2014 **certain** (provenance: ratified) (decisions: d-0005, d-0009)\n",
+            "path": "predicate-reichenbach-outcome.md",
+            "title": "reichenbach-outcome"
+          },
+          {
+            "content": "# reported-disappearance-to\n\n[Back to index](index.md)\n\n- `reported-disappearance-to(mary-morstan, police)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-reported-disappearance-to.md",
+            "title": "reported-disappearance-to"
+          },
+          {
+            "content": "# reported-to\n\n[Back to index](index.md)\n\n- `reported-to(mrs-hudson, holmes)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-reported-to.md",
+            "title": "reported-to"
+          },
+          {
+            "content": "# reported-wound-location\n\n[Back to index](index.md)\n\n- `reported-wound-location(watson, leg)` \u2014 **possible** (provenance: proposed) (support: (h.sign-of-four))\n- `reported-wound-location(watson, shoulder)` \u2014 **possible** (provenance: proposed) (support: (h.study-in-scarlet))\n",
+            "path": "predicate-reported-wound-location.md",
+            "title": "reported-wound-location"
+          },
+          {
+            "content": "# researched-in\n\n[Back to index](index.md)\n\n- `researched-in(holmes, montpellier)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-researched-in.md",
+            "title": "researched-in"
+          },
+          {
+            "content": "# retired-to\n\n[Back to index](index.md)\n\n- `retired-to(major-sholto, upper-norwood)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-retired-to.md",
+            "title": "retired-to"
+          },
+          {
+            "content": "# returned-on\n\n[Back to index](index.md)\n\n- `returned-on(watson, orontes)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-returned-on.md",
+            "title": "returned-on"
+          },
+          {
+            "content": "# returned-to\n\n[Back to index](index.md)\n\n- `returned-to(holmes, london)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-returned-to.md",
+            "title": "returned-to"
+          },
+          {
+            "content": "# role\n\n[Back to index](index.md)\n\n- `role(murray, watson-orderly)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-role.md",
+            "title": "role"
+          },
+          {
+            "content": "# room-used\n\n[Back to index](index.md)\n\n- `room-used(camden-house, front-room)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-room-used.md",
+            "title": "room-used"
+          },
+          {
+            "content": "# saw-husband-in\n\n[Back to index](index.md)\n\n- `saw-husband-in(mrs-st-clair, swandam-lane)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-saw-husband-in.md",
+            "title": "saw-husband-in"
+          },
+          {
+            "content": "# school-city\n\n[Back to index](index.md)\n\n- `school-city(mary-morstan, edinburgh)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-school-city.md",
+            "title": "school-city"
+          },
+          {
+            "content": "# school-friend-of\n\n[Back to index](index.md)\n\n- `school-friend-of(kate-whitney, watson-wife)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-school-friend-of.md",
+            "title": "school-friend-of"
+          },
+          {
+            "content": "# school-until-age\n\n[Back to index](index.md)\n\n- `school-until-age(mary-morstan, seventeen)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-school-until-age.md",
+            "title": "school-until-age"
+          },
+          {
+            "content": "# second-book-year\n\n[Back to index](index.md)\n\n- `second-book-year(sebastian-moran, year-1884)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-second-book-year.md",
+            "title": "second-book-year"
+          },
+          {
+            "content": "# sent\n\n[Back to index](index.md)\n\n- `sent(neville-st-clair, signet-ring)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-sent.md",
+            "title": "sent"
+          },
+          {
+            "content": "# sent-letter-to\n\n[Back to index](index.md)\n\n- `sent-letter-to(neville-st-clair, mrs-st-clair)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-sent-letter-to.md",
+            "title": "sent-letter-to"
+          },
+          {
+            "content": "# sentry-identified-as\n\n[Back to index](index.md)\n\n- `sentry-identified-as(holmes, parker)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-sentry-identified-as.md",
+            "title": "sentry-identified-as"
+          },
+          {
+            "content": "# served-at\n\n[Back to index](index.md)\n\n- `served-at(captain-morstan, andaman-islands)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `served-at(major-sholto, andaman-islands)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `served-at(sebastian-moran, cabul)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `served-at(sebastian-moran, sherpur)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `served-at(watson, maiwand)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-served-at.md",
+            "title": "served-at"
+          },
+          {
+            "content": "# served-in\n\n[Back to index](index.md)\n\n- `served-in(sebastian-moran, afghan-campaign)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `served-in(sebastian-moran, jowaki-campaign)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-served-in.md",
+            "title": "served-in"
+          },
+          {
+            "content": "# served-with\n\n[Back to index](index.md)\n\n- `served-with(watson, berkshires)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-served-with.md",
+            "title": "served-with"
+          },
+          {
+            "content": "# showed-pearls-to\n\n[Back to index](index.md)\n\n- `showed-pearls-to(mary-morstan, holmes)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-showed-pearls-to.md",
+            "title": "showed-pearls-to"
+          },
+          {
+            "content": "# sibling\n\n[Back to index](index.md)\n\n- `sibling(bartholomew-sholto, thaddeus-sholto)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `sibling(thaddeus-sholto, bartholomew-sholto)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-sibling.md",
+            "title": "sibling"
+          },
+          {
+            "content": "# sister\n\n[Back to index](index.md)\n\n- `sister(ronald-adair, hilda-adair)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-sister.md",
+            "title": "sister"
+          },
+          {
+            "content": "# sought\n\n[Back to index](index.md)\n\n- `sought(watson, isa-whitney)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-sought.md",
+            "title": "sought"
+          },
+          {
+            "content": "# sought-help-from\n\n[Back to index](index.md)\n\n- `sought-help-from(kate-whitney, watson)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n- `sought-help-from(mary-morstan, holmes)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-sought-help-from.md",
+            "title": "sought-help-from"
+          },
+          {
+            "content": "# sought-lodgings-in\n\n[Back to index](index.md)\n\n- `sought-lodgings-in(holmes, london)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n- `sought-lodgings-in(watson, london)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-sought-lodgings-in.md",
+            "title": "sought-lodgings-in"
+          },
+          {
+            "content": "# spoke\n\n[Back to index](index.md)\n\n- `spoke(peter-steiler, english)` \u2014 **certain** (provenance: ratified) (decisions: d-0004)\n",
+            "path": "predicate-spoke.md",
+            "title": "spoke"
+          },
+          {
+            "content": "# stayed-at\n\n[Back to index](index.md)\n\n- `stayed-at(captain-morstan, langham-hotel)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-stayed-at.md",
+            "title": "stayed-at"
+          },
+          {
+            "content": "# stayed-in\n\n[Back to index](index.md)\n\n- `stayed-in(holmes, meiringen)` \u2014 **certain** (provenance: ratified) (decisions: d-0004)\n- `stayed-in(watson, meiringen)` \u2014 **certain** (provenance: ratified) (decisions: d-0004)\n",
+            "path": "predicate-stayed-in.md",
+            "title": "stayed-in"
+          },
+          {
+            "content": "# stayed-on\n\n[Back to index](index.md)\n\n- `stayed-on(watson, strand)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-stayed-on.md",
+            "title": "stayed-on"
+          },
+          {
+            "content": "# struck-by\n\n[Back to index](index.md)\n\n- `struck-by(wax-bust, bullet)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-struck-by.md",
+            "title": "struck-by"
+          },
+          {
+            "content": "# studied\n\n[Back to index](index.md)\n\n- `studied(holmes, chemistry)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-studied.md",
+            "title": "studied"
+          },
+          {
+            "content": "# studied-at\n\n[Back to index](index.md)\n\n- `studied-at(watson, university-of-london)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-studied-at.md",
+            "title": "studied-at"
+          },
+          {
+            "content": "# thing\n\n[Back to index](index.md)\n\n- `thing(orontes)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n- `thing(wax-bust)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-thing.md",
+            "title": "thing"
+          },
+          {
+            "content": "# tibet-duration\n\n[Back to index](index.md)\n\n- `tibet-duration(holmes, two-years)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-tibet-duration.md",
+            "title": "tibet-duration"
+          },
+          {
+            "content": "# trained-at\n\n[Back to index](index.md)\n\n- `trained-at(watson, netley)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-trained-at.md",
+            "title": "trained-at"
+          },
+          {
+            "content": "# translated-work-of\n\n[Back to index](index.md)\n\n- `translated-work-of(le-villard, holmes)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-translated-work-of.md",
+            "title": "translated-work-of"
+          },
+          {
+            "content": "# travel-alias\n\n[Back to index](index.md)\n\n- `travel-alias(holmes, sigerson)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-travel-alias.md",
+            "title": "travel-alias"
+          },
+          {
+            "content": "# travelled-in\n\n[Back to index](index.md)\n\n- `travelled-in(holmes, tibet)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-travelled-in.md",
+            "title": "travelled-in"
+          },
+          {
+            "content": "# twin-brother\n\n[Back to index](index.md)\n\n- `twin-brother(thaddeus-sholto, bartholomew-sholto)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-twin-brother.md",
+            "title": "twin-brother"
+          },
+          {
+            "content": "# type\n\n[Back to index](index.md)\n\n- `type(orontes, troopship)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-type.md",
+            "title": "type"
+          },
+          {
+            "content": "# used-agent\n\n[Back to index](index.md)\n\n- `used-agent(moriarty, sebastian-moran)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-used-agent.md",
+            "title": "used-agent"
+          },
+          {
+            "content": "# used-as-decoy\n\n[Back to index](index.md)\n\n- `used-as-decoy(holmes, wax-bust)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-used-as-decoy.md",
+            "title": "used-as-decoy"
+          },
+          {
+            "content": "# used-by\n\n[Back to index](index.md)\n\n- `used-by(camden-house, holmes)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-used-by.md",
+            "title": "used-by"
+          },
+          {
+            "content": "# visited\n\n[Back to index](index.md)\n\n- `visited(holmes, florence)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `visited(holmes, khartoum)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `visited(holmes, mecca)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `visited(holmes, persia)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-visited.md",
+            "title": "visited"
+          },
+          {
+            "content": "# visited-after-florence\n\n[Back to index](index.md)\n\n- `visited-after-florence(holmes, tibet)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-visited-after-florence.md",
+            "title": "visited-after-florence"
+          },
+          {
+            "content": "# visited-lhasa\n\n[Back to index](index.md)\n\n- `visited-lhasa(holmes, lhasa)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-visited-lhasa.md",
+            "title": "visited-lhasa"
+          },
+          {
+            "content": "# was\n\n[Back to index](index.md)\n\n- `was(camden-house, empty)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-was.md",
+            "title": "was"
+          },
+          {
+            "content": "# wife\n\n[Back to index](index.md)\n\n- `wife(isa-whitney, kate-whitney)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n- `wife(neville-st-clair, mrs-st-clair)` \u2014 **certain** (provenance: ratified) (decisions: d-0003)\n",
+            "path": "predicate-wife.md",
+            "title": "wife"
+          },
+          {
+            "content": "# wore\n\n[Back to index](index.md)\n\n- `wore(wax-bust, holmes-dressing-gown)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-wore.md",
+            "title": "wore"
+          },
+          {
+            "content": "# worked-at\n\n[Back to index](index.md)\n\n- `worked-at(stamford, barts)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n",
+            "path": "predicate-worked-at.md",
+            "title": "worked-at"
+          },
+          {
+            "content": "# worked-in\n\n[Back to index](index.md)\n\n- `worked-in(holmes, hospital-laboratory)` \u2014 **certain** (provenance: ratified) (decisions: d-0001)\n- `worked-in(le-villard, france)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-worked-in.md",
+            "title": "worked-in"
+          },
+          {
+            "content": "# wrote\n\n[Back to index](index.md)\n\n- `wrote(sebastian-moran, heavy-game-western-himalayas)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n- `wrote(sebastian-moran, three-months-in-jungle)` \u2014 **certain** (provenance: ratified) (decisions: d-0005)\n",
+            "path": "predicate-wrote.md",
+            "title": "wrote"
+          },
+          {
+            "content": "# wrote-about\n\n[Back to index](index.md)\n\n- `wrote-about(holmes, footsteps)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `wrote-about(holmes, tobacco-ash)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n- `wrote-about(holmes, trade-and-hands)` \u2014 **certain** (provenance: ratified) (decisions: d-0002)\n",
+            "path": "predicate-wrote-about.md",
+            "title": "wrote-about"
+          }
+        ],
+        "profile": "wiki/all-standing@1"
+      },
+      "profile": "static-wiki"
+    },
+    "manifest": {
+      "commit": "sha256:7bb1f858ff6a0e89cefe7d6008c1da927fc884d0545f52147c47c6208e01f90e",
+      "layer": "all",
+      "profile_hash": "sha256:18788ce112ba604d900452f58e7d945191186cd8de976dc98da7dfb314569496",
+      "valuation": "sha256:dded39314537a479f186053450147e7cd77ab1cfdd499f1969168e88e3503802"
+    }
+  },
+  "retcon": {
+    "before": [
+      {
+        "atom": "reichenbach-outcome(holmes, died)",
+        "bindings": {},
+        "claim_ids": [
+          "sha256:970cd2741b4bfe5631c5514e3fe8a8b0906ea68905cba85d9d12baf2316fabbe"
+        ],
+        "status": "certain",
+        "verdict": {
+          "grade": "asserted",
+          "support": {
+            "monomials": [
+              [
+                "+2",
+                "+9"
+              ]
+            ]
+          }
+        }
+      }
+    ],
+    "after": [
+      {
+        "atom": "reichenbach-outcome(holmes, survived)",
+        "bindings": {},
+        "claim_ids": [
+          "sha256:a7f3756a42f691ad79eb8d7d0a8bd20646884d3e7762fc5ac6855f6bab5312bb"
+        ],
+        "status": "certain",
+        "verdict": {
+          "grade": "asserted",
+          "support": {
+            "monomials": [
+              [
+                "+4",
+                "+10"
+              ]
+            ]
+          }
+        }
+      }
+    ],
+    "old_after": [],
+    "why_old": {
+      "active_supporting_decision_paths": [],
+      "blocked_supports": [
+        {
+          "blocking_defeats": [
+            {
+              "defeated_decision": "d-0008",
+              "defeating_decision": "d-0009"
+            }
+          ],
+          "supporting_decision_path": [
+            "d-0004",
+            "d-0008"
+          ]
+        }
+      ],
+      "blocking_defeats": [
+        {
+          "defeated_decision": "d-0008",
+          "defeating_decision": "d-0009"
+        }
+      ],
+      "supporting_decisions": [
+        "d-0004",
+        "d-0008"
+      ],
+      "why": {
+        "antichain": [
+          [
+            2,
+            9
+          ]
+        ],
+        "rendered": [
+          "d-0004 and d-0008"
+        ]
+      },
+      "why_not": {
+        "atom": "reichenbach-outcome(holmes, died)",
+        "blocking": [],
+        "closest": [],
+        "defeater": null,
+        "known": true,
+        "rendered": [
+          "dead \u2014 no admissible support"
+        ],
+        "status": "dead"
+      }
+    },
+    "branch": [
+      {
+        "atom": "reichenbach-outcome(holmes, died)",
+        "bindings": {},
+        "claim_ids": [
+          "sha256:970cd2741b4bfe5631c5514e3fe8a8b0906ea68905cba85d9d12baf2316fabbe"
+        ],
+        "status": "certain",
+        "verdict": {
+          "grade": "asserted",
+          "support": {
+            "monomials": [
+              [
+                "+2",
+                "+9"
+              ]
+            ]
+          }
+        }
+      }
+    ],
+    "death_rendered": [
+      "holmes.reichenbach-outcome = died ratified d-0004 d-0008"
+    ],
+    "survived_rendered": [
+      "holmes.reichenbach-outcome = survived ratified d-0005 d-0009"
+    ]
+  }
+}

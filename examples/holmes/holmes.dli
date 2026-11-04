@@ -1,0 +1,279 @@
+scope world
+
+ratify d-0001
+ratify d-0002
+ratify d-0003
+ratify d-0004
+ratify d-0005
+ratify d-0006
+ratify d-0007
+person watson             "John Watson"             ratified d-0001
+person holmes             "Sherlock Holmes"         ratified d-0001
+person stamford           "Stamford"                ratified d-0001
+person murray             "Murray"                  ratified d-0001
+person kate-whitney       "Kate Whitney"            ratified d-0003
+person isa-whitney        "Isa Whitney"             ratified d-0003
+person elias-whitney      "Elias Whitney"           ratified d-0003
+person moriarty           "Professor Moriarty"      ratified d-0004
+person peter-steiler      "Peter Steiler the elder" ratified d-0004
+person mary-morstan       "Mary Morstan"            ratified d-0002
+person captain-morstan    "Captain Morstan"         ratified d-0002
+person cecil-forrester    "Mrs Cecil Forrester"     ratified d-0002
+person thaddeus-sholto    "Thaddeus Sholto"         ratified d-0002
+person bartholomew-sholto "Bartholomew Sholto"      ratified d-0002
+person major-sholto       "Major John Sholto"       ratified d-0002
+person mrs-hudson         "Mrs Hudson"              ratified d-0002
+person mycroft            "Mycroft Holmes"          ratified d-0005
+person ronald-adair       "Ronald Adair"            ratified d-0005
+person sebastian-moran    "Colonel Sebastian Moran" ratified d-0005
+person augustus-moran     "Sir Augustus Moran"      ratified d-0005
+person earl-of-maynooth   "Earl of Maynooth"        ratified d-0005
+person oscar-meunier      "Oscar Meunier"           ratified d-0005
+person neville-st-clair   "Neville St Clair"        ratified d-0003
+person mrs-st-clair       "Mrs St Clair"            ratified d-0003
+person athelney-jones     "Athelney Jones"          ratified d-0002
+person le-villard         "François Le Villard"     ratified d-0002
+person jonathan-small     "Jonathan Small"          ratified d-0002
+person tonga              "Tonga"                   ratified d-0002
+place london  "London"     ratified d-0001
+place maiwand "Maiwand"    ratified d-0001
+place bombay  "Bombay"     ratified d-0001
+place netley  "Netley"     ratified d-0001
+place strand  "The Strand" ratified d-0001
+thing orontes "Orontes" ratified d-0001
+place peshawar          "Peshawar"           ratified d-0001
+place portsmouth        "Portsmouth"         ratified d-0001
+place criterion-bar     "Criterion Bar"      ratified d-0001
+place holborn           "Holborn"            ratified d-0001
+place meiringen         "Meiringen"          ratified d-0004
+place edinburgh         "Edinburgh"          ratified d-0002
+place langham-hotel     "Langham Hotel"      ratified d-0002
+place upper-norwood     "Upper Norwood"      ratified d-0002
+place pondicherry-lodge "Pondicherry Lodge"  ratified d-0002
+place andaman-islands   "Andaman Islands"    ratified d-0002
+place reichenbach       "Reichenbach Falls"  ratified d-0004
+place tibet             "Tibet"              ratified d-0005
+place persia            "Persia"             ratified d-0005
+place mecca             "Mecca"              ratified d-0005
+place khartoum          "Khartoum"           ratified d-0005
+place sherpur           "Sherpur"            ratified d-0005
+place cabul             "Cabul"              ratified d-0005
+place florence          "Florence"           ratified d-0005
+place camden-house      "Camden House"       ratified d-0005
+place the-cedars        "The Cedars"         ratified d-0003
+place swandam-lane      "Upper Swandam Lane" ratified d-0003
+thing wax-bust "The wax bust" ratified d-0005
+place baker-street          "Baker Street"                ratified d-0005
+place baker-street-lodgings "Holmes’s Baker Street rooms" ratified d-0005
+era years-1880s "The 1880s" ratified d-0006
+era year-1891   "1891"      ratified d-0006
+era year-1894   "1894"      ratified d-0006
+event scandal               "A Scandal in Bohemia"         during years-1880s ratified d-0007
+event mary-case             "Mary Morstan consults Holmes" during years-1880s ratified d-0002
+event reichenbach-encounter "The Reichenbach encounter"    during year-1891 ratified d-0004
+event return                "Holmes returns"               during year-1894 ratified d-0005
+before years-1880s -> year-1891 ratified d-0006
+before year-1891 -> year-1894 ratified d-0006
+functional first-name ratified d-0006
+watson.first-name                      = john                           ratified d-0001
+watson.name-used-by-wife               = james                          ratified d-0003
+watson.profession                      = doctor                         ratified d-0001
+watson.studied-at                      = university-of-london           ratified d-0001
+watson.trained-at                      = netley                         ratified d-0001
+watson.landed-in                       = bombay                         ratified d-0001
+watson.returned-on                     = orontes                        ratified d-0001
+watson.stayed-on                       = strand                         ratified d-0001
+watson.held-rank                       = assistant-surgeon              ratified d-0001
+watson.served-with                     = berkshires                     ratified d-0001
+watson.contracted                      = enteric-fever                  ratified d-0001
+watson.served-at                       = maiwand                        ratified d-0001
+murray.assisted                        = watson                         ratified d-0001
+watson.recovering-at                   = peshawar                       ratified d-0001
+watson.landed-at                       = portsmouth                     ratified d-0001
+watson.met-stamford-at                 = criterion-bar                  ratified d-0001
+watson.lunched-at                      = holborn                        ratified d-0001
+watson.sought-lodgings-in              = london                         ratified d-0001
+holmes.sought-lodgings-in              = london                         ratified d-0001
+holmes.occupation                      = consulting-detective           ratified d-0002
+le-villard.consulted                   = holmes                         ratified d-0002
+le-villard.profession                  = detective                      ratified d-0002
+mary-morstan.received                  = pearls                         ratified d-0002
+mary-morstan.sought-help-from          = holmes                         ratified d-0002
+captain-morstan.belonged-to            = bombay-infantry                ratified d-0002
+major-sholto.belonged-to               = bombay-infantry                ratified d-0002
+major-sholto.served-at                 = andaman-islands                ratified d-0002
+kate-whitney.married-to                = isa-whitney                    ratified d-0003
+isa-whitney.brother-of                 = elias-whitney                  ratified d-0003
+watson.medical-adviser-of              = isa-whitney                    ratified d-0003
+mary-morstan.employed-by               = cecil-forrester                ratified d-0002
+mary-morstan.occupation                = governess                      ratified d-0002
+mary-morstan.father                    = captain-morstan                ratified d-0002
+mary-morstan.boarded-in                = edinburgh                      ratified d-0002
+captain-morstan.stayed-at              = langham-hotel                  ratified d-0002
+captain-morstan.served-at              = andaman-islands                ratified d-0002
+captain-morstan.friend                 = major-sholto                   ratified d-0002
+major-sholto.lived-in                  = upper-norwood                  ratified d-0002
+major-sholto.home                      = pondicherry-lodge              ratified d-0002
+thaddeus-sholto.father                 = major-sholto                   ratified d-0002
+bartholomew-sholto.father              = major-sholto                   ratified d-0002
+thaddeus-sholto.twin-brother           = bartholomew-sholto             ratified d-0002
+mrs-hudson.landlady-of                 = holmes                         ratified d-0002
+holmes.brother                         = mycroft                        ratified d-0005
+holmes.visited                         = florence                       ratified d-0005
+holmes.travelled-in                    = tibet                          ratified d-0005
+mycroft.preserved-rooms-in             = baker-street                   ratified d-0005
+camden-house.opposite                  = baker-street-lodgings          ratified d-0005
+watson.medical-degree-year             = year-1878                      ratified d-0001
+watson.original-regiment               = fifth-northumberland-fusiliers ratified d-0001
+watson.battle                          = maiwand                        ratified d-0001
+watson.hospitalized-at                 = peshawar                       ratified d-0001
+watson.homeward-arrival                = portsmouth                     ratified d-0001
+watson.daily-income                    = eleven-shillings-sixpence      ratified d-0001
+stamford.worked-at                     = barts                          ratified d-0001
+stamford.introduced                    = holmes                         ratified d-0001
+holmes.studied                         = chemistry                      ratified d-0001
+holmes.worked-in                       = hospital-laboratory            ratified d-0001
+murray.role                            = watson-orderly                 ratified d-0001
+orontes.type                           = troopship                      ratified d-0001
+mary-morstan.mother                    = deceased                       ratified d-0002
+mary-morstan.school-city               = edinburgh                      ratified d-0002
+mary-morstan.school-until-age          = seventeen                      ratified d-0002
+mary-morstan.pearl-count               = six                            ratified d-0002
+mary-morstan.advertisement-newspaper   = times                          ratified d-0002
+mary-morstan.advertisement-date        = may-4-1882                     ratified d-0002
+captain-morstan.leave-began            = year-1878                      ratified d-0002
+captain-morstan.disappeared            = december-3-1878                ratified d-0002
+captain-morstan.hotel-luggage          = left-behind                    ratified d-0002
+captain-morstan.military-rank          = captain                        ratified d-0002
+major-sholto.military-rank             = major                          ratified d-0002
+major-sholto.died                      = april-28-1882                  ratified d-0002
+thaddeus-sholto.sibling                = bartholomew-sholto             ratified d-0002
+thaddeus-sholto.patron                 = arts                           ratified d-0002
+thaddeus-sholto.asked-advice-of        = watson                         ratified d-0002
+bartholomew-sholto.sibling             = thaddeus-sholto                ratified d-0002
+le-villard.translated-work-of          = holmes                         ratified d-0002
+le-villard.worked-in                   = france                         ratified d-0002
+holmes.wrote-about                     = tobacco-ash                    ratified d-0002
+holmes.wrote-about                     = footsteps                      ratified d-0002
+holmes.wrote-about                     = trade-and-hands                ratified d-0002
+cecil-forrester.employed               = mary-morstan                   ratified d-0002
+isa-whitney.wife                       = kate-whitney                   ratified d-0003
+isa-whitney.addiction                  = opium                          ratified d-0003
+elias-whitney.brother                  = isa-whitney                    ratified d-0003
+elias-whitney.occupation               = college-principal              ratified d-0003
+kate-whitney.sought-help-from          = watson                         ratified d-0003
+kate-whitney.school-friend-of          = watson-wife                    ratified d-0003
+watson.sought                          = isa-whitney                    ratified d-0003
+peter-steiler.managed                  = englischer-hof                 ratified d-0004
+peter-steiler.spoke                    = english                        ratified d-0004
+peter-steiler.previous-employer        = grosvenor-hotel                ratified d-0004
+holmes.stayed-in                       = meiringen                      ratified d-0004
+watson.stayed-in                       = meiringen                      ratified d-0004
+holmes.encountered                     = moriarty                       ratified d-0004
+watson.found                           = holmes-alpine-stock            ratified d-0004
+watson.received-note-from              = holmes                         ratified d-0004
+holmes.kept-informed                   = mycroft                        ratified d-0005
+holmes.travel-alias                    = sigerson                       ratified d-0005
+holmes.visited-after-florence          = tibet                          ratified d-0005
+holmes.visited                         = persia                         ratified d-0005
+holmes.visited                         = mecca                          ratified d-0005
+holmes.visited                         = khartoum                       ratified d-0005
+holmes.researched-in                   = montpellier                    ratified d-0005
+ronald-adair.died-in                   = london                         ratified d-0005
+sebastian-moran.former-regiment        = first-bangalore-pioneers       ratified d-0005
+sebastian-moran.born-in                = london                         ratified d-0005
+sebastian-moran.birth-year             = year-1840                      ratified d-0005
+sebastian-moran.associate-of           = moriarty                       ratified d-0005
+ronald-adair.father                    = earl-of-maynooth               ratified d-0005
+ronald-adair.sister                    = hilda-adair                    ratified d-0005
+ronald-adair.address                   = 427-park-lane                  ratified d-0005
+ronald-adair.former-fiancee            = edith-woodley                  ratified d-0005
+ronald-adair.death-date                = march-30-1894                  ratified d-0005
+ronald-adair.played                    = whist                          ratified d-0005
+ronald-adair.card-club                 = bagatelle                      ratified d-0005
+ronald-adair.card-club                 = baldwin                        ratified d-0005
+ronald-adair.card-club                 = cavendish                      ratified d-0005
+ronald-adair.played-cards-with         = sebastian-moran                ratified d-0005
+holmes.observed-from                   = camden-house                   ratified d-0005
+holmes.used-as-decoy                   = wax-bust                       ratified d-0005
+holmes.sentry-identified-as            = parker                         ratified d-0005
+mrs-hudson.moved                       = wax-bust                       ratified d-0005
+mrs-hudson.cared-for                   = baker-street-lodgings          ratified d-0005
+mycroft.provided-funds-to              = holmes                         ratified d-0005
+holmes.visited-lhasa                   = lhasa                          ratified d-0005
+holmes.tibet-duration                  = two-years                      ratified d-0005
+holmes.montpellier-study               = coal-tar-derivatives           ratified d-0005
+holmes.learned-of                      = park-lane-mystery              ratified d-0005
+holmes.returned-to                     = london                         ratified d-0005
+holmes.disguised-as                    = book-merchant                  ratified d-0005
+holmes.disclosed-himself-to            = watson                         ratified d-0005
+holmes.recognized-enemy                = sebastian-moran                ratified d-0005
+sebastian-moran.military-rank          = colonel                        ratified d-0005
+sebastian-moran.father                 = augustus-moran                 ratified d-0005
+sebastian-moran.educated-at            = eton                           ratified d-0005
+sebastian-moran.educated-at            = oxford                         ratified d-0005
+sebastian-moran.address                = conduit-street                 ratified d-0005
+sebastian-moran.club                   = bagatelle                      ratified d-0005
+sebastian-moran.club                   = tankerville                    ratified d-0005
+sebastian-moran.club                   = anglo-indian                   ratified d-0005
+sebastian-moran.served-in              = afghan-campaign                ratified d-0005
+sebastian-moran.served-in              = jowaki-campaign                ratified d-0005
+sebastian-moran.wrote                  = heavy-game-western-himalayas   ratified d-0005
+sebastian-moran.wrote                  = three-months-in-jungle         ratified d-0005
+moriarty.commissioned                  = air-gun                        ratified d-0005
+camden-house.used-by                   = holmes                         ratified d-0005
+camden-house.was                       = empty                          ratified d-0005
+mary-morstan.father-returned           = year-1878                      ratified d-0002
+mary-morstan.father-hotel              = langham-hotel                  ratified d-0002
+mary-morstan.reported-disappearance-to = police                         ratified d-0002
+mary-morstan.employer-referred-her-to  = holmes                         ratified d-0002
+mary-morstan.showed-pearls-to          = holmes                         ratified d-0002
+captain-morstan.knew                   = major-sholto                   ratified d-0002
+captain-morstan.overseas-service       = andaman-islands                ratified d-0002
+major-sholto.retired-to                = upper-norwood                  ratified d-0002
+major-sholto.child                     = thaddeus-sholto                ratified d-0002
+major-sholto.child                     = bartholomew-sholto             ratified d-0002
+thaddeus-sholto.invited                = mary-morstan                   ratified d-0002
+thaddeus-sholto.accompanied-to         = pondicherry-lodge              ratified d-0002
+wax-bust.depicts                       = holmes                         ratified d-0005
+wax-bust.made-by                       = oscar-meunier                  ratified d-0005
+wax-bust.material                      = wax                            ratified d-0005
+wax-bust.moulding-duration             = several-days                   ratified d-0005
+wax-bust.placed-in                     = baker-street-lodgings          ratified d-0005
+wax-bust.wore                          = holmes-dressing-gown           ratified d-0005
+wax-bust.struck-by                     = bullet                         ratified d-0005
+oscar-meunier.based-in                 = grenoble                       ratified d-0005
+mrs-hudson.recovered                   = bullet                         ratified d-0005
+mrs-hudson.reported-to                 = holmes                         ratified d-0005
+camden-house.room-used                 = front-room                     ratified d-0005
+holmes.planned-arrest-with             = lestrade                       ratified d-0005
+holmes.examined                        = air-gun                        ratified d-0005
+holmes.identified-wax-maker            = oscar-meunier                  ratified d-0005
+sebastian-moran.campaign-charasiab     = mentioned-in-despatches        ratified d-0005
+sebastian-moran.served-at              = sherpur                        ratified d-0005
+sebastian-moran.served-at              = cabul                          ratified d-0005
+sebastian-moran.first-book-year        = year-1881                      ratified d-0005
+sebastian-moran.second-book-year       = year-1884                      ratified d-0005
+moriarty.used-agent                    = sebastian-moran                ratified d-0005
+ronald-adair.mother-treatment          = cataract-operation             ratified d-0005
+ronald-adair.engagement-ended          = mutual-consent                 ratified d-0005
+ronald-adair.died-between              = ten-and-eleven-twenty          ratified d-0005
+ronald-adair.position-in-family        = second-son                     ratified d-0005
+mrs-st-clair.husband                   = neville-st-clair               ratified d-0003
+mrs-st-clair.home                      = the-cedars                     ratified d-0003
+mrs-st-clair.saw-husband-in            = swandam-lane                   ratified d-0003
+mrs-st-clair.received-letter-from      = neville-st-clair               ratified d-0003
+mrs-st-clair.received                  = signet-ring                    ratified d-0003
+mrs-st-clair.received-letter-postmark  = gravesend                      ratified d-0003
+mrs-st-clair.consulted                 = holmes                         ratified d-0003
+mrs-st-clair.hosted                    = holmes                         ratified d-0003
+mrs-st-clair.hosted                    = watson                         ratified d-0003
+neville-st-clair.wife                  = mrs-st-clair                   ratified d-0003
+neville-st-clair.home                  = the-cedars                     ratified d-0003
+neville-st-clair.sent-letter-to        = mrs-st-clair                   ratified d-0003
+neville-st-clair.sent                  = signet-ring                    ratified d-0003
+the-cedars.hosted                      = holmes                         ratified d-0003
+the-cedars.hosted                      = watson                         ratified d-0003
+swandam-lane.contains                  = bar-of-gold                    ratified d-0003
+watson.reported-wound-location         = shoulder                       proposed study-in-scarlet
+watson.reported-wound-location         = leg                            proposed sign-of-four

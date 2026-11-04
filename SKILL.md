@@ -7,8 +7,8 @@ description: Author structured fiction lore with the De Lore Is MCP tools, inspe
 
 Use the `author.*` tools to add lore. Read every returned finding and repair
 error-severity findings before materializing. Do not edit `.dli` as an agent
-authoring a world; it is a readable import and export format. The store is the
-source of truth. The [quickstart](docs/quickstart.md) gives a complete first
+authoring a world. People can write `.dli` directly and import or check it;
+the store is the source of truth for an authoring session. The [quickstart](docs/quickstart.md) gives a complete first
 session.
 
 Start `deloreis mcp --project <directory>` and use MCP `tools/call`. The server
