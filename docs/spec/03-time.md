@@ -305,12 +305,10 @@ dimensions, both on existing machinery.
    instead of the fold head. An `order-indeterminate` result surfaces as its own
    violation class — *"depends on an undeclared order; declare `before(…)` or
    accept"* — which **doubles as a ruling-request generator.**
-5. **The partial-order checker over a full season.** Ordering rules are data —
-   payoff-requires-prior-reveal, no-deep-time-in-the-opening-act, the full-team
-   floor, story-time monotonicity outside declared flashbacks — checked by linear
-   scans, with **slack reporting**: the earliest and latest legal slot for each
-   episode. Check-first, search-later (the search posture is `08-reasoning.md`,
-   tasks T14/T15).
+5. **The partial-order checker over a full season.** The intended design treats
+   ordering rules as data and reports the earliest and latest legal slot for each
+   episode. The CLI and MCP checks do not currently apply `over order` or
+   `over season` declarations; see the limitation below.
 6. **Intra-era precedence, real and kernel-queryable.** `before`-facts are kernel
    facts and `happens-before` is a kernel rule under CI; a downstream toolchain
    emission becomes a **consumer** of this layer instead of its only expression.
@@ -390,14 +388,14 @@ state excalibur.keeper = the-king     since the-sword-drawn   decided d-0008
 # claims hold over disjoint spans; unanchored facts default to the present era
 ```
 
-Ordering rules are declarations too — data the season checker reads, not code:
+Ordering-rule declarations can be stored, but the CLI and MCP checks do not
+currently apply them:
 
 ```dli
 # grammar: v0 (unfrozen; AST normative)
 rule uthers-time-held-back over order   decided d-0009
   : listener-learns(during uthers-time _) requires act > 1
-# a floor on when the deepest era may first be shown, held as data the season
-# checker reads rather than as code — inert until an episode order binds it
+# This declaration does not currently enforce a production-order constraint.
 ```
 
 An episode binds a production `order` and a story-time `at` anchor separately, and

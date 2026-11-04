@@ -95,7 +95,7 @@ on the provenance of the claim being gated, for example
 
 | Keyword | Line form(s) |
 |---|---|
-| `rule` | `rule <id> [over order\|season] [severity <sev>] [marker]` + indented `: <clause>` / `requires <clause>` body (body clauses are captured text; atoms extracted via the one clause→atom bridge). Bare = world rule; `over order` constrains a timeline; `over season` is a season-ledger rule |
+| `rule` | `rule <id> [over order\|season] [severity <sev>] [marker]` + indented `: <clause>` / `requires <clause>` body. A bare rule derives world claims. `over order` and `over season` are stored but their constraints are not applied by CLI or MCP checks. |
 | `rule` (world, datalog) | a bare `rule` derives its head from a `<head> :- <lit>, <lit>, …` body; a body literal `not <atom>` is **negated** (tests the certain layer, poisons the conclusion's defeaters — spec/02 §4). Range-restricted (every head/`not` variable also in a positive atom) and stratified (no negative-dependency cycle). A bare rule that is not valid Datalog is a load error, never an empty lowering — spec/08 §1 |
 | `principle` | `principle <id> …` (declaration body captured; no craft checker is provided) |
 

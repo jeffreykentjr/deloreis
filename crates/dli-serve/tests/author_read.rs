@@ -538,6 +538,34 @@ fn read_tools_reject_unknown_fields() {
 }
 
 #[test]
+fn author_check_warns_about_stored_domain_rules() {
+    let source = "scope storybook\nrule late over season proposed\n  : listener-learns(cost) requires season >= 99\n";
+    let (document, diagnostics) = dli_syntax::parse_document(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    let mut store = Store::with_pack(Pack {
+        name: "storybook".to_owned(),
+        documents: vec![document],
+    })
+    .unwrap();
+    let workspace = open_scope(&mut store, "storybook");
+    let response = send(
+        &mut store,
+        "check-domain",
+        Op::AuthorCheck,
+        json!({"workspace":workspace}),
+    );
+    let finding = result(&response)["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|finding| finding["code"] == "rule.unchecked-domain")
+        .expect("unchecked rule should be reported");
+    assert_eq!(finding["severity"], "warn");
+    assert_eq!(finding["repair"]["rule"], "late");
+    assert!(finding["repair"].get("span").is_none());
+}
+
+#[test]
 fn author_check_reports_entity_typos_with_candidates_and_source() {
     let source = "scope storybook\nperson wren \"Wren\" proposed author\nwrne.home = ashby proposed author\n";
     let (document, diagnostics) = dli_syntax::parse_document(source);

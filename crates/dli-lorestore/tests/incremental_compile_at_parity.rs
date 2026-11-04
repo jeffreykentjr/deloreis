@@ -1,5 +1,5 @@
 //! The session-cache parity oracle: a cached `compile_at` is a full recompute
-//! (DL-0087/DL-0088, Phase 3 PR 3).
+//! (DL-0089 and DL-0102).
 //!
 //! [`Lorestore::compile_at`] is memoized by commit hash
 //! ([`dli_lorestore::cache`]). The claim this file makes falsifiable is the only

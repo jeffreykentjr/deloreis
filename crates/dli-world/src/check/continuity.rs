@@ -115,11 +115,21 @@ pub fn run(world: &CompiledWorld) -> Vec<WorldFinding> {
 /// Lift a loader fail-closed finding into a world-check finding, keeping its
 /// stable code and domain-spoken message (the two-channel error model).
 fn load_finding_to_world(finding: &LoadFinding) -> WorldFinding {
-    let mut world_finding = WorldFinding::error(finding.code(), finding.message());
+    let mut world_finding = if matches!(finding, LoadFinding::UncheckedDomainRule { .. }) {
+        WorldFinding::warn(finding.code(), finding.message())
+    } else {
+        WorldFinding::error(finding.code(), finding.message())
+    };
     if let Some(span) = finding.span() {
         world_finding = world_finding.with_span(span);
     }
     match finding {
+        LoadFinding::UncheckedDomainRule { rule, .. } => {
+            // A persisted declaration can retain byte offsets without the
+            // original source file. Identify the rule instead of attaching an
+            // offset that a client could mistake for a location in another file.
+            world_finding.with_data(serde_json::json!({ "rule": rule }))
+        }
         LoadFinding::PredicateIdentityArityMismatch {
             touched_predicate,
             predicates,
@@ -600,7 +610,7 @@ fn certain_rejected_lore(world: &CompiledWorld) -> Vec<WorldFinding> {
             continue;
         }
         // The `killed` registry predicate embeds banned tokens as its value
-        // (DL-0063, refined by DL-0064); the token is the fact's subject matter,
+        // (DL-0064); the token is the fact's subject matter,
         // not a realized usage, so it is exempt from the killed-token scan here.
         if atom.atom.pred.text == "killed" {
             continue;

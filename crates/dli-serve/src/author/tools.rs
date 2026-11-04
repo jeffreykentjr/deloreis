@@ -1722,7 +1722,7 @@ fn decl_findings(decl: &Decl, ws: &Workspace, base: &CompiledWorld) -> Vec<Findi
 fn declaration_rejected_lore_findings(base: &CompiledWorld, decl: &Decl) -> Vec<Finding> {
     // The `killed` registry predicate records a banned token as its payload; the
     // token is the fact's subject matter, not a realized usage, so the registry
-    // attr is exempt from the killed-token scan (DL-0063, refined by DL-0064).
+    // attr is exempt from the killed-token scan (DL-0064).
     // Its free-text `value` would otherwise trip `realizes_killed_token` and the
     // downstream `classify` `killed_hits` substring scan, blocking the registry
     // fact itself. The rejected_hits (contextual rejected-claim) path is skipped

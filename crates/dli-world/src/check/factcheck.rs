@@ -136,7 +136,7 @@ fn classify(
 
     // The `killed` registry predicate records a banned token as its payload; the
     // token is the fact's subject matter, not a realized usage, so it is exempt
-    // from the killed-token substring scan (DL-0063, refined by DL-0064). This
+    // from the killed-token substring scan (DL-0064). This
     // covers both the lore `killed(E, V)` form (`pred == "killed"`) and the
     // `declaration(E, killed, V, source)` form staged by `author.add_fact`
     // (`pred == "declaration"` with the `killed` attr as `args[1]`, since the

@@ -1602,10 +1602,41 @@ fn semantic_findings_name_the_source_file_and_offer_repairs() {
 }
 
 #[test]
+fn check_warns_that_domain_rules_are_not_applied() {
+    let dir = tmp("unchecked-domain-rules");
+    let path = dir.join("story.dli");
+    fs::write(&path, "scope storybook\nrule late over order proposed\n  : listener-learns(cost) requires slot >= 99\nrule later over season proposed\n  : listener-learns(cost) requires season >= 99\n").unwrap();
+    let output = bin().arg("check").arg(&path).output().unwrap();
+    let text = stdout(&output);
+    assert_eq!(output.status.code(), Some(1), "{text}");
+    assert_eq!(text.matches("rule.unchecked-domain").count(), 2, "{text}");
+    assert!(text.contains(&format!("{}:2:", path.display())), "{text}");
+    assert!(text.contains(&format!("{}:4:", path.display())), "{text}");
+    assert!(
+        text.contains("help: check this constraint outside De Lore Is"),
+        "{text}"
+    );
+}
+
+#[test]
 #[allow(clippy::too_many_lines)] // Fixture data for the diagnostic audit.
 fn check_findings_identify_the_authored_line_and_a_specific_repair() {
     let dir = tmp("loader-finding-audit");
     let cases = [
+        (
+            "world-hypothesis",
+            "scope storybook\nfact wren home ashby proposed assumes h-x\nratify d-1 { h-x := true }\n",
+            "ratify.world-hypothesis-unsupported",
+            &[3][..],
+            "leave the claim proposed or record a decision for it",
+        ),
+        (
+            "decision-assignment",
+            "scope storybook\nratify d-1\nratify d-2 { d-1 := false }\n",
+            "ratify.decision-as-hypothesis",
+            &[3][..],
+            "use author.defeat to revise a decision",
+        ),
         (
             "missing",
             "scope storybook\nperson wren \"Wren\"\n",

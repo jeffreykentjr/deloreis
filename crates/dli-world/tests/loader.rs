@@ -729,9 +729,8 @@ fn a_negation_only_variable_is_a_range_restriction_finding() {
 
 #[test]
 fn an_over_domain_rule_is_not_lowered_as_a_world_rule() {
-    // `rule … over order` / `… over season` are checker rules for other engines;
-    // they must never populate the derivation-rule set even with a datalog-looking
-    // body clause.
+    // Domain rules must not populate the derivation-rule set, even when their
+    // body looks like Datalog. The loader reports their unchecked constraint.
     let rule = Decl::Rule(RuleDecl {
         name: ident("full-team-floor"),
         domain: Some(dli_ast::decl::RuleDomain::Order),
@@ -741,9 +740,10 @@ fn an_over_domain_rule_is_not_lowered_as_a_world_rule() {
     });
     let out = Loader::load(&[doc("order", vec![rule])]);
     assert_eq!(out.world.rule_count(), 0);
+    assert!(has_code(&out, "rule.unchecked-domain"));
     assert!(
         !has_code(&out, "load.malformed-world-rule"),
-        "domain rules are owned by their checker engines"
+        "domain rules are not bare world rules"
     );
 }
 

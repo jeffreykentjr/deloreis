@@ -822,7 +822,7 @@ fn author_reads_see_the_base_pack_not_just_staged() {
 /// `dli-world/src/check/continuity.rs`'s `fluent_order_gap` and
 /// `dli-world/tests/adversarial_fluent.rs`'s `sev_b_*` regressions.
 #[test]
-fn round_table_check_stays_clean() {
+fn round_table_check_reports_unchecked_rules_without_errors() {
     let mut sessions = Sessions::new();
     let mut store = Store::default();
     let response = send(
@@ -834,5 +834,13 @@ fn round_table_check_stays_clean() {
     assert!(response.ok, "dli.check itself must succeed: {response:?}");
     let result = response.result.unwrap();
     assert_eq!(result["ok"], serde_json::json!(true), "{result}");
-    assert_eq!(result["findings"], serde_json::json!([]), "{result}");
+    let findings = result["findings"].as_array().unwrap();
+    assert_eq!(findings.len(), 2, "{result}");
+    assert!(
+        findings
+            .iter()
+            .all(|finding| finding["code"] == "rule.unchecked-domain"
+                && finding["severity"] == "warn"),
+        "{result}"
+    );
 }

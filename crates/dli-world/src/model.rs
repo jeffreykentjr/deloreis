@@ -194,6 +194,13 @@ pub enum LoadFinding {
         /// Source location.
         span: Span,
     },
+    /// A stored domain-specific rule whose constraint is not run by world checks.
+    UncheckedDomainRule {
+        /// The rule name.
+        rule: String,
+        /// Source location.
+        span: Span,
+    },
     /// A rule head variable was not bound in the body (range restriction; spec
     /// 08 §1).
     UnboundHeadVariable {
@@ -286,6 +293,7 @@ impl LoadFinding {
             Self::MissingProvenance { span, .. }
             | Self::MalformedProvenance { span, .. }
             | Self::MalformedWorldRule { span, .. }
+            | Self::UncheckedDomainRule { span, .. }
             | Self::UnboundHeadVariable { span, .. }
             | Self::UnknownTemporalReference { span, .. }
             | Self::DuplicateDeclaration { span, .. }
@@ -306,6 +314,7 @@ impl LoadFinding {
             Self::MissingProvenance { .. } => "load.missing-provenance",
             Self::MalformedProvenance { .. } => "load.malformed-provenance",
             Self::MalformedWorldRule { .. } => "load.malformed-world-rule",
+            Self::UncheckedDomainRule { .. } => "rule.unchecked-domain",
             Self::UnboundHeadVariable { .. } => "load.unbound-head-variable",
             Self::UnknownTemporalReference { .. } => "load.unknown-temporal-reference",
             Self::DuplicateDeclaration { .. } => "load.duplicate-declaration",
@@ -340,9 +349,12 @@ impl LoadFinding {
                     format!("`{body}` is not a Datalog derivation")
                 };
                 format!(
-                    "rule '{rule}' is a bare world rule, but {detail}; write `<head> :- <premise>, ...`, use `over order` or `over season` for a checker rule, or put `rule ... requires` inside a practice"
+                    "rule '{rule}' is a bare world rule, but {detail}; write `<head> :- <premise>, ...` or put `rule ... requires` inside a practice"
                 )
             }
+            Self::UncheckedDomainRule { rule, .. } => format!(
+                "rule '{rule}' is retained, but its order or season constraint is not checked by the CLI or MCP server"
+            ),
             Self::UnboundHeadVariable { rule, variable, .. } => {
                 format!(
                     "rule '{rule}' concludes about '{variable}', which nothing in its premises names"
