@@ -1,0 +1,49 @@
+{
+  "sourceRevision": "33cb317f92327e6b6772d89645d7a240c8b8d70b",
+  "excerpts": [
+    {
+      "file": "excerpts/01-watson-name.md",
+      "source": "docs/casebook/01-watson-name.md",
+      "sourceSha256": "02375cdac39052af23fff47c09dbf8a5021d78005e287df6f2edde7219a8dfc8",
+      "sha256": "534af1b7f31f6e96e3819cf0a22f3087134b7891e94c402757765fec4fc6feed",
+      "selection": "chapter before the calls appendix"
+    },
+    {
+      "file": "excerpts/02-wounds.md",
+      "source": "docs/casebook/02-wounds.md",
+      "sourceSha256": "b0c46ceaa5bd5a1e1ee35aa59ee16a41c2257296463f13a46296c1749d3d2520",
+      "sha256": "6b9faa57999f6cd105dc6b702dc07899d201a4ce5d61f1c5a961f4da9563e525",
+      "selection": "chapter before the calls appendix"
+    },
+    {
+      "file": "excerpts/04-return.md",
+      "source": "docs/casebook/04-return.md",
+      "sourceSha256": "ec45abd4dae9eacea1c0c679252cd38c3eabb8f381f417122fda390ccf5153c9",
+      "sha256": "bcf96eadc11cfe24882da75891a62afc7d0b1676b1303bced64e73cd4000778c",
+      "selection": "chapter before the calls appendix"
+    },
+    {
+      "file": "excerpts/06-rules.md",
+      "source": "docs/casebook/06-rules.md",
+      "sourceSha256": "74a53f5c0dcf01e01ab1495595da460975441b6338d7d5e27ade1c5c82593dd1",
+      "sha256": "f9f102bf65e1bdb891706c43d44d5ea864a5ebf1e25a8febee58619e9711edbf",
+      "selection": "chapter before the calls appendix"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/holmes-retcon.png",
+      "sha256": "7e2ddb71eba7fd11c86bb4ec1c911d83698b0bad73463c41f8b2c74d0aed401b",
+      "sourcePage": "wiki/predicate-reichenbach-outcome.html",
+      "sourcePageSha256": "73f985d92a94db7115531fc43cf699cb96d238133adcf485ce4b739d3d6086b8",
+      "capture": "Firefox screenshot, visually checked"
+    },
+    {
+      "file": "images/watson-wounds.png",
+      "sha256": "dba1848c5bab191fa0ee238b29c5798190234d9c589433455ca72bb1eb08d819",
+      "sourcePage": "wiki/predicate-reported-wound-location.html",
+      "sourcePageSha256": "8e0325c0d311cb6bd71cbfc91eed48e44d0ebbe314a5301a93d6aa8d7321c599",
+      "capture": "Firefox screenshot, visually checked"
+    }
+  ]
+}
