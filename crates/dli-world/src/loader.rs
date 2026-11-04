@@ -57,9 +57,8 @@
 //!   negative cycle (`p :- not q`, `q :- not p`) is an
 //!   [`Unstratifiable`](crate::model::LoadFinding::Unstratifiable) finding.
 //!
-//! `rule … over order` and `rule … over season` are checker rules for other
-//! engines and are not lowered here. Nothing is silently dropped (charter
-//! koan 4).
+//! `rule … over order` and `rule … over season` are retained as declarations,
+//! but the CLI and MCP checks do not apply their constraints.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -954,10 +953,13 @@ impl LoadCtx {
         let compiled =
             self.compile_ann(rule.provenance.as_ref(), &label, pack, true, rule.name.span);
 
-        // Only a **bare** `rule` is a world (derivation) rule. `rule … over order`
-        // and `rule … over season` route to the episode-ordering and season-ledger
-        // engines respectively; they are not lowered into `world.rules`.
+        // Only a bare rule is a world derivation rule. Domain-specific rules are
+        // retained as declarations; the CLI and MCP checks do not apply them.
         if rule.domain.is_some() {
+            self.findings.push(LoadFinding::UncheckedDomainRule {
+                rule: rule.name.text.clone(),
+                span: rule.name.span,
+            });
             return;
         }
 

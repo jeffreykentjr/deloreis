@@ -136,6 +136,21 @@ const FAMILIES: &[Family] = &[
         }],
     },
     Family {
+        key: "rule",
+        title: "Unchecked rules",
+        emitter: "World check, CLI and authoring reads",
+        owner: "dli-world :: model.rs (LoadFinding)",
+        severity_note: "Advisory; the declaration is retained but its constraint is not checked.",
+        sources: &["../crates/dli-world/src/model.rs"],
+        scrape: Scrape::Prefixed("rule"),
+        codes: &[Code {
+            code: "rule.unchecked-domain",
+            severity: "warn",
+            repair: "rule",
+            meaning: "an order or season rule is retained but its constraint is not checked.",
+        }],
+    },
+    Family {
         key: "load",
         title: "load — the loader's fail-closed gate",
         emitter: "the world loader, run by `deloreis check` / `dli.check` before any query",

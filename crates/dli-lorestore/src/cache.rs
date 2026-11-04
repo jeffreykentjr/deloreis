@@ -1,5 +1,5 @@
 //! The session compile cache: an in-process, content-addressed memo of the
-//! store's read path (DL-0087/DL-0088, Phase 3 PR 3).
+//! store's read path (DL-0089 and DL-0102).
 //!
 //! # Why this is sound without an invalidation protocol
 //!

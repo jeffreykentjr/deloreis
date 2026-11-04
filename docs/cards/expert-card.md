@@ -12,9 +12,9 @@ specialist tools. Cycles, practices, and proofs can be introduced by importing
 
 ## Rules — claims that check
 
-A bare world `rule` derives a claim when its premises hold. A rule `over
-order` constrains a timeline, and a rule `over season` describes a
-production-order constraint. Each carries its origin.
+A bare world `rule` derives a claim when its premises hold. The `over order`
+and `over season` forms can be stored, but the CLI and MCP checks do not apply
+their constraints. Do not rely on them to check a timeline or production order.
 
 ```dli
 scope camelot

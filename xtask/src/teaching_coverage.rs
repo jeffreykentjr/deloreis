@@ -3,9 +3,8 @@
 //!
 //! WS-5's finding was that two inventories disagreed by nine operations: the
 //! wire (`Op::ALL`) and what `SKILL.md` / the cards / spec §11 actually teach.
-//! No gate lane checked that gap, so it widened silently release after release
-//! (DL-0053: "a stale map is worse than none, because it is trusted"). This
-//! lane is the structural fix — it lands *before* any op-adding PR so those
+//! No gate lane checked that gap, so it widened silently release after release.
+//! This lane checks the inventories before op-adding PRs merge, so those
 //! PRs' own doc updates are enforced rather than merely checklisted.
 //!
 //! Modeled on two house patterns: `retired_vocabulary.rs`'s scan-teaching-

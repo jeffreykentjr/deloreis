@@ -560,8 +560,8 @@ fn hex_digest(bytes: &[u8]) -> String {
 
 /// Audit C4: released fixture bytes are frozen. Any re-pinned or removed
 /// fixture digest in the registry must ride a `contract_version` change —
-/// otherwise the vendored, digest-checked consumer copy (DL-0010) silently
-/// diverges under the same version label. Compared against `HEAD`'s registry;
+/// otherwise a digest-checked consumer copy can silently diverge under the same
+/// version label. Compared against `HEAD`'s registry;
 /// skipped when there is no committed registry to compare against (fresh
 /// history) or git is unavailable (the check is a repository discipline, not
 /// a runtime property).

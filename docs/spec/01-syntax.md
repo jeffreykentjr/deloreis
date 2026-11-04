@@ -197,7 +197,8 @@ restriction** — every variable in the head or in a negated literal must also
 appear in a positive body atom, because a negated literal binds nothing — and
 **stratification**, which refuses a negative-dependency cycle (`p :- not q`,
 `q :- not p`) rather than evaluate it. `rule … over order` and `rule … over
-season` are checker rules for other engines, not world derivation rules. A bare
+season` are not world derivation rules; the CLI and MCP checks do not apply
+their constraints. A bare
 top-level rule that cannot be read as Datalog emits an error-class load finding;
 it never silently lowers no rule. Practice-internal `rule ... requires` remains
 a practice law, not a top-level world rule.

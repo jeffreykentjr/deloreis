@@ -1,11 +1,9 @@
 //! The compile-cost baseline: where the time actually goes, once compiles are
-//! cached (DL-0088 §3, Phase 3 PR 3 Stage D).
+//! cached.
 //!
-//! DL-0088 predicts that the whole-world [`dli_world::check::run`] battery
-//! becomes the residual `O(world)` term once the redundant recompiles are gone,
-//! and it refuses to slice that battery on a guess: "**PR 3 instruments the
-//! check-battery cost so its slicing trigger fires on a measurement rather than
-//! a guess**". This file is that instrument.
+//! The whole-world [`dli_world::check::run`] battery may become the residual
+//! `O(world)` term once redundant recompiles are gone. This test measures that
+//! cost so decisions about splitting the battery can be based on evidence.
 //!
 //! # Not in the gate, and why it may read a clock
 //!
@@ -38,7 +36,7 @@
 //! and one `same-as` identity assertion. Identity is deliberately the *worst*
 //! case for fixpoint reuse — `same-as` synthesizes alias-rewrite rules over
 //! every predicate, so any identity assertion marks the whole world affected
-//! (DL-0088 §1) — which is exactly why the interesting question is what the
+//! — which is exactly why the interesting question is what the
 //! *other* phases cost.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::print_stdout)]
@@ -386,8 +384,7 @@ fn baseline_merge_scan_cache() {
     }
 }
 
-/// **The residual per-`author.merge` cost split — the DL-0088 §3 question,
-/// measured directly.**
+/// **The residual per-`author.merge` cost split, measured directly.**
 ///
 /// With the session cache in effect the redundant recompiles collapse and each
 /// merge pays only for what is genuinely new: the merge commit itself, which no

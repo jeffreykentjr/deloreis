@@ -187,6 +187,7 @@ pub(super) fn render_semantic_finding(
         "load.missing-provenance" => Some("add provenance to the declaration"),
         "load.malformed-provenance" => Some("correct the declaration's provenance"),
         "load.malformed-world-rule" => Some("write a valid rule head and body"),
+        "rule.unchecked-domain" => Some("check this constraint outside De Lore Is"),
         "load.unbound-head-variable" => Some("bind each head variable in a positive body atom"),
         "load.unknown-temporal-reference" => {
             Some("declare the referenced era or event, or correct its name")
@@ -212,6 +213,10 @@ pub(super) fn render_semantic_finding(
         "citation.unknown-decision" => {
             Some("declare the cited decision with ratify or correct the citation")
         }
+        "ratify.world-hypothesis-unsupported" => {
+            Some("leave the claim proposed or record a decision for it")
+        }
+        "ratify.decision-as-hypothesis" => Some("use author.defeat to revise a decision"),
         "continuity.chronology-cycle" => Some("correct an ordering in the reported cycle"),
         "continuity.identity-temporal-unsupported" => {
             Some("refer to one era or event instead of merging time points")

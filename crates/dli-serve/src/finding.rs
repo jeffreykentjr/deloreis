@@ -59,11 +59,14 @@ pub struct Finding {
     pub data: Option<serde_json::Value>,
 }
 
-/// Carry actionable candidate data for the shared entity-reference warning.
+/// Carry structured repair data for findings that identify a specific target.
 pub(crate) fn entity_repair(finding: &dli_world::check::WorldFinding) -> Option<serde_json::Value> {
-    (finding.code == "entity.undeclared")
-        .then(|| finding.data.clone())
-        .flatten()
+    matches!(
+        finding.code.as_str(),
+        "entity.undeclared" | "rule.unchecked-domain"
+    )
+    .then(|| finding.data.clone())
+    .flatten()
 }
 
 /// Escape every control, bidi, and zero-width character in a finding message at
