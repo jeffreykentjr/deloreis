@@ -83,7 +83,7 @@ The blocks show tool arguments, not shell commands.
    `author.discard` to abandon the staged changes. Decisions are recorded
    immediately, so discarding a workspace does not undo them.
 
-The [Hollow transcript](../examples/hollow/transcript.md) continues with
-contested accounts, a retcon, a what-if branch, and replay. See the
+The [Holmes casebook](casebook/01-watson-name.md) continues with contested
+accounts, a retcon, a what-if branch, and replay. See the
 [concepts](concepts.md) and [agent guide](../SKILL.md) for what the terms and
 other tools mean.

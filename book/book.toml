@@ -1,7 +1,7 @@
 [book]
 title = "De Lore Is"
 authors = ["De Lore Is contributors"]
-description = "The De Lore Is language, contract, and build — rendered from the repo's source docs."
+description = "A guide to checking continuity in fictional worlds."
 language = "en"
 src = "src"
 

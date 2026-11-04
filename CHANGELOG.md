@@ -2,6 +2,9 @@
 
 ## 0.1.0 (unreleased)
 
+- A Sherlock Holmes casebook follows sourced claims through continuity checks,
+  disputed accounts, a retcon, and an alternative branch. The book includes a
+  browsable wiki and guides for modelling a world from existing notes.
 - The first release is planned for crates.io and as Linux x86-64 and macOS ARM archives.
 - Contract 2.0.0 is the sole served contract. Retired versions and operations
   are refused with a successor.

@@ -64,8 +64,8 @@ available; `author.why` explains supporting and blocked paths. For a retcon,
 Defeating the retcon can restore the original support. Use `--tools all` for
 named branches, specialist authoring, corpus import/export, and other tools.
 
-The [Hollow transcript](examples/hollow/transcript.md) is produced by a test
-that exercises the server. The [concept glossary](docs/concepts.md) explains
+The [Holmes casebook](docs/casebook/01-watson-name.md) is produced from a
+replay that exercises the server. The [concept glossary](docs/concepts.md) explains
 the terms. DLI checks structured claims, not prose, and a functional conflict
 is detected only for a predicate declared single-valued.
 

@@ -61,8 +61,10 @@ model what each character knew at a particular point in the story. `timeline kno
 reads character or audience knowledge supplied in an episode file along production
 order; it does not infer what characters knew from the lore store.
 
-- [Hollow walkthrough](examples/hollow/transcript.md) — a dispute, a retcon,
-  and a what-if branch, with the actual calls and results.
+- [Holmes casebook](docs/casebook/01-watson-name.md) — follow a sourced example
+  through conflicts, revisions, and alternatives.
+- [Modelling guide](docs/guide/modelling.md) — choose rules and record sources.
+- [Bring your own notes](docs/guide/your-world.md) — start from a series bible.
 - [Concepts](docs/concepts.md) — the terms used by the tools.
 - [Agent guide](SKILL.md) — authoring tools and session workflow.
 - [Contributing](AGENTS.md) — working on the project.

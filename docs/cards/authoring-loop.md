@@ -2,9 +2,8 @@
 
 Start with a new world and make the first ruling that Wren lives in Thornfield,
 following steps 1–6 of the [quickstart](../quickstart.md). Then use the calls
-below to continue the session. The complete
-[transcript](../../examples/hollow/transcript.md) uses `--tools all`; use that
-profile for this walkthrough too.
+below to continue the session. Start the server with `--tools all` for this
+walkthrough.
 Each block below is the arguments object for a `tools/call`; replace
 `WORKSPACE` with the ID returned by `author.open`.
 
@@ -16,7 +15,7 @@ Call `author.open` with `{"scope":"world"}`, then `author.query`:
 {"workspace":"WORKSPACE","goal_atom":{"pred":"home","args":[{"Sym":"wren"},{"Sym":"thornfield"}]}}
 ```
 
-The checked transcript reports `home(wren, thornfield)` as `certain`, with a
+The query reports `home(wren, thornfield)` as `certain`, with a
 claim ID and a support polynomial. `author.why` can explain the support.
 
 ## Stage a contradiction
@@ -33,7 +32,7 @@ Then call `author.add_fact`:
 {"workspace":"WORKSPACE","entity":"wren","key":"home","value":"ashby","provenance":{"kind":"cited","decisions":["d-0002"],"state":"ratified"}}
 ```
 
-Call `author.check` with `{"workspace":"WORKSPACE"}`. The transcript's
+Call `author.check` with `{"workspace":"WORKSPACE"}`. The
 finding names the two rulings and both homes:
 
 ```json
@@ -63,8 +62,8 @@ Add these separately with `author.add_option` before materializing the question:
 ```
 
 Query each outcome with `author.query`, then ask `author.why` using the same
-`goal_atom`. The captured results report each account as `possible` and name
-its own witness in the explanation. Materialize, reopen, and the test checks
+`goal_atom`. The queries report each account as `possible`; their explanations name
+the corresponding witnesses. Materialize, reopen, and the test checks
 that both explanations survive.
 
 ## Retcon and explore
@@ -138,5 +137,4 @@ Finally, restart the server, open the main world, and call `author.query`:
 {"workspace":"WORKSPACE","goal_atom":{"pred":"death","args":[{"Sym":"miller"},{"Sym":"drowned"}]},"layer":"all"}
 ```
 
-The original ruling is still certain. The transcript records each call and
-its result.
+The original ruling is still certain. For a complete sourced example, see the [Holmes casebook](../casebook/01-watson-name.md).
