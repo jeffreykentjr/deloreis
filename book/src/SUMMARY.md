@@ -21,6 +21,7 @@
 
 - [Modelling a world](guide-modelling.md)
 - [Bring your own notes](guide-your-world.md)
+- [Build a storytelling application](guide-applications.md)
 
 # Reference
 

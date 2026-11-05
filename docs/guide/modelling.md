@@ -66,6 +66,26 @@ citation must refer to a recorded decision. See [Concepts](../concepts.md) for
 the distinction and [Sources for the Holmes model](../../examples/holmes/sources.md)
 for one way to keep an index.
 
+## Revise an account
+
+Separate a change in the story from a change in your account of it. A character
+moving house belongs on the timeline. Revising where the character always lived
+changes which account you accept.
+
+For a revision, ask `author.why` what supports the old answer. A later decision
+can defeat the earlier ruling while preserving the claims and their sources.
+Inspect the resulting answer and its explanation. `author.defeat` and
+`author.record_decision` write directly to the store; they are not staged changes
+that `author.discard` will undo. If you have not chosen the revision yet, explore
+it on a separate branch first. The [Reichenbach case](../casebook/04-return.md)
+and its [alternative branch](../casebook/05-branch.md) show both approaches.
+
+Rules also have sources. If a rule derives a surprising conclusion, inspect the
+rule's support as well as its premises before changing the facts. A rule supplied
+as a proposal does not establish a conclusion merely because its premises are
+accepted. The [Watson rule example](../casebook/06-rules.md) traces a conflict to
+an interpretation the author can revise.
+
 ## Grow in small steps
 
 Add a few entities and claims, run a check, and read the findings. If a check
