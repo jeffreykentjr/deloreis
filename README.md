@@ -14,10 +14,10 @@ lore; it doesn't read a manuscript and find plot holes on its own.
 
 ## Try it
 
-Install from this repository with Rust 1.96 or later:
+Install from crates.io with Rust 1.96 or later:
 
 ```sh
-cargo install --git https://github.com/jeffreykentjr/deloreis --locked deloreis
+cargo install deloreis --locked
 ```
 
 Save the following as `story.dli`:
@@ -73,4 +73,4 @@ infer what each character knew at a particular point in the story.
 - [Agent guide](SKILL.md) — authoring tools and session workflow.
 - [Contributing](AGENTS.md) — working on the project.
 
-Release archives will be available on the [releases page](https://github.com/jeffreykentjr/deloreis/releases) once published. De Lore Is is MIT licensed.
+Linux x86-64 and macOS ARM archives are available on the [releases page](https://github.com/jeffreykentjr/deloreis/releases). De Lore Is is MIT licensed.
