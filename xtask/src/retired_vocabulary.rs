@@ -89,16 +89,17 @@ pub fn run_retired_vocabulary(root: &Path) -> Result<()> {
 
 fn scan_targets(root: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
-    let skill = root.join("SKILL.md");
+    let skill = root.join("skills/deloreis/SKILL.md");
     if skill.is_file() {
         files.push(skill);
     }
-    let docs = root.join("docs");
-    if docs.is_dir() {
-        for entry in WalkDir::new(docs).into_iter().filter_map(Result::ok) {
-            let path = entry.path();
-            if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("md") {
-                files.push(path.to_owned());
+    for docs in [root.join("docs"), root.join("skills/deloreis/references")] {
+        if docs.is_dir() {
+            for entry in WalkDir::new(docs).into_iter().filter_map(Result::ok) {
+                let path = entry.path();
+                if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("md") {
+                    files.push(path.to_owned());
+                }
             }
         }
     }

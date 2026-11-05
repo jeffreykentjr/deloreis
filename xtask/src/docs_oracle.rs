@@ -86,7 +86,7 @@ pub fn run_docs_oracle(root: &Path) -> Result<()> {
             match fence.lang.as_str() {
                 "dli" => {
                     dli_index += 1;
-                    if origin == "SKILL.md" {
+                    if origin == "skills/deloreis/SKILL.md" {
                         skill_dli += 1;
                     }
                     dli_units.push((format!("{origin} #{dli_index}"), fence.body));
@@ -152,29 +152,30 @@ pub fn run_docs_oracle(root: &Path) -> Result<()> {
 fn markdown_sources(root: &Path) -> Result<Vec<(String, String)>> {
     let mut sources: Vec<(String, String)> = Vec::new();
 
-    let skill_path = root.join("SKILL.md");
+    let skill_path = root.join("skills/deloreis/SKILL.md");
     let skill_text = std::fs::read_to_string(&skill_path)
         .with_context(|| format!("reading {}", skill_path.display()))?;
-    sources.push(("SKILL.md".to_owned(), skill_text));
+    sources.push(("skills/deloreis/SKILL.md".to_owned(), skill_text));
 
-    let docs_dir = root.join("docs");
-    if docs_dir.is_dir() {
-        let mut doc_paths: Vec<_> = WalkDir::new(&docs_dir)
-            .into_iter()
-            .filter_map(Result::ok)
-            .map(walkdir::DirEntry::into_path)
-            .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("md"))
-            .collect();
-        doc_paths.sort();
-        for path in doc_paths {
-            let text = std::fs::read_to_string(&path)
-                .with_context(|| format!("reading {}", path.display()))?;
-            let label = path
-                .strip_prefix(root)
-                .unwrap_or(&path)
-                .display()
-                .to_string();
-            sources.push((label, text));
+    for docs_dir in [root.join("docs"), root.join("skills/deloreis/references")] {
+        if docs_dir.is_dir() {
+            let mut doc_paths: Vec<_> = WalkDir::new(&docs_dir)
+                .into_iter()
+                .filter_map(Result::ok)
+                .map(walkdir::DirEntry::into_path)
+                .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("md"))
+                .collect();
+            doc_paths.sort();
+            for path in doc_paths {
+                let text = std::fs::read_to_string(&path)
+                    .with_context(|| format!("reading {}", path.display()))?;
+                let label = path
+                    .strip_prefix(root)
+                    .unwrap_or(&path)
+                    .display()
+                    .to_string();
+                sources.push((label, text));
+            }
         }
     }
     Ok(sources)

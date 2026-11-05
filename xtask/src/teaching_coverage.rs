@@ -33,7 +33,10 @@ use dli_serve::{ACCEPTED_CONTRACT_VERSIONS, Op};
 /// The author-facing teaching surfaces every `author.*` op's wire name must
 /// appear in at least one of (check (a)). Repo-relative; `docs/cards` expands
 /// to every file in that directory.
-const AUTHOR_TEACHING_FILES: &[&str] = &["SKILL.md", "docs/spec/11-agent-authoring.md"];
+const AUTHOR_TEACHING_FILES: &[&str] = &[
+    "skills/deloreis/SKILL.md",
+    "docs/spec/11-agent-authoring.md",
+];
 const AUTHOR_TEACHING_DIRS: &[&str] = &["docs/cards"];
 
 /// The generated reference page check (a) also requires every op — `author.*`
@@ -182,7 +185,7 @@ fn check_stated_tool_counts(root: &Path) -> Result<Vec<String>> {
 
     let mut problems = Vec::new();
 
-    let skill_path = root.join("SKILL.md");
+    let skill_path = root.join("skills/deloreis/SKILL.md");
     let skill = std::fs::read_to_string(&skill_path)?;
     problems.extend(check_core_profile(&skill)?);
 
@@ -428,16 +431,17 @@ fn author_teaching_files(root: &Path) -> Vec<PathBuf> {
 /// `retired_vocabulary`'s scan uses — for the fenced-version scan.
 fn all_doc_files(root: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
-    let skill = root.join("SKILL.md");
+    let skill = root.join("skills/deloreis/SKILL.md");
     if skill.is_file() {
         files.push(skill);
     }
-    let docs = root.join("docs");
-    if docs.is_dir() {
-        for entry in WalkDir::new(docs).into_iter().filter_map(Result::ok) {
-            let path = entry.path();
-            if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("md") {
-                files.push(path.to_owned());
+    for docs in [root.join("docs"), root.join("skills/deloreis/references")] {
+        if docs.is_dir() {
+            for entry in WalkDir::new(docs).into_iter().filter_map(Result::ok) {
+                let path = entry.path();
+                if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("md") {
+                    files.push(path.to_owned());
+                }
             }
         }
     }
@@ -474,7 +478,7 @@ mod tests {
     /// whitespace (backtick, parenthesis, end of string).
     #[test]
     fn core_profile_requires_exact_classification() {
-        let skill = include_str!("../../SKILL.md");
+        let skill = include_str!("../../skills/deloreis/SKILL.md");
         let without = skill.replacen("inspection: `author.open`,", "inspection:", 1);
         assert!(
             without.contains("`author.open`"),

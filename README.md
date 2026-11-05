@@ -70,7 +70,20 @@ infer what each character knew at a particular point in the story.
 - [Modelling guide](docs/guide/modelling.md) — choose rules and record sources.
 - [Bring your own notes](docs/guide/your-world.md) — start from a series bible.
 - [Concepts](docs/concepts.md) — the terms used by the tools.
-- [Agent guide](SKILL.md) — authoring tools and session workflow.
+- [Agent guide](skills/deloreis/SKILL.md) — authoring tools and session workflow.
 - [Contributing](AGENTS.md) — working on the project.
 
 Linux x86-64 and macOS ARM archives are available on the [releases page](https://github.com/jeffreykentjr/deloreis/releases). De Lore Is is MIT licensed.
+
+## Use with a writing assistant
+
+Install the consumer skill with its first-session reference:
+
+```sh
+npx skills add jeffreykentjr/deloreis --skill deloreis
+```
+
+The [canonical package](skills/deloreis/SKILL.md) teaches the local MCP workflow;
+it does not install the runtime. The [quickstart](docs/quickstart.md) covers that.
+Skill distribution and updates are recorded in
+[agent-skill-distribution](docs/agent-skill-distribution.md).

@@ -1,1 +1,1 @@
-{{#include ../../SKILL.md}}
+{{#include ../../skills/deloreis/SKILL.md}}

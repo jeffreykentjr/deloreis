@@ -27,7 +27,7 @@ data; DLI checks schemas and cited-decision integrity, while the consuming
 application decides who may authorize a declaration.
 
 The default build also supports checking, formatting, and importing `.dli`
-text. Repository agents follow the `author.*` workflow in `SKILL.md` when
+text. Repository agents follow the `author.*` workflow in `skills/deloreis/SKILL.md` when
 authoring lore; people can use the text tools directly.
 
 The tools speak JSON over stdio (`deloreis serve --project <path>`) and MCP
@@ -169,7 +169,7 @@ place logres "Logres"      proposed  session-7c9
 
 Every rendered string in this document — in `rendered` arrays and materialized
 file contents alike — is the same placeholder canonical surface as the gentle
-card (`SKILL.md`, `01-syntax.md`): the grammar is unfrozen and the AST is
+card (`skills/deloreis/SKILL.md`, `01-syntax.md`): the grammar is unfrozen and the AST is
 normative, but all documents render one form.
 
 ## 3. The tool inventory (v0 core)

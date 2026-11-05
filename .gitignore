@@ -4,3 +4,7 @@
 .poolside/
 .dli-lorestore/
 .claude/worktrees/
+
+/.cache/
+
+/.runs/

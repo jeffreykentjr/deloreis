@@ -123,6 +123,6 @@ Agents author lore through `author.*` MCP tools, not by editing `.dli` text.
 Read returned findings and repairs before committing. `author.materialize`
 checks and commits the staged objects; `author.discard` rejects staged work.
 Mutating tools may also write to the store directly. The server serves contract
-2.0.0 only. `SKILL.md` describes the current session workflow. Caller-supplied
+2.0.0 only. `skills/deloreis/SKILL.md` describes the current session workflow. Caller-supplied
 attribution and decision state are data; authorization and review policy belong
 to the consuming application. Review structured diffs and their standing.
