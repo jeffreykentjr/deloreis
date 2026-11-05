@@ -3,10 +3,10 @@
 Install De Lore Is with Cargo:
 
 ```sh
-cargo install --git https://github.com/jeffreykentjr/deloreis --locked deloreis
+cargo install deloreis --locked
 ```
 
-Once a release is published, you can also download an archive from the [releases page](https://github.com/jeffreykentjr/deloreis/releases). Unpack it and put `bin/deloreis` somewhere on your `PATH`. Each archive has a SHA-256 checksum alongside it.
+You can also download a Linux x86-64 or macOS ARM archive from the [releases page](https://github.com/jeffreykentjr/deloreis/releases). Unpack it and put `bin/deloreis` somewhere on your `PATH`. Each archive has a SHA-256 checksum alongside it.
 
 You'll also need an MCP client for this walkthrough; the example below uses
 Claude Code. If you installed with Cargo, make sure Cargo's binary directory
