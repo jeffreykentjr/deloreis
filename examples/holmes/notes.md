@@ -15,5 +15,4 @@
   earlier conclusion inspectable when accepting the later account.
 
 The [source index](sources.md) links to the texts and records the decision IDs.
-The scripted example includes further details from those stories; it does not
-infer them automatically from this short note.
+The scripted example adds further details from those stories by hand.

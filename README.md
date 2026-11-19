@@ -5,12 +5,12 @@ of the people, places, events, and rules you give it, checks them for
 contradictions, and can explain which decisions support an answer.
 
 It's for writers, worldbuilders, and people building tools that work with
-fiction. You can write lore in `.dli` files and check it from the command line,
-or connect an MCP client, such as an AI assistant, to work with a local world.
-The checks don't call a model.
+fiction. Write lore in `.dli` files and check it from the command line, or
+connect an MCP client, such as an AI assistant, to a local world. The checks
+run locally and don't call a model.
 
-You decide what to record and which rules apply. De Lore Is checks structured
-lore; it doesn't read a manuscript and find plot holes on its own.
+You decide what to record and which rules apply. De Lore Is checks the lore you
+give it, not your manuscript.
 
 ## Try it
 
@@ -33,9 +33,9 @@ fact arthur home camelot decided d-0001
 fact arthur home avalon decided d-0001
 ```
 
-Here `d-0001` names the decision supporting the declarations and facts.
-See [Concepts](docs/concepts.md#sources-and-rulings) for how `decided`,
-`ratified`, and `proposed` relate.
+`d-0001` is the decision behind each declaration and fact; `decided d-0001` cites it.
+[Concepts](docs/concepts.md#sources-and-rulings) covers `decided`,
+`ratified`, and `proposed`.
 
 Then run:
 
@@ -43,10 +43,9 @@ Then run:
 deloreis check story.dli
 ```
 
-The finding lists both values: `[avalon, camelot]`. The `functional` line tells
-De Lore Is that Arthur can have only one home. Without that rule, the two
-statements aren't automatically a conflict. The command exits with status 1
-because it found a problem.
+The finding lists both values: `[avalon, camelot]`. The `functional` line says
+Arthur can have only one home; without it, two homes are fine. The command
+exits with status 1 because it found a problem.
 
 To find matching homes, run `deloreis query 'home($person, camelot)' --corpus story.dli`.
 `$person` is a variable; the quotes keep your shell from expanding
@@ -54,16 +53,15 @@ it. The query warns while the corpus still has errors.
 
 ## Work with a world
 
-Create a project with `deloreis init my-story`. To work with it through an MCP
-client such as Claude Code, follow the [quickstart](docs/quickstart.md) to
-connect the local server, add facts, and catch a contradiction. The walkthrough
-shows how to ask the client to make the tool calls.
+Create a project with `deloreis init my-story`. The
+[quickstart](docs/quickstart.md) connects it to an MCP client such as Claude
+Code, adds facts, and catches a contradiction.
 
-In a project, De Lore Is keeps the decisions behind your claims, including
-claims you later revise. You can keep accounts unresolved, inspect why
-something is considered canon, and explore changes on a separate branch. The
-project keeps the order in which claims and rulings were added; it does not
-infer what each character knew at a particular point in the story.
+A project keeps the decisions behind your claims, including claims you later
+revise. You can leave accounts unresolved, ask why something is canon, and try
+changes on a separate branch. It records the order in which claims and rulings
+were added. It doesn't track what each character knew at a given point in the
+story.
 
 - [Holmes casebook](docs/casebook/01-watson-name.md) — follow a sourced example
   through conflicts, revisions, and alternatives.
@@ -77,13 +75,13 @@ Linux x86-64 and macOS ARM archives are available on the [releases page](https:/
 
 ## Use with a writing assistant
 
-Install the consumer skill with its first-session reference:
+Install the agent skill:
 
 ```sh
 npx skills add jeffreykentjr/deloreis --skill deloreis
 ```
 
-The [canonical package](skills/deloreis/SKILL.md) teaches the local MCP workflow;
-it does not install the runtime. The [quickstart](docs/quickstart.md) covers that.
-Skill distribution and updates are recorded in
+The [skill](skills/deloreis/SKILL.md) teaches an assistant the MCP tools and
+includes a first-session walkthrough. It doesn't install `deloreis` itself;
+install that first, as above. How the skill is published and updated is in
 [agent-skill-distribution](docs/agent-skill-distribution.md).

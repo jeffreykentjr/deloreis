@@ -1,9 +1,8 @@
 # Bring your own notes
 
-You do not need to rewrite a whole series bible before trying De Lore Is. Pick
-a short section, start a local project, and ask your assistant to record the
-parts you want to check. The assistant still needs your judgment about what is
-canon and which constraints belong in your world.
+Pick a short section of your series bible, start a local project, and ask
+your assistant to record the parts you want to check. You decide what is canon
+and which constraints belong in your world; the assistant does the recording.
 
 1. Install De Lore Is and connect your MCP client using the [quickstart](../quickstart.md).
 2. Give the assistant a page of notes and say which parts are settled and which
@@ -26,9 +25,8 @@ the store immediately. Agree on those rulings before the assistant calls them;
 
 The project store is read through MCP. To use CLI `check` or `query` on its
 contents, start the server with `--tools all`, call `dli.corpus.export` with
-`{"document":"world","format":"rendered"}`, and save each returned rendered
-document as a `.dli` file. Pass those files to the CLI; see the
-[quickstart](../quickstart.md) for client setup.
+`{"document":"world","format":"rendered"}`, save each returned rendered
+document as a `.dli` file, and pass those files to the CLI.
 
 For example, you could say:
 
@@ -53,27 +51,24 @@ reported-wound-location(watson, shoulder): possible
 reported-wound-location(watson, leg): possible
 ```
 
-The script is a fixed transcription, not a general-purpose prose importer, and
-calls no model. The larger [casebook script](../../examples/holmes/build.py)
-adds more sourced material and checks the other examples. An assistant can help
-interpret your own notes, but review its proposed claims against your sources.
+It calls no model. The larger [casebook script](../../examples/holmes/build.py) adds
+more sourced material and checks the other examples.
 
 When you need to change an accepted account, inspect its support before recording
-the new ruling. Use a branch to explore a possibility separately.
-The [modelling guide](modelling.md) covers constraints, time, and decisions.
+the new ruling, or explore the change on a branch first. The
+[modelling guide](modelling.md) covers constraints, time, and decisions.
 
 ## Continue a chapter
 
 At the start of a writing session, have the assistant open a fresh workspace
 and query the characters, places, and events relevant to the next scene. Keep
-the manuscript and style notes in their existing files. DLI supplies the
-recorded lore; the assistant still reads and writes the prose.
+the manuscript and style notes in their existing files.
 
 After drafting, ask it to propose only the new factual claims. Use
 `author.diff` to inspect staged additions and their derived consequences, then
 `author.check` to read the findings. Compare the proposed claims with the scene
-before materializing them. A clean check only covers the structured claims and
-rules you supplied, so review the transcription as well as the result.
+before materializing them. A clean check covers only the claims the assistant
+extracted, so make sure it extracted the right ones.
 
 Brainstormed ideas need not become settled lore. Leave them proposed, or try a
 separate branch for an alternative plot. Before continuing in another session,

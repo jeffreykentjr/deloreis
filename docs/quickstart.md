@@ -8,11 +8,10 @@ cargo install deloreis --locked
 
 You can also download a Linux x86-64 or macOS ARM archive from the [releases page](https://github.com/jeffreykentjr/deloreis/releases). Unpack it and put `bin/deloreis` somewhere on your `PATH`. Each archive has a SHA-256 checksum alongside it.
 
-You'll also need an MCP client for this walkthrough; the example below uses
-Claude Code. If you installed with Cargo, make sure Cargo's binary directory
-is on your `PATH`.
+If you installed with Cargo, make sure Cargo's binary directory is on your
+`PATH`. You also need an MCP client; these steps use Claude Code.
 
-Create a new project and register the server from that directory:
+Create a project and register the server from its directory:
 
 ```sh
 deloreis init my-story
@@ -20,26 +19,26 @@ cd my-story
 claude mcp add --scope project deloreis -- "$(command -v deloreis)" mcp --project "$PWD"
 ```
 
-`init` also suggests importing a `.dli` file; that is optional for this
-walkthrough because the calls below build a blank world. Restart the client or
-reload its MCP configuration. The project registration
-writes `.mcp.json` in this directory. Other MCP clients can use the same
-command and arguments; point `--project` at the directory containing
-`deloreis.toml`. The server runs locally over stdio. `deloreis mcp --project
-"$PWD" --tools all` exposes the extended tool set.
+`init` prints a suggestion to import a `.dli` file; ignore it, since these
+steps start from a blank world. The registration writes `.mcp.json` in this
+directory. Restart the client or reload its MCP configuration.
 
-After importing, work with the project's stored world through MCP. The CLI
-`check` and `query` commands read `.dli` files, rather than opening the project
-store. To get text back, start the server with `--tools all` and call
-`dli.corpus.export` with `{"document":"world","format":"rendered"}`. Save
-the returned `rendered` documents as `.dli` files before checking or querying
-them with the CLI.
+Other MCP clients can run the same command and arguments, with `--project`
+pointing at the directory that contains `deloreis.toml`. The server runs
+locally over stdio. Add `--tools all` to the server command to advertise the
+branch, rule, and corpus import/export tools; the casebook uses them.
+
+The project's world lives in its store, which you reach through MCP. The CLI
+`check` and `query` commands read `.dli` files instead. To check the store from
+the CLI, start the server with `--tools all`, call `dli.corpus.export` with
+`{"document":"world","format":"rendered"}`, and save the returned `rendered`
+documents as `.dli` files.
 
 ## Make the first ruling
 
-Ask your client to make the following tool calls, in order. Substitute the
-returned workspace ID for `WORKSPACE`. Read the findings returned by each call.
-The blocks show tool arguments, not shell commands.
+Ask your client to make these tool calls in order, replacing `WORKSPACE` with
+the workspace ID that `author.open` returns. Each block is a tool's arguments.
+Read the findings each call returns.
 
 1. Call `author.open` with `{"scope":"world"}`.
 2. Call `author.add_entity` three times, using `WORKSPACE`:
@@ -90,8 +89,7 @@ The blocks show tool arguments, not shell commands.
    `author.discard` to abandon the staged changes. Decisions are recorded
    immediately, so discarding a workspace does not undo them.
 
-The [Holmes casebook](casebook/01-watson-name.md) continues with contested
-accounts, a retcon, a what-if branch, and replay. See the
-[concepts](concepts.md#sources-and-rulings) and [agent guide](../SKILL.md) for what the terms and
-other tools mean. To follow the casebook's branch and rule calls, start the MCP
-server with `--tools all`.
+Next, the [Holmes casebook](casebook/01-watson-name.md) works through contested
+accounts, a retcon, a what-if branch, and replay. Restart the server with
+`--tools all` first. [Concepts](concepts.md#sources-and-rulings) defines the
+terms, and the [agent guide](../SKILL.md) lists the other tools.

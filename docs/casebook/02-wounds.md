@@ -21,9 +21,7 @@ reported-wound-location(watson, shoulder): possible
 reported-wound-location(watson, leg): possible
 ```
 
-`possible` means an account remains open in this model. It does not mean the
-account is false or that De Lore Is has decided the wounds are the same. If a
-writer chooses a single-wound interpretation, they can add that rule and make
+`possible` means both accounts remain open in this model. If a writer chooses a single-wound interpretation, they can add that rule and make
 a ruling later.
 
 ## Run it yourself

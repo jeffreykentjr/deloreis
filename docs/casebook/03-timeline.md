@@ -6,8 +6,7 @@ Those clues make September 1888 a strong interpretation, though the story
 does not give the year outright. If Watson's wife in the earlier story is Mary,
 he is married to her before he meets her. We record both interpretations as
 ordering claims: Mary meets Watson before the married visit, and the March
-visit comes before their September meeting. The latter is our dating ruling,
-not a date printed in the story. De Lore Is reports:
+visit comes before their September meeting. The latter is our dating ruling. De Lore Is reports:
 
 ```text
 continuity.chronology-cycle: the chronology contradicts itself: an ordering cycle over 2 edge(s) — scandal -> mary-case, mary-case -> scandal
@@ -56,8 +55,7 @@ Points: `mary-case`, `reichenbach-encounter`, `return`, `scandal`, `year-1891`, 
 - `years-1880s` → `reichenbach-encounter`
 - `years-1880s` → `year-1891`
 
-Follow the arrows to see the known order. Points with no connecting path are
-unordered, not necessarily simultaneous.
+Unordered points aren't necessarily simultaneous.
 
 ## Run it yourself
 

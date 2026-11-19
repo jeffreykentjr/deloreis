@@ -49,9 +49,8 @@ The check returns this finding (with its other metadata omitted):
 supporting decisions: {citations}
 ```
 
-That result does not decide which name a writer should use. It identifies the
-choice that needs attention and names the sources behind it. A writer could
-keep both as names people use instead of treating them as mutually exclusive
+The finding points at the choice and the two sources behind it; the name is
+still the writer's call. A writer could keep both as names people use instead of treating them as mutually exclusive
 first names. The [source notes](../../examples/holmes/sources.md) explain the
 decision numbers and the limits of the evidence.
 ''', end="")

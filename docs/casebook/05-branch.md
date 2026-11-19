@@ -18,10 +18,9 @@ On that branch, the same query returns:
 reichenbach-outcome(holmes, died): certain
 ```
 
-The branch is a place to explore the consequences of a story in which Watson's
-conclusion was right. It does not change the main line. The branch shown here
-keeps the earlier ruling; it does not yet invent the later stories that would
-follow from it.
+Use the branch to explore a story in which Watson's conclusion was right. So
+far it holds only the earlier ruling; the later stories that would follow are
+yours to write.
 
 ## Run it yourself
 

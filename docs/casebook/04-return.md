@@ -36,10 +36,9 @@ support: d-0004, d-0008
 d-0009 defeats d-0008
 ```
 
-The old claim is overturned under the new rulings. The claim
-and the earlier decision are still available to explain what changed. This is
-a model of a revised account: the later story does not say Holmes died and
-came back to life.
+The old claim and the earlier decision stay in the store, so the explanation
+can show what changed. We model *The Empty House* the way it tells itself: as
+a correction to Watson's account.
 
 In the calls below, `claim_id` identifies the recorded claim to revise. A
 `{"Sym": "holmes"}` value is the wire format for the symbol `holmes`.

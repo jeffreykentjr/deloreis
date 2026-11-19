@@ -33,9 +33,7 @@ A query reports:
 {leg["atom"]}: {leg["status"]}
 ```
 
-`possible` means an account remains open in this model. It does not mean the
-account is false or that De Lore Is has decided the wounds are the same. If a
-writer chooses a single-wound interpretation, they can add that rule and make
+`possible` means both accounts remain open in this model. If a writer chooses a single-wound interpretation, they can add that rule and make
 a ruling later.
 ''', end="")
 elif chapter == "timeline":
@@ -49,8 +47,7 @@ Those clues make September 1888 a strong interpretation, though the story
 does not give the year outright. If Watson's wife in the earlier story is Mary,
 he is married to her before he meets her. We record both interpretations as
 ordering claims: Mary meets Watson before the married visit, and the March
-visit comes before their September meeting. The latter is our dating ruling,
-not a date printed in the story. De Lore Is reports:
+visit comes before their September meeting. The latter is our dating ruling. De Lore Is reports:
 
 ```text
 ''' + conflict["code"] + ''': ''' + conflict["message"] + '''
@@ -75,8 +72,7 @@ The relevant model lines are:
 The committed model's Markdown timeline is:
 
 ''' + result["timeline"].replace("# Chronology", "## Known order", 1) + '''
-Follow the arrows to see the known order. Points with no connecting path are
-unordered, not necessarily simultaneous.
+Unordered points aren't necessarily simultaneous.
 ''', end="")
 elif chapter == "return":
     retcon = result["retcon"]
@@ -122,10 +118,9 @@ support: {", ".join(why["supporting_decisions"])}
 {defeat["defeating_decision"]} defeats {defeat["defeated_decision"]}
 ```
 
-The old claim is overturned under the new rulings. The claim
-and the earlier decision are still available to explain what changed. This is
-a model of a revised account: the later story does not say Holmes died and
-came back to life.
+The old claim and the earlier decision stay in the store, so the explanation
+can show what changed. We model *The Empty House* the way it tells itself: as
+a correction to Watson's account.
 
 In the calls below, `claim_id` identifies the recorded claim to revise. A
 `{{"Sym": "holmes"}}` value is the wire format for the symbol `holmes`.
@@ -152,10 +147,9 @@ On that branch, the same query returns:
 {row["atom"]}: {row["status"]}
 ```
 
-The branch is a place to explore the consequences of a story in which Watson's
-conclusion was right. It does not change the main line. The branch shown here
-keeps the earlier ruling; it does not yet invent the later stories that would
-follow from it.
+Use the branch to explore a story in which Watson's conclusion was right. So
+far it holds only the earlier ruling; the later stories that would follow are
+yours to write.
 ''', end="")
 elif chapter == "rule":
     finding = result["rule_conflict"]

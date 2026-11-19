@@ -23,10 +23,10 @@ general rule and named-branch tools.
 4. Materialize the accepted staged objects. Error findings block materialization;
    unresolved proposals may produce warnings without blocking it.
 
-Record a rule's own cited provenance when it represents an accepted world rule.
-The optional decision on `author.materialize` stamps facts, not rules or other
-declarations. Do not infer that a successful commit makes every proposal certain.
-The [agent skill](../../skills/deloreis/SKILL.md) describes the authoring workflow.
+Give an accepted world rule its own cited provenance: the optional decision on
+`author.materialize` stamps facts only, not rules or other declarations. A
+proposal stays a proposal after a successful commit. The
+[agent skill](../../skills/deloreis/SKILL.md) covers the full set of authoring calls.
 
 Your application controls who may accept lore and record rulings. Some calls,
 including `author.record_decision` and `author.defeat`, mutate the store
@@ -35,16 +35,16 @@ workspace does not roll them back.
 
 ## Keep retrieval
 
-Retrieval can still supply the passages, descriptions, and style examples a
-model needs. DLI checks the structured claims your application extracts against
-recorded lore and declared rules. It does not check every sentence of a scene or
-determine what your author intended. You can also export a context pack for
-generation; see [exports](../spec/09-exports.md).
+Keep your retrieval for passages, descriptions, and style examples. DLI checks
+the claims your application extracts against recorded lore and declared rules,
+so anything you don't extract goes unchecked. To give the generator structured
+context, export a context pack; see [exports](../spec/09-exports.md).
 
 For a character's changing allegiance or location, record event-anchored states
-and query the scene's point in time. Missing chronology can leave that query
-indeterminate. A world's established facts are not automatically what each
-character knows. See [modelling a world](modelling.md) for the time model.
+and query the scene's point in time. If the relevant events aren't ordered, the
+query can come back indeterminate. Established facts are what is true in the
+world, which may differ from what a given character knows.
+[Modelling a world](modelling.md) covers the time model.
 
 ## Test the integration
 
@@ -52,10 +52,9 @@ Start with a disposable world and two hand-written additions: one compatible
 with its rules and one that conflicts with an established single-valued claim.
 Check that your application accepts the first, presents the second's findings,
 and does not commit the staged conflicting claim after discarding it.
-Test proposed alternatives separately: an open possibility need not block a
-commit. The [first-session example](../../skills/deloreis/references/first-session.md)
+Then test a proposed alternative, which should commit with a warning at most.
+The [first-session example](../../skills/deloreis/references/first-session.md)
 provides a small conflicting-home case to reproduce.
 
-Once those paths work, try generated scenes and review whether your extraction
-captures the facts you intended to check. The engine calls no model; extraction
-quality and the choice of world rules belong to the surrounding application.
+Once those paths work, try generated scenes and check that your extraction
+captures the facts you meant to check.

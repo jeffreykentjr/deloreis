@@ -1,9 +1,9 @@
 # Sources for the Holmes model
 
-These are Conan Doyle's stories, not a chronology taken from a fan reference.
-Decision IDs identify the source passages used by the examples; they do not
-mean the narrator is always right. Interpretations made by the model are
-identified separately in the casebook.
+The examples cite Conan Doyle's stories directly. Each decision ID below names
+a source passage or an editorial ruling; citing a passage records what the
+narrator says, which may be wrong. The casebook marks the model's own
+interpretations as it makes them.
 
 | Decision | Text | What the passage says |
 |---|---|---|
@@ -18,18 +18,14 @@ identified separately in the casebook.
 | `d-0009` | Editorial ruling based on *The Empty House* | Supersede that ruling after Holmes returns. |
 
 The unresolved wound claims use the proposal support labels
-`h.study-in-scarlet` and `h.sign-of-four` for the first two sources above. These
-labels identify the accounts in this example; a proposal support label is not
-a decision citation and does not automatically identify a source in another
-world.
+`h.study-in-scarlet` and `h.sign-of-four` for `d-0001` and `d-0002`. They are
+labels for this example's accounts, not decision citations.
 
-The model may ask what happens *if* a single-wound or single-first-name rule is
-adopted. Those are choices for the exercise, not conclusions established by
-the passages. Likewise, Watson's earlier conclusion about Reichenbach is an
-account later revised, not evidence that Holmes actually died and returned to
-life.
+The single-wound and single-first-name rules are exercises: the model asks what
+follows *if* you adopt them. Watson's conclusion about Reichenbach is modelled
+as an account that a later story revises.
 
-For chronology, [*A Scandal in Bohemia*](https://www.gutenberg.org/files/1661/1661-h/1661-h.htm#chap01) places Watson married by 20 March 1888. [*The Sign of the Four*](https://www.gutenberg.org/files/2097/2097-h/2097-h.htm#chap03) describes a September evening when Watson is with Mary Morstan. She dates an advertisement to 4 May 1882, about six years before her visit; her father disappeared in December 1878, nearly ten years before the visit; and she has received six yearly pearls. Together these point toward September 1888, but the visit's year and the identification of Watson's wife are still interpretive choices.
+For chronology, [*A Scandal in Bohemia*](https://www.gutenberg.org/files/1661/1661-h/1661-h.htm#chap01) places Watson married by 20 March 1888. [*The Sign of the Four*](https://www.gutenberg.org/files/2097/2097-h/2097-h.htm#chap03) describes a September evening when Watson is with Mary Morstan. She dates an advertisement to 4 May 1882, about six years before her visit; her father disappeared in December 1878, nearly ten years before the visit; and she has received six yearly pearls. Together these point toward September 1888. The year and the identity of Watson's wife are our readings.
 
 In *The Sign of the Four*, the wound and Holmes's monographs appear in
 [chapter 1](https://www.gutenberg.org/files/2097/2097-h/2097-h.htm#chap01);
